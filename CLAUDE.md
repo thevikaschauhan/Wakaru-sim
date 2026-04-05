@@ -1,0 +1,271 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+---
+
+## What This Is
+
+**MiroFish** is a multi-agent AI prediction engine that creates digital simulations populated by LLM-powered autonomous agents. It predicts real-world outcomes by simulating social dynamics rather than using statistical models.
+
+In the context of the **Vakaru cart recovery system**, MiroFish acts as the primary abandonment reasoning engine: it takes Shopify cart + customer data, simulates the shopper's psychology, and returns structured insight used to write personalised recovery emails.
+
+---
+
+## Commands
+
+```bash
+# Start the Flask backend (port 5001 by default)
+cd backend && python run.py
+
+# Docker (recommended for production)
+docker-compose up --build
+
+# Install Python deps
+pip install -r backend/requirements.txt
+
+# Install the Python client SDK
+pip install ./client
+
+# Run cart recovery example (requires backend running)
+python client/examples/cart_recovery_example.py
+
+# Run full generic pipeline example
+python client/examples/full_pipeline.py path/to/doc.txt "Your prediction question"
+
+# Run Go example (requires backend running + seed file at /tmp/cart_seed.txt)
+go run client/examples/example_go_client.go
+
+# Run TypeScript example
+npx ts-node client/examples/example_ts_client.ts
+```
+
+**Required env vars** (root `.env` — loaded by `backend/app/config.py`):
+```
+LLM_API_KEY         OpenAI or compatible API key
+LLM_BASE_URL        https://api.openai.com/v1  (or Aliyun/other OpenAI-compat)
+LLM_MODEL_NAME      gpt-4o-mini  (or qwen-plus)
+ZEP_API_KEY         Zep Cloud API key (for knowledge graphs)
+FLASK_PORT          5001  (default)
+OASIS_DEFAULT_MAX_ROUNDS   10  (default simulation rounds)
+```
+
+**Port conventions when running alongside Vakaru:**
+- MiroFish: `5001` (standalone) or `5002` (when running alongside Vakaru's GRU server on 5001)
+- Vakaru Engine: `8080`
+
+---
+
+## Architecture
+
+### The 5-Step Pipeline
+
+```
+1. Seed Documents (PDF/MD/TXT)
+        ↓  services/ontology_generator.py
+   Entity ontology (exactly 10 entity types)
+        ↓  services/graph_builder.py + Zep Cloud
+   Knowledge graph (entities, relationships, facts)
+
+2. Graph Entities
+        ↓  services/zep_entity_reader.py
+        ↓  services/oasis_profile_generator.py
+   Agent personas (MBTI, profession, sentiment bias, influence weight, posting schedule)
+
+3. SimulationParameters
+        ↓  services/simulation_config_generator.py  (4 LLM calls)
+        ↓  services/simulation_manager.py
+   Twitter + Reddit OASIS simulation configs
+
+4. OASIS Simulation
+        ↓  services/simulation_runner.py
+   Parallel Twitter + Reddit processes; each round = configurable simulated minutes
+   Every agent action logged to actions.jsonl
+
+5. Post-simulation
+        ↓  services/report_agent.py  (ReACT pattern, max 5 tool calls × 2 rounds)
+   Structured markdown prediction report
+```
+
+### API Blueprints (all prefixed `/api/`)
+
+| Blueprint | Prefix | Key Endpoints |
+|---|---|---|
+| `graph_bp` | `/graph` | `POST /ontology/generate`, `POST /graph/build/{id}`, `GET /graph/status/{task_id}`, `GET /project/{id}` |
+| `simulation_bp` | `/simulation` | `POST /create`, `POST /{id}/prepare`, `GET /{id}/prepare_status`, `POST /{id}/start`, `GET /{id}/run_status`, `POST /{id}/stop`, `GET /{id}/actions`, `GET /{id}/timeline` |
+| `report_bp` | `/report` | `POST /{id}/generate`, `GET /{id}/status`, `GET /{id}/full`, `POST /{id}/interview` |
+| `cart_recovery_bp` | `/cart-recovery` | `POST /analyze` ← **Vakaru integration point** |
+
+### Services Directory
+
+```
+backend/app/services/
+├── ontology_generator.py       LLM → entity type definitions from text
+├── graph_builder.py            Zep Cloud graph construction + chunking
+├── zep_entity_reader.py        Reads + filters entities from Zep graph
+├── oasis_profile_generator.py  LLM → OASIS agent personas (parallel, 3 at a time)
+├── simulation_config_generator.py  LLM → behavioral parameters (4 sequential calls)
+├── simulation_manager.py       Preparation orchestration + state machine
+├── simulation_runner.py        OASIS process management + action logging
+├── report_agent.py             ReACT post-simulation analysis
+└── zep_tools.py                InsightForge + PanoramaSearch tools for ReportAgent
+```
+
+---
+
+## Cart Recovery Integration (Vakaru)
+
+### The Entry Point
+
+`cart_recovery/engine.py` → `CartRecoveryEngine.analyze_abandonment(cart: ShopifyCartData)`:
+1. `ShopifyFormatter.format_as_seed_doc(cart)` → temp `.txt` file
+2. `MiroFishClient.run_full_pipeline(files, requirement)` → `Report`
+3. `EmailPromptBuilder.build(report.content, cart)` → `AbandonmentInsight`
+
+### `ShopifyCartData` — Input Schema
+
+All fields that improve analysis accuracy (expand as more Shopify data becomes available):
+```python
+customer_id, customer_name, email, checkout_token
+cart_items: [{product, variant, sku, price, quantity, vendor, category}]
+cart_total, cart_subtotal, cart_tax, currency
+discount_codes: [], discount_amount, discount_type  # CRITICAL signal
+shipping_cost, shipping_method, shipping_country    # CRITICAL signal
+payment_gateway_attempted, payment_method_type      # CRITICAL signal
+browsing_history, collections_viewed, products_viewed, products_removed
+searches_submitted, alert_messages_shown
+time_on_site_minutes, exit_page, abandoned_at_step
+device_type, viewport_width, language, market, referral_source, utm_campaign, utm_source
+past_orders, total_spend_lifetime, is_first_order   # from Admin API
+customer_tags, email_marketing_consent
+hours_since_last_abandonment                        # serial abandoner signal
+```
+
+### `AbandonmentInsight` — Output Schema
+
+```python
+predicted_reason: str          # "Shipping cost shock at checkout"
+emotional_state: str           # price-sensitive | anxious | indecisive | comparison-shopping | trust-lacking | distracted
+recommended_angle: str         # discount-or-value | trust-and-social-proof | urgency-scarcity | welcome-and-reassurance | loyalty-and-reward | gentle-reminder
+key_objections: list[str]      # ["$18.99 shipping on $45 order", "No free shipping threshold shown"]
+email_prompt_context: str      # Full LLM prompt — paste into GPT-4/Claude to generate email
+```
+
+### Vakaru → MiroFish API Contract
+
+The `cart_recovery_bp` in `backend/app/api/cart_recovery.py` exposes:
+
+```
+POST /api/cart-recovery/analyze
+Content-Type: application/json
+
+{
+  "customer_id": "cust_123",
+  "customer_name": "Sarah Mitchell",
+  "email": "sarah@example.com",
+  "cart_items": [{"product": "...", "price": 99.99, "quantity": 1, "sku": "..."}],
+  "cart_total": 99.99,
+  "currency": "USD",
+  "shipping_cost": 12.99,
+  "shipping_method": "Standard (5-7 days)",
+  "discount_codes": [],
+  "payment_gateway_attempted": "paypal",
+  "exit_page": "checkout/payment",
+  "abandoned_at_step": "payment",
+  "past_orders": 2,
+  "is_first_order": false,
+  "browsing_history": ["Homepage", "Headphones", "Cart", "Checkout"],
+  ...
+}
+
+Response:
+{
+  "predicted_reason": "...",
+  "emotional_state": "...",
+  "recommended_angle": "...",
+  "key_objections": [...],
+  "email_prompt_context": "..."
+}
+```
+
+---
+
+## Python Client SDK (`client/`)
+
+Installable: `pip install ./client`
+
+```python
+from mirofish import MiroFishClient
+from cart_recovery import CartRecoveryEngine, ShopifyCartData
+
+# Low-level: full pipeline control
+client = MiroFishClient("http://localhost:5001")
+report = client.run_full_pipeline(files=["seed.txt"], requirement="...")
+
+# High-level: cart recovery
+engine = CartRecoveryEngine("http://localhost:5001")
+insight = engine.analyze_abandonment(cart)
+print(insight.email_prompt_context)  # → paste into GPT/Claude
+```
+
+**Client module layout:**
+```
+client/mirofish/
+├── client.py       MiroFishClient — all REST endpoints + blocking poll helpers
+├── models.py       Project, Simulation, RunStatus, AgentAction, Report (dataclasses)
+├── polling.py      poll_until_done(fetch_fn, is_done_fn, interval, timeout)
+└── exceptions.py   MiroFishError, APIError, TimeoutError, SimulationError
+
+cart_recovery/
+├── engine.py               CartRecoveryEngine (main Vakaru entry point)
+├── shopify_formatter.py    ShopifyCartData → seed document text
+└── email_prompt_builder.py Report → AbandonmentInsight + LLM prompt
+```
+
+---
+
+## Simulation Timing
+
+For cart recovery simulations (24 simulated hours, Twitter-only, ~5 agents):
+
+| Stage | Real wall-clock time |
+|---|---|
+| Ontology generation | 15–30s |
+| Graph build (Zep) | 30–120s |
+| Agent profile generation | 2–5 min (LLM per agent, parallel batch of 3) |
+| Config generation | 30–60s (4 LLM calls) |
+| OASIS simulation (24 sim hours ÷ 60 min/round = 24 rounds) | 4–8 min |
+| Report generation | 1–3 min (ReACT, 2–3 LLM calls) |
+| **Total** | **~8–17 min** |
+
+Set `enable_reddit=False` and `simulation_hours=24` for the fastest cart recovery analysis. Use `enable_reddit=True` and `simulation_hours=72` for deeper multi-email sequence analysis.
+
+**LLM cost estimate (gpt-4o-mini):** ~$0.03–0.07 per cart event.
+
+---
+
+## Simulation State Machine
+
+```
+CREATED → PREPARING → READY → RUNNING → COMPLETED
+                                      → STOPPED
+                                      → FAILED
+```
+
+Poll `GET /api/simulation/{id}/prepare_status` (10s interval) and `GET /api/simulation/{id}/run_status` (30s interval). The `run_status` endpoint returns `runner_status` ∈ {running, completed, stopped, failed} and `progress_percent`.
+
+---
+
+## Frontend (`web/` inside engine-main)
+
+There is a small Next.js app inside `engine-main/web/` for monitoring simulation runs (displays actions, status). Not part of the Vakaru merchant dashboard — it's a MiroFish-specific debugging UI.
+
+---
+
+## Key Design Decisions
+
+- **Zep Cloud** is a hard dependency for knowledge graphs. No fallback if Zep is down — analysis fails at graph build stage.
+- **Agent profiles are generated in parallel** (3 at a time, configurable). Scale this up for larger simulations.
+- **Simulation is stateless** — each `analyze_abandonment()` call creates an isolated project + simulation. No shared memory between cart events.
+- **The GRU classifier** (`engine-main/classification/`) is a separate POC system. MiroFish does not use it. Do not confuse the two.
+- **Simulation seed document quality** directly drives output quality. The more rich, contextual data in the seed doc (shipping cost, payment method, browsing history, customer history), the better the personas and the more accurate the predicted abandonment reason.
