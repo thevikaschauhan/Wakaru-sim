@@ -1,203 +1,266 @@
-<div align="center">
+# Wakaru — Shopper Psychology Engine
 
-<img src="./static/image/MiroFish_logo_compressed.jpeg" alt="MiroFish Logo" width="75%"/>
+> The AI abandonment reasoning engine powering [Vakaru](https://getvakaru.com) cart recovery.
 
-<a href="https://trendshift.io/repositories/16144" target="_blank"><img src="https://trendshift.io/api/badge/repositories/16144" alt="666ghj%2FMiroFish | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
+Wakaru is a multi-agent simulation engine that predicts **why** a shopper abandoned their cart — not by running statistical models, but by simulating the shopper's psychology in a digital environment populated by LLM-powered autonomous agents.
 
-简洁通用的群体智能引擎，预测万物
-</br>
-<em>A Simple and Universal Swarm Intelligence Engine, Predicting Anything</em>
+When a Shopify cart is abandoned, Vakaru sends the cart data to Wakaru. Wakaru builds a knowledge graph from the cart context, spawns agents that mirror the shopper's likely persona, runs a social simulation, and returns structured abandonment insight — which Vakaru uses to write a personalised recovery email.
 
-<a href="https://www.shanda.com/" target="_blank"><img src="./static/image/shanda_logo.png" alt="666ghj%2MiroFish | Shanda" height="40"/></a>
+---
 
-[![GitHub Stars](https://img.shields.io/github/stars/666ghj/MiroFish?style=flat-square&color=DAA520)](https://github.com/666ghj/MiroFish/stargazers)
-[![GitHub Watchers](https://img.shields.io/github/watchers/666ghj/MiroFish?style=flat-square)](https://github.com/666ghj/MiroFish/watchers)
-[![GitHub Forks](https://img.shields.io/github/forks/666ghj/MiroFish?style=flat-square)](https://github.com/666ghj/MiroFish/network)
-[![Docker](https://img.shields.io/badge/Docker-Build-2496ED?style=flat-square&logo=docker&logoColor=white)](https://hub.docker.com/)
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/666ghj/MiroFish)
+## How It Works
 
-[![Discord](https://img.shields.io/badge/Discord-Join-5865F2?style=flat-square&logo=discord&logoColor=white)](http://discord.gg/ePf5aPaHnA)
-[![X](https://img.shields.io/badge/X-Follow-000000?style=flat-square&logo=x&logoColor=white)](https://x.com/mirofish_ai)
-[![Instagram](https://img.shields.io/badge/Instagram-Follow-E4405F?style=flat-square&logo=instagram&logoColor=white)](https://www.instagram.com/mirofish_ai/)
-
-[English](./README-EN.md) | [中文文档](./README.md)
-
-</div>
-
-## ⚡ 项目概述
-
-**MiroFish** 是一款基于多智能体技术的新一代 AI 预测引擎。通过提取现实世界的种子信息（如突发新闻、政策草案、金融信号），自动构建出高保真的平行数字世界。在此空间内，成千上万个具备独立人格、长期记忆与行为逻辑的智能体进行自由交互与社会演化。你可透过「上帝视角」动态注入变量，精准推演未来走向——**让未来在数字沙盘中预演，助决策在百战模拟后胜出**。
-
-> 你只需：上传种子材料（数据分析报告或者有趣的小说故事），并用自然语言描述预测需求</br>
-> MiroFish 将返回：一份详尽的预测报告，以及一个可深度交互的高保真数字世界
-
-### 我们的愿景
-
-MiroFish 致力于打造映射现实的群体智能镜像，通过捕捉个体互动引发的群体涌现，突破传统预测的局限：
-
-- **于宏观**：我们是决策者的预演实验室，让政策与公关在零风险中试错
-- **于微观**：我们是个人用户的创意沙盘，无论是推演小说结局还是探索脑洞，皆可有趣、好玩、触手可及
-
-从严肃预测到趣味仿真，我们让每一个如果都能看见结果，让预测万物成为可能。
-
-## 🌐 在线体验
-
-欢迎访问在线 Demo 演示环境，体验我们为你准备的一次关于热点舆情事件的推演预测：[mirofish-live-demo](https://666ghj.github.io/mirofish-demo/)
-
-## 📸 系统截图
-
-<div align="center">
-<table>
-<tr>
-<td><img src="./static/image/Screenshot/运行截图1.png" alt="截图1" width="100%"/></td>
-<td><img src="./static/image/Screenshot/运行截图2.png" alt="截图2" width="100%"/></td>
-</tr>
-<tr>
-<td><img src="./static/image/Screenshot/运行截图3.png" alt="截图3" width="100%"/></td>
-<td><img src="./static/image/Screenshot/运行截图4.png" alt="截图4" width="100%"/></td>
-</tr>
-<tr>
-<td><img src="./static/image/Screenshot/运行截图5.png" alt="截图5" width="100%"/></td>
-<td><img src="./static/image/Screenshot/运行截图6.png" alt="截图6" width="100%"/></td>
-</tr>
-</table>
-</div>
-
-## 🎬 演示视频
-
-### 1. 武汉大学舆情推演预测 + MiroFish项目讲解
-
-<div align="center">
-<a href="https://www.bilibili.com/video/BV1VYBsBHEMY/" target="_blank"><img src="./static/image/武大模拟演示封面.png" alt="MiroFish Demo Video" width="75%"/></a>
-
-点击图片查看使用微舆BettaFish生成的《武大舆情报告》进行预测的完整演示视频
-</div>
-
-### 2. 《红楼梦》失传结局推演预测
-
-<div align="center">
-<a href="https://www.bilibili.com/video/BV1cPk3BBExq" target="_blank"><img src="./static/image/红楼梦模拟推演封面.jpg" alt="MiroFish Demo Video" width="75%"/></a>
-
-点击图片查看基于《红楼梦》前80回数十万字，MiroFish深度预测失传结局
-</div>
-
-> **金融方向推演预测**、**时政要闻推演预测**等示例陆续更新中...
-
-## 🔄 工作流程
-
-1. **图谱构建**：现实种子提取 & 个体与群体记忆注入 & GraphRAG构建
-2. **环境搭建**：实体关系抽取 & 人设生成 & 环境配置Agent注入仿真参数
-3. **开始模拟**：双平台并行模拟 & 自动解析预测需求 & 动态更新时序记忆
-4. **报告生成**：ReportAgent拥有丰富的工具集与模拟后环境进行深度交互
-5. **深度互动**：与模拟世界中的任意一位进行对话 & 与ReportAgent进行对话
-
-## 🚀 快速开始
-
-### 一、源码部署（推荐）
-
-#### 前置要求
-
-| 工具 | 版本要求 | 说明 | 安装检查 |
-|------|---------|------|---------|
-| **Node.js** | 18+ | 前端运行环境，包含 npm | `node -v` |
-| **Python** | ≥3.11, ≤3.12 | 后端运行环境 | `python --version` |
-| **uv** | 最新版 | Python 包管理器 | `uv --version` |
-
-#### 1. 配置环境变量
-
-```bash
-# 复制示例配置文件
-cp .env.example .env
-
-# 编辑 .env 文件，填入必要的 API 密钥
+```
+Shopify cart data (items, shipping, discounts, browsing history)
+        ↓
+  Seed document generation
+        ↓
+  Entity ontology (10 entity types extracted via LLM)
+        ↓
+  Knowledge graph (Zep Cloud — entities, relationships, facts)
+        ↓
+  Agent persona generation (MBTI, sentiment bias, influence weight)
+        ↓
+  OASIS simulation (24 simulated hours, Twitter environment)
+        ↓
+  ReportAgent analysis (ReACT pattern, tool-augmented reasoning)
+        ↓
+  AbandonmentInsight { predicted_reason, emotional_state,
+                       recommended_angle, key_objections,
+                       email_prompt_context }
 ```
 
-**必需的环境变量：**
+The full pipeline runs in **8–17 minutes** wall-clock time and costs roughly **$0.03–0.07** per cart event (gpt-4o-mini).
+
+---
+
+## API
+
+### Cart Recovery Endpoint
+
+```
+POST /api/cart-recovery/analyze
+Content-Type: application/json
+```
+
+**Request:**
+
+```json
+{
+  "customer_id": "cust_123",
+  "customer_name": "Sarah Mitchell",
+  "email": "sarah@example.com",
+  "cart_items": [
+    { "product": "Wireless Headphones", "price": 99.99, "quantity": 1, "sku": "WH-100" }
+  ],
+  "cart_total": 99.99,
+  "currency": "USD",
+  "shipping_cost": 12.99,
+  "shipping_method": "Standard (5-7 days)",
+  "discount_codes": [],
+  "payment_gateway_attempted": "paypal",
+  "exit_page": "checkout/payment",
+  "abandoned_at_step": "payment",
+  "past_orders": 2,
+  "is_first_order": false,
+  "browsing_history": ["Homepage", "Headphones", "Cart", "Checkout"]
+}
+```
+
+**Response:**
+
+```json
+{
+  "predicted_reason": "Shipping cost shock at checkout — $12.99 on a $99.99 order",
+  "emotional_state": "price-sensitive",
+  "recommended_angle": "discount-or-value",
+  "key_objections": [
+    "$12.99 shipping on a $99 order feels disproportionate",
+    "No free shipping threshold was shown earlier in the journey"
+  ],
+  "email_prompt_context": "Write a cart recovery email for Sarah who abandoned..."
+}
+```
+
+### Other Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/graph/ontology/generate` | Generate entity ontology from seed doc |
+| `POST` | `/api/graph/graph/build/{id}` | Build Zep knowledge graph |
+| `GET`  | `/api/graph/status/{task_id}` | Poll graph build status |
+| `POST` | `/api/simulation/create` | Create simulation |
+| `POST` | `/api/simulation/{id}/prepare` | Prepare agents + config |
+| `POST` | `/api/simulation/{id}/start` | Start OASIS simulation |
+| `GET`  | `/api/simulation/{id}/run_status` | Poll simulation progress |
+| `POST` | `/api/report/{id}/generate` | Generate prediction report |
+| `GET`  | `/api/report/{id}/full` | Retrieve full report |
+
+---
+
+## Quick Start
+
+### Prerequisites
+
+| Tool | Version | Check |
+|------|---------|-------|
+| Python | ≥ 3.11, ≤ 3.12 | `python --version` |
+| Node.js | ≥ 18 | `node -v` |
+
+### 1. Configure environment
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env`:
 
 ```env
-# LLM API配置（支持 OpenAI SDK 格式的任意 LLM API）
-# 推荐使用阿里百炼平台qwen-plus模型：https://bailian.console.aliyun.com/
-# 注意消耗较大，可先进行小于40轮的模拟尝试
-LLM_API_KEY=your_api_key
-LLM_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
-LLM_MODEL_NAME=qwen-plus
+# LLM (OpenAI-compatible)
+LLM_API_KEY=sk-...
+LLM_BASE_URL=https://api.openai.com/v1
+LLM_MODEL_NAME=gpt-4o-mini
 
-# Zep Cloud 配置
-# 每月免费额度即可支撑简单使用：https://app.getzep.com/
-ZEP_API_KEY=your_zep_api_key
+# Zep Cloud (knowledge graphs)
+ZEP_API_KEY=z_...
+
+# Optional tuning
+FLASK_PORT=5001
+OASIS_DEFAULT_MAX_ROUNDS=10
 ```
 
-#### 2. 安装依赖
+> **Zep Cloud** is a hard dependency. Get a free API key at [app.getzep.com](https://app.getzep.com).
+
+### 2. Install and run
 
 ```bash
-# 一键安装所有依赖（根目录 + 前端 + 后端）
+# Install all dependencies (Node + Python)
 npm run setup:all
+
+# Start the backend (port 5001)
+cd backend && python run.py
 ```
 
-或者分步安装：
+### 3. Run the cart recovery example
 
 ```bash
-# 安装 Node 依赖（根目录 + 前端）
-npm run setup
-
-# 安装 Python 依赖（后端，自动创建虚拟环境）
-npm run setup:backend
+pip install ./client
+python client/examples/cart_recovery_example.py
 ```
 
-#### 3. 启动服务
+### Docker (recommended for production)
 
 ```bash
-# 同时启动前后端（在项目根目录执行）
-npm run dev
-```
-
-**服务地址：**
-- 前端：`http://localhost:3000`
-- 后端 API：`http://localhost:5001`
-
-**单独启动：**
-
-```bash
-npm run backend   # 仅启动后端
-npm run frontend  # 仅启动前端
-```
-
-### 二、Docker 部署
-
-```bash
-# 1. 配置环境变量（同源码部署）
 cp .env.example .env
-
-# 2. 拉取镜像并启动
+# Fill in API keys in .env
 docker compose up -d
 ```
 
-默认会读取根目录下的 `.env`，并映射端口 `3000（前端）/5001（后端）`
+---
 
-> 在 `docker-compose.yml` 中已通过注释提供加速镜像地址，可按需替换
+## Python Client SDK
 
-## 📬 更多交流
+```python
+from cart_recovery import CartRecoveryEngine, ShopifyCartData
 
-<div align="center">
-<img src="./static/image/QQ群.png" alt="QQ交流群" width="60%"/>
-</div>
+engine = CartRecoveryEngine("http://localhost:5001")
 
-&nbsp;
+cart = ShopifyCartData(
+    customer_id="cust_123",
+    customer_name="Sarah Mitchell",
+    email="sarah@example.com",
+    cart_items=[{"product": "Headphones", "price": 99.99, "quantity": 1}],
+    cart_total=99.99,
+    shipping_cost=12.99,
+    exit_page="checkout/payment",
+    abandoned_at_step="payment",
+)
 
-MiroFish团队长期招募全职/实习，如果你对多Agent应用感兴趣，欢迎投递简历至：**mirofish@shanda.com**
+insight = engine.analyze_abandonment(cart)
+print(insight.predicted_reason)       # "Shipping cost shock at checkout"
+print(insight.emotional_state)        # "price-sensitive"
+print(insight.email_prompt_context)   # Paste into GPT-4/Claude to generate email
+```
 
-## 📄 致谢
+---
 
-**MiroFish 得到了盛大集团的战略支持和孵化！**
+## Simulation Timing
 
-MiroFish 的仿真引擎由 **[OASIS](https://github.com/camel-ai/oasis)** 驱动，我们衷心感谢 CAMEL-AI 团队的开源贡献！
+For a typical cart recovery analysis (24 simulated hours, ~5 agents):
 
-## 📈 项目统计
+| Stage | Wall-clock time |
+|-------|----------------|
+| Ontology generation | 15–30s |
+| Graph build (Zep) | 30–120s |
+| Agent profile generation | 2–5 min |
+| Config generation | 30–60s |
+| OASIS simulation (24 rounds) | 4–8 min |
+| Report generation | 1–3 min |
+| **Total** | **~8–17 min** |
 
-<a href="https://www.star-history.com/#666ghj/MiroFish&type=date&legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=666ghj/MiroFish&type=date&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=666ghj/MiroFish&type=date&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=666ghj/MiroFish&type=date&legend=top-left" />
- </picture>
-</a>
+**LLM cost:** ~$0.03–0.07 per cart event (gpt-4o-mini).
+
+---
+
+## Environment Variables
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `LLM_API_KEY` | ✅ | — | OpenAI-compatible API key |
+| `LLM_BASE_URL` | ✅ | `https://api.openai.com/v1` | LLM API base URL |
+| `LLM_MODEL_NAME` | ✅ | `gpt-4o-mini` | Model name |
+| `ZEP_API_KEY` | ✅ | — | Zep Cloud API key |
+| `FLASK_PORT` | — | `5001` | Backend port |
+| `FLASK_DEBUG` | — | `False` | Debug mode (never `True` in production) |
+| `OASIS_DEFAULT_MAX_ROUNDS` | — | `10` | Simulation rounds |
+| `SECRET_KEY` | — | auto-generated | Flask session secret |
+
+---
+
+## Architecture
+
+```
+backend/app/services/
+├── ontology_generator.py        LLM → entity type definitions from cart text
+├── graph_builder.py             Zep Cloud graph construction
+├── zep_entity_reader.py         Reads entities from Zep graph
+├── oasis_profile_generator.py   LLM → OASIS agent personas (parallel, 3 at a time)
+├── simulation_config_generator.py  LLM → behavioral parameters (4 sequential calls)
+├── simulation_manager.py        Preparation orchestration + state machine
+├── simulation_runner.py         OASIS process management + action logging
+├── report_agent.py              ReACT post-simulation analysis
+└── zep_tools.py                 InsightForge + PanoramaSearch tools
+
+cart_recovery/
+├── engine.py                    CartRecoveryEngine — main Vakaru entry point
+├── shopify_formatter.py         ShopifyCartData → seed document text
+└── email_prompt_builder.py      Report → AbandonmentInsight + LLM prompt
+```
+
+**Simulation state machine:**
+```
+CREATED → PREPARING → READY → RUNNING → COMPLETED
+                                       → STOPPED
+                                       → FAILED
+```
+
+---
+
+## Powered By
+
+- **[OASIS](https://github.com/camel-ai/oasis)** — open-source social simulation framework by CAMEL-AI
+- **[Zep Cloud](https://www.getzep.com)** — knowledge graph memory for agents
+- **[Gunicorn](https://gunicorn.org)** — production WSGI server
+
+---
+
+## Deployment
+
+Wakaru is deployed as a standalone service alongside the Vakaru engine.
+
+**Production (Railway):** `https://mirofish-production-e968.up.railway.app`
+
+**Port conventions:**
+- Wakaru standalone: `5001`
+- Wakaru alongside Vakaru engine: `5002`
+- Vakaru engine: `8080`
