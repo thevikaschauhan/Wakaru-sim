@@ -10,10 +10,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Copy requirements and install Python deps first (layer cache)
 COPY backend/requirements.txt ./backend/
+
+# Install CPU-only PyTorch first to avoid pulling in multi-GB CUDA packages
+# (camel-oasis/camel-ai depend on torch but MiroFish only needs CPU inference)
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
+
 RUN pip install --no-cache-dir -r backend/requirements.txt
 
 # Copy all MiroFish-main source (build context = MiroFish-main/)
 COPY . .
+
+# Install the MiroFish client SDK (client/) and cart_recovery module
+RUN pip install --no-cache-dir ./client
 
 # cart_recovery and client modules live at MiroFish-main root — already copied above
 ENV PYTHONPATH=/app
