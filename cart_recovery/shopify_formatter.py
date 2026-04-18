@@ -69,6 +69,10 @@ class ShopifyCartData:
     recovery_history: list[dict] = field(default_factory=list)   # [{angle, ontology_code, outcome, ...}]
     merchant_effectiveness: dict | None = None  # {top_angle_for_ontology, conversion_rate}
 
+    def __post_init__(self):
+        if not self.device and self.device_type:
+            self.device = self.device_type
+
 
 class ShopifyFormatter:
     """Converts ShopifyCartData into a rich text seed document for MiroFish."""
@@ -160,7 +164,7 @@ class ShopifyFormatter:
             Purchase History:
 
             {cart.customer_name} has placed {cart.past_orders} order(s) with this brand before,
-            with a total lifetime spend of {cart.currency} {cart.total_spend_lifetime:,.2f}.
+            with a total lifetime spend of {cart.currency} {(cart.total_spend_lifetime or 0):,.2f}.
             They are a familiar customer who has shown willingness to buy from this brand previously.""")
 
     def _abandonment_context(self, cart: ShopifyCartData) -> str:
