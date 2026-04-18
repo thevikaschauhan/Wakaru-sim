@@ -8,22 +8,66 @@ from dataclasses import dataclass, field
 class ShopifyCartData:
     """Structured representation of a Shopify abandoned cart event."""
 
+    # --- Required fields ---
     customer_id: str
     customer_name: str
     email: str
     cart_items: list[dict]          # [{product, variant, price, quantity, category}]
     cart_total: float
+
+    # --- Cart / checkout details ---
+    checkout_token: str | None = None
     currency: str = "USD"
+    cart_subtotal: float | None = None
+    cart_tax: float | None = None
+    discount_codes: list[str] = field(default_factory=list)
+    discount_amount: float | None = None
+    discount_type: str | None = None
+    discount_used: bool = False
+    shipping_cost: float | None = None
+    shipping_method: str | None = None
+    shipping_country: str | None = None
+    payment_gateway_attempted: str | None = None
+    payment_method_type: str | None = None
+
+    # --- Browsing / behavioral ---
     browsing_history: list[str] = field(default_factory=list)   # page titles/URLs visited
+    collections_viewed: list[str] = field(default_factory=list)
+    products_viewed: list[str] = field(default_factory=list)
+    products_removed: list[str] = field(default_factory=list)
+    searches_submitted: list[str] = field(default_factory=list)
+    alert_messages_shown: list[str] = field(default_factory=list)
     time_on_site_minutes: float = 0.0
     exit_page: str = ""             # where they dropped off (e.g. "checkout/payment")
+    abandoned_at_step: str = ""     # cart | information | shipping | payment
+
+    # --- Device / traffic ---
+    device_type: str = ""           # mobile | desktop | tablet
+    device: str = ""                # legacy alias for device_type
+    viewport_width: int | None = None
+    language: str | None = None
+    market: str | None = None
+    referral_source: str = ""       # google | instagram | email | direct | etc.
+    utm_source: str | None = None
+    utm_campaign: str | None = None
+
+    # --- Customer history ---
     past_orders: int = 0
-    total_spend_lifetime: float = 0.0
+    total_spend_lifetime: float | None = None
+    is_first_order: bool = False
+    customer_tags: list[str] = field(default_factory=list)
+    email_marketing_consent: bool | None = None
     location: str = ""              # city, country
-    device: str = ""               # mobile | desktop | tablet
-    referral_source: str = ""      # google | instagram | email | direct | etc.
-    discount_used: bool = False
-    abandoned_at_step: str = ""    # cart | information | shipping | payment
+    hours_since_last_abandonment: float | None = None
+
+    # --- PIE-V2 enrichment fields (all optional, backwards compatible) ---
+    shopper_profile: dict | None = None         # ShopperProfileContext from engine
+    behavioral_memory: str = ""
+    form_interactions: list[dict] = field(default_factory=list)  # [{field, action}]
+    hover_signals: list[dict] = field(default_factory=list)      # [{element, duration_ms}]
+    ontology_hint: dict | None = None           # {code, confidence, reasoning}
+    recovery_history: list[dict] = field(default_factory=list)   # [{angle, ontology_code, outcome, ...}]
+    merchant_effectiveness: dict | None = None  # {top_angle_for_ontology, conversion_rate}
 
 
 class ShopifyFormatter:
@@ -55,7 +99,7 @@ class ShopifyFormatter:
             f"{cart.customer_name} is a {loyalty} from {cart.location or 'unknown location'}.",
             f"They accessed the store via {cart.device or 'unknown device'}{' from ' + cart.referral_source if cart.referral_source else ''}.",
         ]
-        if cart.total_spend_lifetime > 0:
+        if (cart.total_spend_lifetime or 0) > 0:
             lines.append(
                 f"Lifetime spend with this brand: {cart.currency} {cart.total_spend_lifetime:,.2f}."
             )

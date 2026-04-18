@@ -100,6 +100,14 @@ def analyze():
             email_marketing_consent=body.get("email_marketing_consent"),
             location=body.get("location"),
             hours_since_last_abandonment=float(body.get("hours_since_last_abandonment")) if body.get("hours_since_last_abandonment") is not None else None,
+            # PIE-V2 enrichment fields
+            shopper_profile=body.get("shopper_profile"),
+            behavioral_memory=body.get("behavioral_memory", ""),
+            form_interactions=body.get("form_interactions", []),
+            hover_signals=body.get("hover_signals", []),
+            ontology_hint=body.get("ontology_hint"),
+            recovery_history=body.get("recovery_history", []),
+            merchant_effectiveness=body.get("merchant_effectiveness"),
         )
     except (TypeError, ValueError) as e:
         logger.warning(f"Invalid cart data: {e}")
