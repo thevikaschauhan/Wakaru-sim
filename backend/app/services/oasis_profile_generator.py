@@ -11,7 +11,7 @@ OASIS Agent Profile生成器
 import json
 import random
 import time
-from typing import Dict, Any, List, Optional, TYPE_CHECKING
+from typing import Dict, Any, List, Optional
 from dataclasses import dataclass, field
 from datetime import datetime
 
@@ -21,9 +21,6 @@ from zep_cloud.client import Zep
 from ..config import Config
 from ..utils.logger import get_logger
 from .zep_entity_reader import EntityNode, ZepEntityReader
-
-if TYPE_CHECKING:
-    pass  # ShopifyCartData used via duck-typed access; no hard import needed
 
 logger = get_logger('mirofish.oasis_profile')
 
@@ -520,12 +517,12 @@ class OasisProfileGenerator:
         recovery_history = getattr(cart_data, "recovery_history", None) or []
         if recovery_history:
             failed_angles = [
-                r["angle"]
+                r.get("angle")
                 for r in recovery_history
-                if r.get("outcome") in ("ignored", "opened")
+                if r.get("outcome") in ("ignored", "opened") and r.get("angle")
             ]
             if failed_angles:
-                unique = ", ".join(set(failed_angles))
+                unique = ", ".join(sorted(set(failed_angles)))
                 parts.append(
                     f"Note: The following recovery angles have been tried and "
                     f"did NOT convert: {unique}. "
