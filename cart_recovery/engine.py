@@ -141,8 +141,9 @@ class CartRecoveryEngine:
             report.content, cart
         )
 
-        insight = self._prompt_builder.build(report.content, cart)
-        insight.confidence = confidence
+        insight = self._prompt_builder.build(
+            report.content, cart, confidence=confidence
+        )
         insight.confidence_reasoning = confidence_reasoning
         return insight
 
