@@ -152,7 +152,7 @@ class CartRecoveryEngine:
 
     def _assess_confidence(
         self, report_text: str, cart_data: ShopifyCartData
-    ) -> tuple:
+    ) -> tuple[float, str]:
         """
         Assess confidence in the cart abandonment analysis.
 
@@ -168,7 +168,7 @@ class CartRecoveryEngine:
 
     def _assess_confidence_llm(
         self, report_text: str, cart_data: ShopifyCartData
-    ) -> tuple:
+    ) -> tuple[float, str]:
         """LLM-based confidence assessment."""
         prompt = _CONFIDENCE_PROMPT.format(
             report_text=report_text[:2000],
@@ -194,7 +194,7 @@ class CartRecoveryEngine:
             return 0.5, "Assessment failed — defaulting to uncertain"
 
     @staticmethod
-    def _assess_confidence_heuristic(cart_data: ShopifyCartData) -> tuple:
+    def _assess_confidence_heuristic(cart_data: ShopifyCartData) -> tuple[float, str]:
         """Deterministic fallback when no LLM client is available."""
         score = 0.3  # baseline for having cart + exit data
         reasons = []
