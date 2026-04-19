@@ -114,7 +114,9 @@ situation and the specific insight from the psychology simulation."""
         if hasattr(cart, "recovery_history") and cart.recovery_history:
             for rh in cart.recovery_history:
                 if rh.get("outcome") in ("ignored", "opened"):
-                    tried_angles.add(rh.get("angle", ""))
+                    angle = rh.get("angle")
+                    if angle:
+                        tried_angles.add(angle)
 
         # Check merchant-level effectiveness data
         merchant_preferred: str | None = None
@@ -134,6 +136,7 @@ situation and the specific insight from the psychology simulation."""
                 "urgency-scarcity",
                 "gentle-reminder",
                 "welcome-and-reassurance",
+                "loyalty-and-reward",
             ]
             for alt in alternatives:
                 if alt not in tried_angles and alt != base_angle:
