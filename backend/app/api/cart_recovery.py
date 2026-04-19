@@ -90,7 +90,7 @@ def analyze():
             viewport_width=int(body.get("viewport_width")) if body.get("viewport_width") is not None else None,
             language=body.get("language"),
             market=body.get("market"),
-            referral_source=body.get("referral_source"),
+            referral_source=body.get("referral_source", ""),
             utm_campaign=body.get("utm_campaign"),
             utm_source=body.get("utm_source"),
             past_orders=int(body.get("past_orders", 0)),
@@ -98,8 +98,16 @@ def analyze():
             is_first_order=bool(body.get("is_first_order", False)),
             customer_tags=body.get("customer_tags", []),
             email_marketing_consent=body.get("email_marketing_consent"),
-            location=body.get("location"),
+            location=body.get("location", ""),
             hours_since_last_abandonment=float(body.get("hours_since_last_abandonment")) if body.get("hours_since_last_abandonment") is not None else None,
+            # PIE-V2 enrichment fields
+            shopper_profile=body.get("shopper_profile"),
+            behavioral_memory=body.get("behavioral_memory", ""),
+            form_interactions=body.get("form_interactions", []),
+            hover_signals=body.get("hover_signals", []),
+            ontology_hint=body.get("ontology_hint"),
+            recovery_history=body.get("recovery_history", []),
+            merchant_effectiveness=body.get("merchant_effectiveness"),
         )
     except (TypeError, ValueError) as e:
         logger.warning(f"Invalid cart data: {e}")
@@ -129,5 +137,7 @@ def analyze():
             "recommended_angle": insight.recommended_angle,
             "key_objections": insight.key_objections,
             "email_prompt_context": insight.email_prompt_context,
+            "confidence": insight.confidence,
+            "confidence_reasoning": insight.confidence_reasoning,
         }
     }), 200

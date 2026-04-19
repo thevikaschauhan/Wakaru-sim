@@ -209,31 +209,37 @@ class OasisProfileGenerator:
                 logger.warning(f"Zep客户端初始化失败: {e}")
     
     def generate_profile_from_entity(
-        self, 
-        entity: EntityNode, 
+        self,
+        entity: EntityNode,
         user_id: int,
-        use_llm: bool = True
+        use_llm: bool = True,
+        cart_data=None
     ) -> OasisAgentProfile:
         """
         从Zep实体生成OASIS Agent Profile
-        
+
         Args:
             entity: Zep实体节点
             user_id: 用户ID（用于OASIS）
             use_llm: 是否使用LLM生成详细人设
-            
+            cart_data: Optional ShopifyCartData with PIE-V2 enrichment fields
+                       for context-aware persona tuning.
+
         Returns:
             OasisAgentProfile
         """
         entity_type = entity.get_entity_type() or "Entity"
-        
+
         # 基础信息
         name = entity.name
         user_name = self._generate_username(name)
-        
+
         # 构建上下文信息
         context = self._build_entity_context(entity)
-        
+
+        # Build tuning context from enriched cart data (PIE-V2)
+        tuning_context = self._build_tuning_context(cart_data)
+
         if use_llm:
             # 使用LLM生成详细人设
             profile_data = self._generate_profile_with_llm(
@@ -241,7 +247,8 @@ class OasisProfileGenerator:
                 entity_type=entity_type,
                 entity_summary=entity.summary,
                 entity_attributes=entity.attributes,
-                context=context
+                context=context,
+                tuning_context=tuning_context,
             )
         else:
             # 使用规则生成基础人设
@@ -492,14 +499,74 @@ class OasisProfileGenerator:
     def _is_group_entity(self, entity_type: str) -> bool:
         """判断是否是群体/机构类型实体"""
         return entity_type.lower() in self.GROUP_ENTITY_TYPES
-    
+
+    def _build_tuning_context(self, cart_data) -> str:
+        """
+        Build context-aware tuning instructions from enriched PIE-V2 cart data.
+
+        When cart_data carries recovery history, shopper profile, behavioral
+        memory, or merchant effectiveness stats, we inject guidance into the
+        persona prompt so the OASIS agents reflect the real shopper context.
+        """
+        if cart_data is None:
+            return ""
+
+        parts: list[str] = []
+
+        # --- Failed recovery angles: de-emphasise corresponding personas ---
+        recovery_history = getattr(cart_data, "recovery_history", None) or []
+        if recovery_history:
+            failed_angles = [
+                r.get("angle")
+                for r in recovery_history
+                if r.get("outcome") in ("ignored", "opened") and r.get("angle")
+            ]
+            if failed_angles:
+                unique = ", ".join(sorted(set(failed_angles)))
+                parts.append(
+                    f"Note: The following recovery angles have been tried and "
+                    f"did NOT convert: {unique}. "
+                    f"De-emphasize personas that would recommend these approaches."
+                )
+
+        # --- High-value returning customer: amplify Brand Advocate ---
+        shopper_profile = getattr(cart_data, "shopper_profile", None)
+        if shopper_profile and shopper_profile.get("lifetime_value", 0) > 100:
+            parts.append(
+                "This is a high-value returning customer. "
+                "Amplify the Brand Advocate persona."
+            )
+
+        # --- Price sensitivity: amplify Budget Shopper ---
+        behavioral_memory = getattr(cart_data, "behavioral_memory", None) or ""
+        if behavioral_memory and "price-sensitive" in behavioral_memory.lower():
+            parts.append(
+                "Behavioral memory indicates price sensitivity. "
+                "Amplify the Budget Shopper persona."
+            )
+
+        # --- Merchant effectiveness: weight by best-converting angle ---
+        merchant_eff = getattr(cart_data, "merchant_effectiveness", None)
+        if merchant_eff and merchant_eff.get("top_angle_for_ontology"):
+            top_angle = merchant_eff["top_angle_for_ontology"]
+            parts.append(
+                f"Merchant data shows {top_angle} angle converts best. "
+                f"Weight personas accordingly."
+            )
+
+        if not parts:
+            return ""
+
+        return "\n".join(parts) + "\n"
+
     def _generate_profile_with_llm(
         self,
         entity_name: str,
         entity_type: str,
         entity_summary: str,
         entity_attributes: Dict[str, Any],
-        context: str
+        context: str,
+        tuning_context: str = ""
     ) -> Dict[str, Any]:
         """
         使用LLM生成非常详细的人设
@@ -510,14 +577,16 @@ class OasisProfileGenerator:
         """
         
         is_individual = self._is_individual_entity(entity_type)
-        
+
         if is_individual:
             prompt = self._build_individual_persona_prompt(
-                entity_name, entity_type, entity_summary, entity_attributes, context
+                entity_name, entity_type, entity_summary, entity_attributes, context,
+                tuning_context=tuning_context,
             )
         else:
             prompt = self._build_group_persona_prompt(
-                entity_name, entity_type, entity_summary, entity_attributes, context
+                entity_name, entity_type, entity_summary, entity_attributes, context,
+                tuning_context=tuning_context,
             )
 
         # 尝试多次生成，直到成功或达到最大重试次数
@@ -679,14 +748,24 @@ class OasisProfileGenerator:
         entity_type: str,
         entity_summary: str,
         entity_attributes: Dict[str, Any],
-        context: str
+        context: str,
+        tuning_context: str = ""
     ) -> str:
         """构建个人实体的详细人设提示词"""
-        
+
         attrs_str = json.dumps(entity_attributes, ensure_ascii=False) if entity_attributes else "无"
         context_str = context[:3000] if context else "无额外上下文"
-        
-        return f"""为实体生成详细的社交媒体用户人设,最大程度还原已有现实情况。
+
+        # Inject tuning context before entity details when available
+        tuning_block = ""
+        if tuning_context:
+            tuning_block = (
+                f"--- Recovery context (use to adjust persona emphasis) ---\n"
+                f"{tuning_context}"
+                f"--- End recovery context ---\n\n"
+            )
+
+        return f"""{tuning_block}为实体生成详细的社交媒体用户人设,最大程度还原已有现实情况。
 
 实体名称: {entity_name}
 实体类型: {entity_type}
@@ -728,14 +807,24 @@ class OasisProfileGenerator:
         entity_type: str,
         entity_summary: str,
         entity_attributes: Dict[str, Any],
-        context: str
+        context: str,
+        tuning_context: str = ""
     ) -> str:
         """构建群体/机构实体的详细人设提示词"""
-        
+
         attrs_str = json.dumps(entity_attributes, ensure_ascii=False) if entity_attributes else "无"
         context_str = context[:3000] if context else "无额外上下文"
-        
-        return f"""为机构/群体实体生成详细的社交媒体账号设定,最大程度还原已有现实情况。
+
+        # Inject tuning context before entity details when available
+        tuning_block = ""
+        if tuning_context:
+            tuning_block = (
+                f"--- Recovery context (use to adjust persona emphasis) ---\n"
+                f"{tuning_context}"
+                f"--- End recovery context ---\n\n"
+            )
+
+        return f"""{tuning_block}为机构/群体实体生成详细的社交媒体账号设定,最大程度还原已有现实情况。
 
 实体名称: {entity_name}
 实体类型: {entity_type}
@@ -855,11 +944,12 @@ class OasisProfileGenerator:
         graph_id: Optional[str] = None,
         parallel_count: int = 5,
         realtime_output_path: Optional[str] = None,
-        output_platform: str = "reddit"
+        output_platform: str = "reddit",
+        cart_data=None
     ) -> List[OasisAgentProfile]:
         """
         批量从实体生成Agent Profile（支持并行生成）
-        
+
         Args:
             entities: 实体列表
             use_llm: 是否使用LLM生成详细人设
@@ -868,7 +958,9 @@ class OasisProfileGenerator:
             parallel_count: 并行生成数量，默认5
             realtime_output_path: 实时写入的文件路径（如果提供，每生成一个就写入一次）
             output_platform: 输出平台格式 ("reddit" 或 "twitter")
-            
+            cart_data: Optional ShopifyCartData with PIE-V2 enrichment fields
+                       for context-aware persona tuning.
+
         Returns:
             Agent Profile列表
         """
@@ -923,7 +1015,8 @@ class OasisProfileGenerator:
                 profile = self.generate_profile_from_entity(
                     entity=entity,
                     user_id=idx,
-                    use_llm=use_llm
+                    use_llm=use_llm,
+                    cart_data=cart_data,
                 )
                 
                 # 实时输出生成的人设到控制台和日志

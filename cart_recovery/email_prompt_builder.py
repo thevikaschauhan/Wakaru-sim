@@ -17,6 +17,8 @@ class AbandonmentInsight:
     recommended_angle: str          # e.g. "urgency", "trust", "discount", "social-proof"
     key_objections: list[str] = field(default_factory=list)
     email_prompt_context: str = ""  # ready-to-use context block for your LLM
+    confidence: float = 0.5         # 0.0-1.0 confidence in the analysis
+    confidence_reasoning: str = ""  # one-sentence explanation of the score
 
 
 class EmailPromptBuilder:
@@ -33,17 +35,25 @@ back to complete their purchase. Do NOT be pushy or generic.
 Use the customer context below to craft a message that speaks directly to their
 situation and the specific insight from the psychology simulation."""
 
-    def build(self, report_content: str, cart: ShopifyCartData) -> AbandonmentInsight:
+    def build(
+        self,
+        report_content: str,
+        cart: ShopifyCartData,
+        confidence: float = 0.5,
+    ) -> AbandonmentInsight:
         """
         Parse the MiroFish report and produce an AbandonmentInsight.
 
         Args:
             report_content: Full markdown text from MiroFish ReportAgent.
             cart: The original ShopifyCartData for personalization.
+            confidence: Analysis confidence score (0.0-1.0) from the engine.
 
         Returns:
             AbandonmentInsight with all fields populated.
         """
+        self._confidence = confidence
+
         reason = self._extract_reason(report_content)
         emotional_state = self._extract_emotion(report_content)
         angle = self._choose_angle(report_content, cart)
@@ -52,13 +62,15 @@ situation and the specific insight from the psychology simulation."""
             report_content, cart, reason, emotional_state, angle, objections
         )
 
-        return AbandonmentInsight(
+        insight = AbandonmentInsight(
             predicted_reason=reason,
             emotional_state=emotional_state,
             recommended_angle=angle,
             key_objections=objections,
             email_prompt_context=prompt_context,
+            confidence=confidence,
         )
+        return insight
 
     # ------------------------------------------------------------------
     # Extraction helpers
@@ -95,7 +107,50 @@ situation and the specific insight from the psychology simulation."""
         return top if scores[top] > 0 else "indecisive"
 
     def _choose_angle(self, report: str, cart: ShopifyCartData) -> str:
-        """Pick the email persuasion angle most likely to work based on the report."""
+        """Pick the email persuasion angle, rotating away from failed prior attempts."""
+
+        # Collect angles that were tried but did not convert
+        tried_angles: set[str] = set()
+        if hasattr(cart, "recovery_history") and cart.recovery_history:
+            for rh in cart.recovery_history:
+                if rh.get("outcome") in ("ignored", "opened"):
+                    angle = rh.get("angle")
+                    if angle:
+                        tried_angles.add(angle)
+
+        # Check merchant-level effectiveness data
+        merchant_preferred: str | None = None
+        if hasattr(cart, "merchant_effectiveness") and cart.merchant_effectiveness:
+            merchant_preferred = cart.merchant_effectiveness.get(
+                "top_angle_for_ontology"
+            )
+
+        # Keyword-based selection from the report
+        base_angle = self._base_angle_from_report(report, cart)
+
+        # If the base angle was already tried and failed, rotate to an untried one
+        if base_angle in tried_angles:
+            alternatives = [
+                "discount-or-value",
+                "trust-and-social-proof",
+                "urgency-scarcity",
+                "gentle-reminder",
+                "welcome-and-reassurance",
+                "loyalty-and-reward",
+            ]
+            for alt in alternatives:
+                if alt not in tried_angles and alt != base_angle:
+                    return alt
+
+        # If merchant has a known effective angle, prefer it (unless already failed)
+        if merchant_preferred and merchant_preferred not in tried_angles:
+            return merchant_preferred
+
+        return base_angle
+
+    @staticmethod
+    def _base_angle_from_report(report: str, cart: ShopifyCartData) -> str:
+        """Keyword-based angle selection from the MiroFish report text."""
         report_lower = report.lower()
 
         if any(w in report_lower for w in ["price", "expensive", "cost", "discount", "afford"]):
@@ -161,7 +216,7 @@ situation and the specific insight from the psychology simulation."""
             "gentle-reminder": "Friendly, no-pressure nudge. Remind them what they left behind.",
         }
 
-        return f"""{self.RECOVERY_SYSTEM_PROMPT}
+        context = f"""{self.RECOVERY_SYSTEM_PROMPT}
 
 ---
 
@@ -189,10 +244,56 @@ Simulation report excerpt:
 EMAIL STRATEGY:
 Recommended angle: {angle}
 Instruction: {angle_instructions.get(angle, "Write a friendly, personalised recovery email.")}
+"""
 
+        # Recovery history context
+        if hasattr(cart, "recovery_history") and cart.recovery_history:
+            context += "\nPREVIOUS RECOVERY ATTEMPTS:\n"
+            for rh in cart.recovery_history:
+                context += (
+                    f"- {rh.get('days_ago', '?')} days ago: "
+                    f"{rh.get('angle', '?')} angle -> {rh.get('outcome', '?')}\n"
+                )
+            context += (
+                "IMPORTANT: Do NOT repeat the same messaging approach "
+                "as failed attempts.\n"
+            )
+
+        # Confidence-gated tone guidance
+        confidence = getattr(self, "_confidence", None)
+        if confidence is not None:
+            if confidence >= 0.8:
+                context += (
+                    "\nTONE: High confidence in analysis. Be direct and "
+                    "specific about the abandonment reason.\n"
+                )
+            elif confidence >= 0.5:
+                context += (
+                    "\nTONE: Moderate confidence. Address the likely reason "
+                    "but keep messaging broad enough to cover alternatives.\n"
+                )
+            else:
+                context += (
+                    "\nTONE: Low confidence in specific reason. Use a gentle, "
+                    "exploratory approach. Focus on value and relationship "
+                    "rather than specific objection handling.\n"
+                )
+
+        # Merchant effectiveness context
+        if hasattr(cart, "merchant_effectiveness") and cart.merchant_effectiveness:
+            me = cart.merchant_effectiveness
+            if me.get("top_angle_for_ontology") and me.get("conversion_rate"):
+                context += (
+                    f"\nMERCHANT DATA: {me['top_angle_for_ontology']} angle has "
+                    f"{me['conversion_rate'] * 100:.0f}% conversion rate for this "
+                    f"type of abandonment at this store.\n"
+                )
+
+        context += """
 ---
 
 Write a recovery email (subject line + body) using this context.
 Keep it under 200 words. Be personal, warm, and specific to this customer.
 Do NOT use generic phrases like "You left something behind" as the opening.
 """
+        return context
