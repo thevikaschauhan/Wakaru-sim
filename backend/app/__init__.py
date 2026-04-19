@@ -4,6 +4,7 @@ MiroFish Backend - Flask应用工厂
 
 import os
 import warnings
+import sentry_sdk
 
 # 抑制 multiprocessing resource_tracker 的警告（来自第三方库如 transformers）
 # 需要在所有其他导入之前设置
@@ -16,8 +17,30 @@ from .config import Config
 from .utils.logger import setup_logger, get_logger
 
 
+def _scrub_pii(event, hint):
+    """Strip PII from Sentry events before they leave the server."""
+    if "request" in event and "headers" in event["request"]:
+        event["request"]["headers"] = {
+            k: v for k, v in event["request"]["headers"].items()
+            if k.lower() != "authorization"
+        }
+    return event
+
+
 def create_app(config_class=Config):
     """Flask应用工厂函数"""
+    # Initialize Sentry error monitoring (no-op when DSN is empty)
+    sentry_dsn = os.environ.get("SENTRY_DSN", "")
+    if sentry_dsn:
+        sentry_sdk.init(
+            dsn=sentry_dsn,
+            environment=os.environ.get("SENTRY_ENVIRONMENT", "production"),
+            release="wakaru@1.0.0",
+            traces_sample_rate=0.0,
+            send_default_pii=False,
+            before_send=_scrub_pii,
+        )
+
     app = Flask(__name__)
     app.config.from_object(config_class)
     
