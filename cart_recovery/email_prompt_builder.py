@@ -17,6 +17,8 @@ class AbandonmentInsight:
     recommended_angle: str          # e.g. "urgency", "trust", "discount", "social-proof"
     key_objections: list[str] = field(default_factory=list)
     email_prompt_context: str = ""  # ready-to-use context block for your LLM
+    confidence: float = 0.5         # 0.0-1.0 confidence in the analysis
+    confidence_reasoning: str = ""  # one-sentence explanation of the score
 
 
 class EmailPromptBuilder:

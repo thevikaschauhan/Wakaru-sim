@@ -137,5 +137,7 @@ def analyze():
             "recommended_angle": insight.recommended_angle,
             "key_objections": insight.key_objections,
             "email_prompt_context": insight.email_prompt_context,
+            "confidence": insight.confidence,
+            "confidence_reasoning": insight.confidence_reasoning,
         }
     }), 200

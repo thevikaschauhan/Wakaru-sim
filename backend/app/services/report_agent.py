@@ -855,6 +855,35 @@ CHAT_SYSTEM_PROMPT_TEMPLATE = """\
 
 CHAT_OBSERVATION_SUFFIX = "\n\n请简洁回答问题。"
 
+# ── Confidence assessment prompt ──
+
+CONFIDENCE_ASSESSMENT_PROMPT = """\
+Based on the simulation you just analyzed, assess your confidence in this cart \
+abandonment analysis on a scale of 0.0 to 1.0.
+
+SIMULATION REPORT:
+{report_text}
+
+AVAILABLE DATA SIGNALS:
+- Shopper profile available: {has_profile}
+- Behavioral memory available: {has_memory}
+- Form interactions captured: {form_count}
+- Hover signals captured: {hover_count}
+- Alert messages captured: {alert_count}
+- Search queries captured: {search_count}
+- Pre-classification hint provided: {has_hint}
+- Recovery history entries: {recovery_count}
+
+Consider:
+1. DATA COMPLETENESS: More signals = higher confidence. Only page views + exit = low confidence.
+2. SIGNAL CLARITY: Did signals clearly point to one cause, or were they ambiguous?
+3. SIMULATION CONVERGENCE: Did agents reach consensus on the abandonment reason?
+4. HISTORICAL VALIDATION: If a pre-classification hint was provided, does the deep analysis \
+confirm or contradict it? Agreement = higher confidence.
+
+Return ONLY a JSON object:
+{{"confidence": 0.XX, "reasoning": "one sentence explaining the score"}}"""
+
 
 # ═══════════════════════════════════════════════════════════════
 # ReportAgent 主类
@@ -1878,6 +1907,44 @@ class ReportAgent:
             "tool_calls": tool_calls_made,
             "sources": [tc.get("parameters", {}).get("query", "") for tc in tool_calls_made]
         }
+
+    def assess_confidence(self, report_text: str, cart_data) -> tuple:
+        """
+        Assess confidence in the cart abandonment analysis.
+
+        After the OASIS report is generated, makes an additional LLM call to
+        evaluate how confident we are based on data completeness, signal clarity,
+        simulation convergence, and historical validation.
+
+        Args:
+            report_text: The full markdown report from the simulation.
+            cart_data: ShopifyCartData with enrichment fields.
+
+        Returns:
+            (confidence: float, reasoning: str) — score 0.0-1.0 and explanation.
+        """
+        prompt = CONFIDENCE_ASSESSMENT_PROMPT.format(
+            report_text=report_text[:2000],
+            has_profile=bool(getattr(cart_data, 'shopper_profile', None)),
+            has_memory=bool(getattr(cart_data, 'behavioral_memory', '')),
+            form_count=len(getattr(cart_data, 'form_interactions', [])),
+            hover_count=len(getattr(cart_data, 'hover_signals', [])),
+            alert_count=len(getattr(cart_data, 'alert_messages_shown', [])),
+            search_count=len(getattr(cart_data, 'searches_submitted', [])),
+            has_hint=bool(getattr(cart_data, 'ontology_hint', None)),
+            recovery_count=len(getattr(cart_data, 'recovery_history', [])),
+        )
+        try:
+            response = self.llm.chat(
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.2,
+                max_tokens=200,
+            )
+            result = json.loads(response)
+            return result.get("confidence", 0.5), result.get("reasoning", "")
+        except Exception as e:
+            logger.warning(f"Confidence assessment failed: {e}")
+            return 0.5, "Assessment failed — defaulting to uncertain"
 
 
 class ReportManager:
