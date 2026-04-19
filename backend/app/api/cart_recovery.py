@@ -9,6 +9,7 @@ import logging
 import traceback
 
 from flask import Blueprint, request, jsonify
+import sentry_sdk
 
 # Add MiroFish-main root to sys.path so cart_recovery module is importable
 _mirofish_root = os.path.abspath(
@@ -122,6 +123,7 @@ def analyze():
         engine = _get_engine()
         insight = engine.analyze_abandonment(cart, on_progress=on_progress)
     except Exception as e:
+        sentry_sdk.capture_exception(e)
         logger.error(f"Cart recovery analysis failed for {body.get('customer_id')}: {e}")
         logger.debug(traceback.format_exc())
         return jsonify({
