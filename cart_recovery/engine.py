@@ -218,6 +218,12 @@ class CartRecoveryEngine:
         if len(getattr(cart_data, "recovery_history", [])) > 0:
             score += 0.1
             reasons.append("history")
+        if len(getattr(cart_data, "alert_messages_shown", [])) > 0:
+            score += 0.05
+            reasons.append("alerts")
+        if len(getattr(cart_data, "searches_submitted", [])) > 0:
+            score += 0.05
+            reasons.append("searches")
 
         score = min(score, 1.0)
         reasoning = (
