@@ -250,6 +250,7 @@ def test_cart_recovery_engine_full_pipeline(cart):
         ("POST", f"{BASE}/api/simulation/start"),
         ("GET", f"{BASE}/api/simulation/sim_test_1/run-status"),
         ("POST", f"{BASE}/api/report/generate"),
+        ("POST", f"{BASE}/api/report/generate/status"),
         ("GET", f"{BASE}/api/report/by-simulation/sim_test_1"),
     }
     actual_routes = {(c.request.method, c.request.url.split("?")[0]) for c in responses.calls}
@@ -369,3 +370,162 @@ def test_stop_simulation_uses_path_less_route():
 
     client = MiroFishClient(BASE)
     client.stop_simulation("sim_test_1")
+
+
+# ----------------------------------------------------------------------
+# Failure-path coverage: graph build, report generate, prepare returning "failed"
+# ----------------------------------------------------------------------
+
+@responses.activate
+def test_build_graph_raises_on_failed_task_status():
+    from mirofish.exceptions import APIError
+
+    responses.add(
+        responses.POST,
+        f"{BASE}/api/graph/build",
+        json=_envelope({"project_id": "proj_x", "task_id": "task_fail_1"}),
+        status=200,
+    )
+    responses.add(
+        responses.GET,
+        f"{BASE}/api/graph/task/task_fail_1",
+        json=_envelope({
+            "task_id": "task_fail_1",
+            "task_type": "graph_build",
+            "status": "failed",
+            "error": "Zep timed out",
+        }),
+        status=200,
+    )
+
+    client = MiroFishClient(BASE)
+    with pytest.raises(APIError) as exc_info:
+        client.build_graph("proj_x", timeout=5)
+    assert "Zep timed out" in str(exc_info.value)
+
+
+@responses.activate
+def test_generate_report_raises_on_failed_status():
+    from mirofish.exceptions import APIError
+
+    responses.add(
+        responses.POST,
+        f"{BASE}/api/report/generate",
+        json=_envelope({
+            "simulation_id": "sim_x",
+            "task_id": "task_rep_fail_1",
+            "status": "generating",
+            "already_generated": False,
+        }),
+        status=200,
+    )
+    responses.add(
+        responses.POST,
+        f"{BASE}/api/report/generate/status",
+        json=_envelope({
+            "task_id": "task_rep_fail_1",
+            "status": "failed",
+            "error": "ReportAgent timed out",
+        }),
+        status=200,
+    )
+
+    client = MiroFishClient(BASE)
+    with pytest.raises(APIError) as exc_info:
+        client.generate_report("sim_x", timeout=5)
+    assert "ReportAgent timed out" in str(exc_info.value)
+
+
+@responses.activate
+def test_prepare_simulation_raises_on_failed_status():
+    from mirofish.exceptions import SimulationError
+
+    responses.add(
+        responses.POST,
+        f"{BASE}/api/simulation/prepare",
+        json=_envelope({
+            "simulation_id": "sim_x",
+            "task_id": "task_prep_fail_1",
+            "status": "preparing",
+            "already_prepared": False,
+        }),
+        status=200,
+    )
+    responses.add(
+        responses.POST,
+        f"{BASE}/api/simulation/prepare/status",
+        json=_envelope({
+            "task_id": "task_prep_fail_1",
+            "status": "failed",
+            "error": "profile generation crashed",
+        }),
+        status=200,
+    )
+
+    client = MiroFishClient(BASE)
+    with pytest.raises(SimulationError) as exc_info:
+        client.prepare_simulation("sim_x", timeout=5)
+    assert "profile generation crashed" in str(exc_info.value)
+
+
+# ----------------------------------------------------------------------
+# prepare_simulation real-polling branch (already_prepared=False) + transition
+# ----------------------------------------------------------------------
+
+@responses.activate
+def test_prepare_simulation_polls_until_ready(monkeypatch):
+    """Covers the real polling path: prepare returns task_id, status flips from
+    `processing` to `ready` across two poll calls."""
+    import json
+    import mirofish.polling
+
+    # Don't actually sleep between polls.
+    monkeypatch.setattr(mirofish.polling.time, "sleep", lambda _: None)
+
+    responses.add(
+        responses.POST,
+        f"{BASE}/api/simulation/prepare",
+        json=_envelope({
+            "simulation_id": "sim_poll_1",
+            "task_id": "task_prep_poll_1",
+            "status": "preparing",
+            "already_prepared": False,
+        }),
+        status=200,
+        match=[matchers.json_params_matcher({"simulation_id": "sim_poll_1"})],
+    )
+
+    # Sequence the poll responses by counting calls in a callback.
+    poll_count = {"n": 0}
+
+    def poll_callback(request):
+        poll_count["n"] += 1
+        status = "ready" if poll_count["n"] >= 2 else "processing"
+        body = _envelope({
+            "task_id": "task_prep_poll_1",
+            "status": status,
+            "progress": 100 if status == "ready" else 40,
+        })
+        return 200, {"Content-Type": "application/json"}, json.dumps(body)
+
+    responses.add_callback(
+        responses.POST,
+        f"{BASE}/api/simulation/prepare/status",
+        callback=poll_callback,
+    )
+
+    responses.add(
+        responses.GET,
+        f"{BASE}/api/simulation/sim_poll_1",
+        json=_envelope({
+            "simulation_id": "sim_poll_1",
+            "project_id": "proj_x",
+            "status": "ready",
+        }),
+        status=200,
+    )
+
+    client = MiroFishClient(BASE)
+    sim = client.prepare_simulation("sim_poll_1", timeout=30)
+    assert sim.simulation_id == "sim_poll_1"
+    assert poll_count["n"] == 2, f"expected 2 poll calls, got {poll_count['n']}"

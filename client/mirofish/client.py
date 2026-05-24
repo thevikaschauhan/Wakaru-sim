@@ -54,7 +54,7 @@ class MiroFishClient:
             msg = ""
             if isinstance(body, dict):
                 msg = body.get("error") or body.get("message") or ""
-            raise APIError(resp.status_code, msg or resp.text)
+            raise APIError(resp.status_code, msg or resp.text[:200])
 
         if not isinstance(body, dict):
             raise APIError(resp.status_code, f"Expected JSON object, got: {resp.text[:200]}")
@@ -322,7 +322,7 @@ class MiroFishClient:
         result = self._get(f"/report/by-simulation/{simulation_id}")
         return Report.from_dict({
             "simulation_id": simulation_id,
-            "status": "completed",
+            "status": result.get("status", "completed"),
             "content": result.get("markdown_content", ""),
         })
 
