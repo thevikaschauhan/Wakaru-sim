@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import os
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
 
 import requests
 
@@ -33,26 +32,37 @@ class MiroFishClient:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _get(self, path: str) -> dict:
+    def _get(self, path: str) -> Any:
         url = f"{self.base_url}/api{path}"
         resp = self._session.get(url)
-        self._raise_for_status(resp)
-        return resp.json()
+        return self._unwrap(resp)
 
-    def _post(self, path: str, json: dict | None = None, files=None, data=None) -> dict:
+    def _post(self, path: str, json: dict | None = None, files=None, data=None) -> Any:
         url = f"{self.base_url}/api{path}"
         resp = self._session.post(url, json=json, files=files, data=data)
-        self._raise_for_status(resp)
-        return resp.json()
+        return self._unwrap(resp)
 
     @staticmethod
-    def _raise_for_status(resp: requests.Response) -> None:
+    def _unwrap(resp: requests.Response) -> Any:
+        """Validate HTTP status and unwrap the backend's {success, data, error} envelope."""
+        try:
+            body = resp.json()
+        except ValueError:
+            body = None
+
         if not resp.ok:
-            try:
-                msg = resp.json().get("error") or resp.json().get("message") or resp.text
-            except Exception:
-                msg = resp.text
-            raise APIError(resp.status_code, msg)
+            msg = ""
+            if isinstance(body, dict):
+                msg = body.get("error") or body.get("message") or ""
+            raise APIError(resp.status_code, msg or resp.text)
+
+        if not isinstance(body, dict):
+            raise APIError(resp.status_code, f"Expected JSON object, got: {resp.text[:200]}")
+
+        if body.get("success") is False:
+            raise APIError(resp.status_code, body.get("error") or body.get("message") or "request failed")
+
+        return body.get("data", body)
 
     # ------------------------------------------------------------------
     # High-level: full pipeline
@@ -67,26 +77,12 @@ class MiroFishClient:
         simulation_hours: int = 24,
         on_progress: Callable[[str, object], None] | None = None,
     ) -> Report:
-        """
-        Run the complete MiroFish pipeline end-to-end and return the final report.
-
-        Args:
-            files: List of file paths (PDF, MD, or TXT) to use as seed documents.
-            requirement: Natural language description of what to predict/simulate.
-            enable_twitter: Include Twitter simulation (default True).
-            enable_reddit: Include Reddit simulation (default False for V1 speed).
-            simulation_hours: How many simulated hours to run (default 24 for cart recovery).
-            on_progress: Optional callback(stage: str, state: object) for progress updates.
-
-        Returns:
-            Report object with the full markdown prediction report.
-        """
+        """Run the complete MiroFish pipeline end-to-end and return the final report."""
         def _progress(stage: str) -> Callable | None:
             if on_progress is None:
                 return None
             return lambda state: on_progress(stage, state)
 
-        # Step 1: Build graph
         project = self.generate_ontology(files, requirement)
         if on_progress:
             on_progress("ontology_generated", project)
@@ -95,10 +91,8 @@ class MiroFishClient:
         if on_progress:
             on_progress("graph_completed", project)
 
-        # Step 2: Prepare simulation
         simulation = self.create_simulation(
             project_id=project.project_id,
-            requirement=requirement,
             enable_twitter=enable_twitter,
             enable_reddit=enable_reddit,
         )
@@ -106,11 +100,10 @@ class MiroFishClient:
         if on_progress:
             on_progress("simulation_ready", simulation)
 
-        # Step 3: Run simulation
         self.start_simulation(simulation.simulation_id)
         run_status = self.wait_for_simulation(
             simulation.simulation_id,
-            timeout=simulation_hours * 120 + 600,  # generous bound
+            timeout=simulation_hours * 120 + 600,
             on_progress=_progress("running"),
         )
         if run_status.runner_status == "failed":
@@ -118,7 +111,6 @@ class MiroFishClient:
         if on_progress:
             on_progress("simulation_completed", run_status)
 
-        # Step 4: Generate report
         report = self.generate_report(simulation.simulation_id, on_progress=_progress("generating_report"))
         return report
 
@@ -140,7 +132,7 @@ class MiroFishClient:
                 open_files.append(fh)
                 file_tuples.append(("files", (Path(f).name, fh)))
 
-            data = {"requirement": requirement}
+            data = {"simulation_requirement": requirement}
             result = self._post(
                 "/graph/ontology/generate",
                 files=file_tuples,
@@ -150,7 +142,7 @@ class MiroFishClient:
             for fh in open_files:
                 fh.close()
 
-        return Project.from_dict(result.get("project", result))
+        return Project.from_dict(result)
 
     def build_graph(
         self,
@@ -159,14 +151,14 @@ class MiroFishClient:
         on_progress: Callable[[Task], None] | None = None,
     ) -> Project:
         """Start graph build and poll until complete. Returns the finished Project."""
-        result = self._post(f"/graph/build/{project_id}")
+        result = self._post("/graph/build", json={"project_id": project_id})
         task_id = result.get("task_id", "")
 
         def fetch() -> Task:
-            return Task.from_dict(self._get(f"/graph/status/{task_id}"))
+            return Task.from_dict(self._get(f"/graph/task/{task_id}"))
 
         def is_done(task: Task) -> bool:
-            return task.status in ("COMPLETED", "FAILED")
+            return task.status in ("completed", "failed")
 
         final_task = poll_until_done(
             fetch_fn=fetch,
@@ -177,14 +169,13 @@ class MiroFishClient:
             on_progress=on_progress,
         )
 
-        if final_task.status == "FAILED":
+        if final_task.status == "failed":
             raise APIError(500, f"Graph build failed: {final_task.error}")
 
-        # Return the updated project
-        return Project.from_dict(self._get(f"/project/{project_id}"))
+        return Project.from_dict(self._get(f"/graph/project/{project_id}"))
 
     def get_project(self, project_id: str) -> Project:
-        return Project.from_dict(self._get(f"/project/{project_id}"))
+        return Project.from_dict(self._get(f"/graph/project/{project_id}"))
 
     # ------------------------------------------------------------------
     # Step 2: Simulation setup
@@ -193,18 +184,16 @@ class MiroFishClient:
     def create_simulation(
         self,
         project_id: str,
-        requirement: str,
         enable_twitter: bool = True,
         enable_reddit: bool = False,
     ) -> Simulation:
         """Create a new simulation for a project."""
         result = self._post("/simulation/create", json={
             "project_id": project_id,
-            "simulation_requirement": requirement,
             "enable_twitter": enable_twitter,
             "enable_reddit": enable_reddit,
         })
-        return Simulation.from_dict(result.get("simulation", result))
+        return Simulation.from_dict(result)
 
     def prepare_simulation(
         self,
@@ -213,34 +202,36 @@ class MiroFishClient:
         on_progress: Callable[[dict], None] | None = None,
     ) -> Simulation:
         """Start simulation preparation (profile + config generation) and poll until ready."""
-        self._post(f"/simulation/{simulation_id}/prepare")
+        prepare = self._post("/simulation/prepare", json={"simulation_id": simulation_id})
 
-        def fetch() -> dict:
-            return self._get(f"/simulation/{simulation_id}/prepare_status")
+        if not prepare.get("already_prepared"):
+            task_id = prepare.get("task_id", "")
 
-        def is_done(state: dict) -> bool:
-            status = state.get("status", "")
-            return status in ("READY", "FAILED")
+            def fetch() -> dict:
+                return self._post(
+                    "/simulation/prepare/status",
+                    json={"task_id": task_id, "simulation_id": simulation_id},
+                )
 
-        final = poll_until_done(
-            fetch_fn=fetch,
-            is_done_fn=is_done,
-            operation=f"prepare_simulation({simulation_id})",
-            interval_seconds=10,
-            timeout_seconds=timeout,
-            on_progress=on_progress,
-        )
+            def is_done(state: dict) -> bool:
+                return state.get("status", "") in ("ready", "completed", "failed")
 
-        if final.get("status") == "FAILED":
-            raise SimulationError(simulation_id, final.get("error", "preparation failed"))
+            final = poll_until_done(
+                fetch_fn=fetch,
+                is_done_fn=is_done,
+                operation=f"prepare_simulation({simulation_id})",
+                interval_seconds=10,
+                timeout_seconds=timeout,
+                on_progress=on_progress,
+            )
 
-        return Simulation.from_dict(
-            self._get(f"/simulation/{simulation_id}").get("simulation", {})
-        )
+            if final.get("status") == "failed":
+                raise SimulationError(simulation_id, final.get("error", "preparation failed"))
+
+        return Simulation.from_dict(self._get(f"/simulation/{simulation_id}"))
 
     def get_simulation(self, simulation_id: str) -> Simulation:
-        result = self._get(f"/simulation/{simulation_id}")
-        return Simulation.from_dict(result.get("simulation", result))
+        return Simulation.from_dict(self._get(f"/simulation/{simulation_id}"))
 
     # ------------------------------------------------------------------
     # Step 3: Run simulation
@@ -248,11 +239,15 @@ class MiroFishClient:
 
     def start_simulation(self, simulation_id: str) -> None:
         """Launch the OASIS simulation processes."""
-        self._post(f"/simulation/{simulation_id}/start")
+        self._post("/simulation/start", json={"simulation_id": simulation_id})
 
     def get_run_status(self, simulation_id: str, include_actions: bool = False) -> RunStatus:
         """Fetch the current execution state of a running simulation."""
-        path = f"/simulation/{simulation_id}/run_status_detail" if include_actions else f"/simulation/{simulation_id}/run_status"
+        path = (
+            f"/simulation/{simulation_id}/run-status/detail"
+            if include_actions
+            else f"/simulation/{simulation_id}/run-status"
+        )
         return RunStatus.from_dict(self._get(path))
 
     def wait_for_simulation(
@@ -272,7 +267,7 @@ class MiroFishClient:
         )
 
     def stop_simulation(self, simulation_id: str) -> None:
-        self._post(f"/simulation/{simulation_id}/stop")
+        self._post("/simulation/stop", json={"simulation_id": simulation_id})
 
     def get_actions(self, simulation_id: str) -> list[AgentAction]:
         result = self._get(f"/simulation/{simulation_id}/actions")
@@ -293,38 +288,76 @@ class MiroFishClient:
         on_progress: Callable[[dict], None] | None = None,
     ) -> Report:
         """Start report generation and poll until complete. Returns the finished Report."""
-        self._post(f"/report/{simulation_id}/generate")
+        start = self._post("/report/generate", json={"simulation_id": simulation_id})
+        task_id = start.get("task_id", "")
 
-        def fetch() -> dict:
-            return self._get(f"/report/{simulation_id}/status")
+        if not start.get("already_generated"):
+            def fetch() -> dict:
+                return self._post(
+                    "/report/generate/status",
+                    json={"task_id": task_id, "simulation_id": simulation_id},
+                )
 
-        def is_done(state: dict) -> bool:
-            return state.get("status") in ("completed", "failed")
+            def is_done(state: dict) -> bool:
+                return state.get("status", "") in ("completed", "failed")
 
-        final_status = poll_until_done(
-            fetch_fn=fetch,
-            is_done_fn=is_done,
-            operation=f"generate_report({simulation_id})",
-            interval_seconds=5,
-            timeout_seconds=timeout,
-            on_progress=on_progress,
-        )
+            final_status = poll_until_done(
+                fetch_fn=fetch,
+                is_done_fn=is_done,
+                operation=f"generate_report({simulation_id})",
+                interval_seconds=5,
+                timeout_seconds=timeout,
+                on_progress=on_progress,
+            )
 
-        if final_status.get("status") == "failed":
-            raise APIError(500, f"Report generation failed: {final_status.get('error', '')}")
+            if final_status.get("status") == "failed":
+                raise APIError(500, f"Report generation failed: {final_status.get('error', '')}")
 
-        result = self._get(f"/report/{simulation_id}/full")
-        return Report.from_dict({"simulation_id": simulation_id, "status": "completed", **result})
+        return self._fetch_report(simulation_id)
 
     def get_report(self, simulation_id: str) -> Report:
-        result = self._get(f"/report/{simulation_id}/full")
-        return Report.from_dict({"simulation_id": simulation_id, "status": "completed", **result})
+        return self._fetch_report(simulation_id)
+
+    def _fetch_report(self, simulation_id: str) -> Report:
+        result = self._get(f"/report/by-simulation/{simulation_id}")
+        return Report.from_dict({
+            "simulation_id": simulation_id,
+            "status": "completed",
+            "content": result.get("markdown_content", ""),
+        })
 
     # ------------------------------------------------------------------
     # Step 5: Interact
     # ------------------------------------------------------------------
 
-    def interview_agent(self, simulation_id: str, query: str) -> str:
-        """Ask a question to the simulation's ReportAgent or a specific agent."""
-        result = self._post(f"/report/{simulation_id}/interview", json={"query": query})
-        return result.get("response", result.get("answer", ""))
+    def chat_with_report(
+        self,
+        simulation_id: str,
+        message: str,
+        chat_history: list[dict] | None = None,
+    ) -> dict:
+        """Ask a follow-up question to the simulation's ReportAgent."""
+        return self._post("/report/chat", json={
+            "simulation_id": simulation_id,
+            "message": message,
+            "chat_history": chat_history or [],
+        })
+
+    def interview_agent(
+        self,
+        simulation_id: str,
+        agent_id: int,
+        prompt: str,
+        platform: str | None = None,
+        timeout: int = 60,
+    ) -> dict:
+        """Interview a specific in-simulation agent by id. Requires the simulation env to be running."""
+        body: dict = {
+            "simulation_id": simulation_id,
+            "agent_id": agent_id,
+            "prompt": prompt,
+            "timeout": timeout,
+        }
+        if platform is not None:
+            body["platform"] = platform
+        return self._post("/simulation/interview", json=body)
