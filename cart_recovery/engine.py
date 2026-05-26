@@ -236,4 +236,5 @@ class CartRecoveryEngine:
         Ask the simulation's ReportAgent a follow-up question after analysis.
         Useful for V2 autonomous agent flows.
         """
-        return self._client.interview_agent(simulation_id, question)
+        result = self._client.chat_with_report(simulation_id, question)
+        return result.get("response", result.get("answer", ""))
