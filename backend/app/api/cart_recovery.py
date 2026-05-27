@@ -7,6 +7,7 @@ import sys
 import os
 import logging
 import traceback
+import uuid
 
 from flask import Blueprint, request, jsonify
 import sentry_sdk
@@ -45,6 +46,10 @@ def analyze():
     Input JSON: ShopifyCartData fields
     Output JSON: { "success": true, "data": AbandonmentInsight }
     """
+    # Short per-request correlation id for log triage.
+    # See issue #7; a proper request-id middleware will land with Phase 3.
+    request_id = uuid.uuid4().hex[:8]
+
     body = request.get_json(silent=True)
     if not body:
         return jsonify({"success": False, "error": "Request body must be valid JSON"}), 400
@@ -116,7 +121,7 @@ def analyze():
 
     # Progress logging callback
     def on_progress(stage: str, message: str):
-        logger.info(f"[{body.get('customer_id')}] {stage}: {message}")
+        logger.info(f"[{request_id}] {stage}: {message}")
 
     # Run analysis
     try:
@@ -124,7 +129,7 @@ def analyze():
         insight = engine.analyze_abandonment(cart, on_progress=on_progress)
     except Exception as e:
         sentry_sdk.capture_exception(e)
-        logger.error(f"Cart recovery analysis failed for {body.get('customer_id')}: {e}")
+        logger.error(f"[{request_id}] Cart recovery analysis failed: {e}")
         logger.debug(traceback.format_exc())
         return jsonify({
             "success": False,

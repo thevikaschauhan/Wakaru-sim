@@ -17,13 +17,32 @@ from .config import Config
 from .utils.logger import setup_logger, get_logger
 
 
+# PII field names that must never leave the server (see issue #7).
+_PII_FIELDS = frozenset({
+    "email",
+    "customer_name",
+    "customer_id",
+    "checkout_token",
+    "payment_gateway_attempted",
+    "location",
+    "browsing_history",
+})
+
+
 def _scrub_pii(event, hint):
     """Strip PII from Sentry events before they leave the server."""
-    if "request" in event and "headers" in event["request"]:
-        event["request"]["headers"] = {
-            k: v for k, v in event["request"]["headers"].items()
-            if k.lower() != "authorization"
-        }
+    if "request" in event:
+        if "headers" in event["request"]:
+            event["request"]["headers"] = {
+                k: v for k, v in event["request"]["headers"].items()
+                if k.lower() != "authorization"
+            }
+        data = event["request"].get("data")
+        if isinstance(data, dict):
+            event["request"]["data"] = {
+                k: ("[redacted]" if k in _PII_FIELDS else v)
+                for k, v in data.items()
+            }
     return event
 
 
@@ -76,8 +95,7 @@ def create_app(config_class=Config):
     def log_request():
         logger = get_logger('mirofish.request')
         logger.debug(f"请求: {request.method} {request.path}")
-        if request.content_type and 'json' in request.content_type:
-            logger.debug(f"请求体: {request.get_json(silent=True)}")
+        # Request body intentionally not logged — see issue #7 (PII leak).
     
     @app.after_request
     def log_response(response):
