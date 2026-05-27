@@ -116,7 +116,12 @@ def analyze():
             merchant_effectiveness=body.get("merchant_effectiveness"),
         )
     except (TypeError, ValueError) as e:
-        logger.warning(f"Invalid cart data: {e}")
+        # Don't interpolate `e` into the log: float()/int() errors echo the
+        # offending value verbatim, which could be a PII field a caller
+        # mistakenly put in a numeric slot (e.g. cart_total). The exception
+        # type is enough for log triage; the full message is still returned
+        # in the 400 response so the caller can fix their payload.
+        logger.warning(f"[{request_id}] Invalid cart data ({type(e).__name__})")
         return jsonify({"success": False, "error": f"Invalid cart data: {str(e)}"}), 400
 
     # Progress logging callback

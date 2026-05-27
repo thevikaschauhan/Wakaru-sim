@@ -10,9 +10,11 @@ _BACKEND_DIR = Path(__file__).resolve().parent.parent
 if str(_BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(_BACKEND_DIR))
 
-# `cart_recovery` lives at the repo root and is added to sys.path at
-# runtime by backend/app/api/cart_recovery.py:15-19. Mirror that here so
-# the test module can import AbandonmentInsight at collection time.
+# cart_recovery.py self-installs the repo root onto sys.path at module
+# import (see backend/app/api/cart_recovery.py:15-19), but that runs only
+# when create_app() registers the blueprint. Inserting here too keeps
+# import order from breaking if a test imports cart_recovery.* directly
+# before the Flask app fixture runs.
 _REPO_ROOT = _BACKEND_DIR.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))

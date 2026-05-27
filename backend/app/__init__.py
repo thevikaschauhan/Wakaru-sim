@@ -57,6 +57,10 @@ def create_app(config_class=Config):
             release="wakaru@1.0.0",
             traces_sample_rate=0.0,
             send_default_pii=False,
+            # Tell Sentry not to capture request bodies. _scrub_pii still
+            # redacts dict bodies as belt-and-suspenders if a future change
+            # re-enables body capture.
+            max_request_body_size="never",
             before_send=_scrub_pii,
         )
 
