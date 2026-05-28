@@ -7,6 +7,7 @@ import sys
 import os
 import logging
 import traceback
+import uuid
 
 from flask import Blueprint, request, jsonify
 import sentry_sdk
@@ -45,6 +46,10 @@ def analyze():
     Input JSON: ShopifyCartData fields
     Output JSON: { "success": true, "data": AbandonmentInsight }
     """
+    # Short per-request correlation id for log triage.
+    # See issue #7; a proper request-id middleware will land with Phase 3.
+    request_id = uuid.uuid4().hex[:8]
+
     body = request.get_json(silent=True)
     if not body:
         return jsonify({"success": False, "error": "Request body must be valid JSON"}), 400
@@ -111,20 +116,32 @@ def analyze():
             merchant_effectiveness=body.get("merchant_effectiveness"),
         )
     except (TypeError, ValueError) as e:
-        logger.warning(f"Invalid cart data: {e}")
+        # Don't interpolate `e` into the log: float()/int() errors echo the
+        # offending value verbatim, which could be a PII field a caller
+        # mistakenly put in a numeric slot (e.g. cart_total). The exception
+        # type is enough for log triage; the full message is still returned
+        # in the 400 response so the caller can fix their payload.
+        logger.warning(f"[{request_id}] Invalid cart data ({type(e).__name__})")
         return jsonify({"success": False, "error": f"Invalid cart data: {str(e)}"}), 400
 
     # Progress logging callback
     def on_progress(stage: str, message: str):
-        logger.info(f"[{body.get('customer_id')}] {stage}: {message}")
+        logger.info(f"[{request_id}] {stage}: {message}")
 
     # Run analysis
     try:
         engine = _get_engine()
         insight = engine.analyze_abandonment(cart, on_progress=on_progress)
     except Exception as e:
-        sentry_sdk.capture_exception(e)
-        logger.error(f"Cart recovery analysis failed for {body.get('customer_id')}: {e}")
+        # Don't send the exception object to Sentry: its .args (and frame
+        # locals via the traceback) can carry PII from cart data into the
+        # event payload, which _scrub_pii does not cover. Send a sanitized
+        # message instead.
+        sentry_sdk.capture_message(
+            f"Cart recovery analysis failed ({type(e).__name__})",
+            level="error",
+        )
+        logger.error(f"[{request_id}] Cart recovery analysis failed ({type(e).__name__})")
         logger.debug(traceback.format_exc())
         return jsonify({
             "success": False,
