@@ -133,8 +133,15 @@ def analyze():
         engine = _get_engine()
         insight = engine.analyze_abandonment(cart, on_progress=on_progress)
     except Exception as e:
-        sentry_sdk.capture_exception(e)
-        logger.error(f"[{request_id}] Cart recovery analysis failed: {e}")
+        # Don't send the exception object to Sentry: its .args (and frame
+        # locals via the traceback) can carry PII from cart data into the
+        # event payload, which _scrub_pii does not cover. Send a sanitized
+        # message instead.
+        sentry_sdk.capture_message(
+            f"Cart recovery analysis failed ({type(e).__name__})",
+            level="error",
+        )
+        logger.error(f"[{request_id}] Cart recovery analysis failed ({type(e).__name__})")
         logger.debug(traceback.format_exc())
         return jsonify({
             "success": False,

@@ -33,22 +33,6 @@ PII_PAYLOAD = {
 }
 
 
-def _make_fake_insight():
-    # The handler reads these 7 attributes off the insight object
-    # (see backend/app/api/cart_recovery.py). SimpleNamespace avoids
-    # importing the real cart_recovery package, which would pull in the
-    # mirofish client SDK transitively via cart_recovery/__init__.py.
-    return SimpleNamespace(
-        predicted_reason="stub reason",
-        emotional_state="anxious",
-        recommended_angle="discount-or-value",
-        key_objections=[],
-        email_prompt_context="",
-        confidence=0.5,
-        confidence_reasoning="",
-    )
-
-
 def _assert_no_pii(caplog_records):
     full_log = "\n".join(r.getMessage() for r in caplog_records)
     for token in PII_TOKENS:
@@ -64,7 +48,18 @@ def test_cart_recovery_analyze_emits_no_pii(client, caplog):
         # Exercise the on_progress callback so the INFO log line is captured.
         if on_progress is not None:
             on_progress("preparing", "stub progress message")
-        return _make_fake_insight()
+        # SimpleNamespace avoids importing the real cart_recovery package,
+        # which would transitively pull in the mirofish client SDK via
+        # cart_recovery/__init__.py.
+        return SimpleNamespace(
+            predicted_reason="stub reason",
+            emotional_state="anxious",
+            recommended_angle="discount-or-value",
+            key_objections=[],
+            email_prompt_context="",
+            confidence=0.5,
+            confidence_reasoning="",
+        )
 
     fake_engine.analyze_abandonment.side_effect = fake_analyze
 
@@ -98,7 +93,8 @@ def test_cart_recovery_exception_path_emits_no_pii(client, caplog):
 
     with patch("app.api.cart_recovery._get_engine", return_value=fake_engine):
         with caplog.at_level(logging.DEBUG, logger="mirofish.cart_recovery"):
-            resp = client.post("/api/cart-recovery/analyze", json=PII_PAYLOAD)
+            with caplog.at_level(logging.DEBUG, logger="mirofish.request"):
+                resp = client.post("/api/cart-recovery/analyze", json=PII_PAYLOAD)
 
     assert resp.status_code == 500
     _assert_no_pii(caplog.records)
@@ -120,13 +116,11 @@ def test_cart_recovery_invalid_payload_does_not_echo_pii(client, caplog):
     """A caller mistakenly putting a PII string in a numeric field
     (here `cart_total`) raises ValueError inside ShopifyCartData construction.
     The 400-warning log must NOT echo the offending value into the record."""
-    bad_payload = {
-        "customer_id": "cust_test_pii",
-        "email": "pii-test@example.com",
-        # PII value put in a numeric field on purpose:
-        "cart_total": "pii-test@example.com",
-        "cart_items": [{"product": "x", "price": 1.0, "quantity": 1}],
-    }
+    # Reuse the full PII payload so any future PII token added to
+    # PII_TOKENS / PII_PAYLOAD is automatically exercised through this
+    # path too. Override cart_total with a PII string to force the
+    # ValueError path inside ShopifyCartData construction.
+    bad_payload = {**PII_PAYLOAD, "cart_total": "pii-test@example.com"}
 
     with caplog.at_level(logging.DEBUG, logger="mirofish.cart_recovery"):
         resp = client.post("/api/cart-recovery/analyze", json=bad_payload)
