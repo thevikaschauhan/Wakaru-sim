@@ -22,6 +22,16 @@ if str(_REPO_ROOT) not in sys.path:
 from app import create_app  # noqa: E402
 
 
+@pytest.fixture(autouse=True)
+def _config_env(monkeypatch):
+    """Set required env vars so create_app()'s validate() (issue #6) passes
+    by default. Individual tests can override with monkeypatch.delenv /
+    monkeypatch.setenv before calling create_app() themselves."""
+    monkeypatch.setenv("SECRET_KEY", "test-secret")
+    monkeypatch.setenv("LLM_API_KEY", "test")
+    monkeypatch.setenv("ZEP_API_KEY", "test")
+
+
 @pytest.fixture
 def app():
     app = create_app()

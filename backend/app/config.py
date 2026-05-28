@@ -21,8 +21,9 @@ class Config:
     """Flask配置类"""
     
     # Flask配置
-    SECRET_KEY = os.environ.get('SECRET_KEY', 'mirofish-secret-key')
-    DEBUG = os.environ.get('FLASK_DEBUG', 'True').lower() == 'true'
+    # SECRET_KEY 和 FLASK_DEBUG 默认值见 issue #6 — SECRET_KEY 在 validate() 中强制校验
+    SECRET_KEY = os.environ.get('SECRET_KEY')
+    DEBUG = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
     
     # JSON配置 - 禁用ASCII转义，让中文直接显示（而不是 \uXXXX 格式）
     JSON_AS_ASCII = False
@@ -65,11 +66,21 @@ class Config:
     
     @classmethod
     def validate(cls):
-        """验证必要配置"""
+        """验证必要配置 — 在 create_app() 启动时调用，缺失则 fail-fast.
+
+        所有检查直接读 os.environ 而非 cls.<ATTR>: 类属性在 import 时固化,
+        monkeypatch / 测试 / 运行时改动 env 需要 validate() 读取最新值.
+        生产环境下两者等价 (env 已由 load_dotenv() 注入)."""
         errors = []
-        if not cls.LLM_API_KEY:
+        if not os.environ.get('LLM_API_KEY'):
             errors.append("LLM_API_KEY 未配置")
-        if not cls.ZEP_API_KEY:
+        if not os.environ.get('ZEP_API_KEY'):
             errors.append("ZEP_API_KEY 未配置")
+        secret = os.environ.get('SECRET_KEY')
+        if not secret or secret == 'mirofish-secret-key':
+            errors.append(
+                "SECRET_KEY 未配置 (生产环境必需; "
+                "不能使用默认值 'mirofish-secret-key')"
+            )
         return errors
 

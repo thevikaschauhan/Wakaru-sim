@@ -48,6 +48,16 @@ def _scrub_pii(event, hint):
 
 def create_app(config_class=Config):
     """Flask应用工厂函数"""
+    # Fail fast on missing required env vars before any Flask/Sentry setup.
+    # See issue #6 — Config.validate() is the boot gate for SECRET_KEY,
+    # LLM_API_KEY, and ZEP_API_KEY.
+    config_errors = config_class.validate()
+    if config_errors:
+        raise RuntimeError(
+            "Cannot start: missing required configuration:\n  - "
+            + "\n  - ".join(config_errors)
+        )
+
     # Initialize Sentry error monitoring (no-op when DSN is empty)
     sentry_dsn = os.environ.get("SENTRY_DSN", "")
     if sentry_dsn:
