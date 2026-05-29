@@ -6,6 +6,8 @@
 import os
 import traceback
 import threading
+
+import magic
 from flask import request, jsonify
 
 from . import graph_bp
@@ -28,6 +30,33 @@ def allowed_file(filename: str) -> bool:
         return False
     ext = os.path.splitext(filename)[1].lower().lstrip('.')
     return ext in Config.ALLOWED_EXTENSIONS
+
+
+# Issue #9: extension-only validation lets `evil.pdf.txt` through to
+# FileParser.extract_text → fitz.open (PyMuPDF), which has historical
+# heap-overflow CVEs on malformed PDFs. We verify the real content type by
+# magic bytes BEFORE any file is saved or parsed.
+#
+# libmagic versions differ across OS images (Homebrew on dev, Debian
+# libmagic1 in the container), so for text formats we band-pass any `text/*`
+# MIME rather than asserting an exact string. PDF must match application/pdf
+# exactly — that parser is the one we are protecting.
+_PDF_EXTENSIONS = frozenset({'pdf'})
+
+
+def validate_upload_content_type(file_storage, ext: str) -> tuple[bool, str]:
+    """校验上传文件的 magic-byte 是否与扩展名一致。
+
+    Returns (ok, detected_mime). Reads the leading bytes for detection and
+    rewinds the stream so the subsequent save still writes the full file.
+    """
+    head = file_storage.stream.read(2048)
+    file_storage.stream.seek(0)
+    detected = magic.from_buffer(head, mime=True)
+    if ext in _PDF_EXTENSIONS:
+        return detected == 'application/pdf', detected
+    # txt / md / markdown — any text/* MIME is acceptable.
+    return detected.startswith('text/'), detected
 
 
 # ============== 项目管理接口 ==============
@@ -182,10 +211,24 @@ def generate_ontology():
         
         for file in uploaded_files:
             if file and file.filename and allowed_file(file.filename):
+                # Issue #9: reject content/extension mismatch before saving
+                # or handing the file to PyMuPDF.
+                ext = os.path.splitext(file.filename)[1].lower().lstrip('.')
+                content_ok, detected_mime = validate_upload_content_type(file, ext)
+                if not content_ok:
+                    logger.warning(
+                        f"拒绝上传文件 {file.filename}: 内容类型 {detected_mime} "
+                        f"与扩展名 .{ext} 不匹配"
+                    )
+                    ProjectManager.delete_project(project.project_id)
+                    return jsonify({
+                        "success": False,
+                        "error": "文件内容与扩展名不匹配"
+                    }), 400
                 # 保存文件到项目目录
                 file_info = ProjectManager.save_file_to_project(
-                    project.project_id, 
-                    file, 
+                    project.project_id,
+                    file,
                     file.filename
                 )
                 project.files.append({
