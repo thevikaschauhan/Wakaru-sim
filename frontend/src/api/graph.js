@@ -6,15 +6,16 @@ import service, { requestWithRetry } from './index'
  * @returns {Promise}
  */
 export function generateOntology(formData) {
-  return requestWithRetry(() => 
-    service({
+  return requestWithRetry(
+    () => service({
       url: '/api/graph/ontology/generate',
       method: 'post',
       data: formData,
       headers: {
         'Content-Type': 'multipart/form-data'
       }
-    })
+    }),
+    { method: 'POST' }
   )
 }
 
@@ -24,12 +25,13 @@ export function generateOntology(formData) {
  * @returns {Promise}
  */
 export function buildGraph(data) {
-  return requestWithRetry(() =>
-    service({
+  return requestWithRetry(
+    () => service({
       url: '/api/graph/build',
       method: 'post',
       data
-    })
+    }),
+    { method: 'POST' }
   )
 }
 
