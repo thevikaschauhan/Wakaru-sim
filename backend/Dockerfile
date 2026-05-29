@@ -3,9 +3,13 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # Install system dependencies
+# libmagic1: required by python-magic for upload content-type validation
+# (issue #9). `pip install python-magic` succeeds without it but `import
+# magic` raises OSError at runtime — the shared lib must be present.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     wget \
+    libmagic1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install Python deps first (layer cache)
@@ -26,6 +30,14 @@ RUN pip install --no-cache-dir ./client
 # cart_recovery and client modules live at MiroFish-main root — already copied above
 ENV PYTHONPATH=/app
 ENV FLASK_APP=backend/run.py
+
+# Issue #9: run gunicorn as a non-root user to shrink container blast radius.
+# Every apt/pip install and COPY above runs as root (a non-root user cannot
+# apt-get); the user switch must therefore come last. chown -R /app covers
+# the code tree and the runtime uploads dir (/app/backend/uploads), which
+# appuser then creates/writes at request time.
+RUN adduser --disabled-password --gecos '' appuser && chown -R appuser /app
+USER appuser
 
 WORKDIR /app/backend
 
