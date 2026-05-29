@@ -17,7 +17,7 @@ from .config import Config
 from .utils.logger import setup_logger, get_logger
 
 
-# PII field names that must never leave the server (see issue #7).
+# PII field names that must never leave the server (see issues #7, #17).
 _PII_FIELDS = frozenset({
     "email",
     "customer_name",
@@ -26,24 +26,63 @@ _PII_FIELDS = frozenset({
     "payment_gateway_attempted",
     "location",
     "browsing_history",
+    "products_viewed",
+    "searches_submitted",
 })
 
 
+# Cap recursion so a hostile deeply-nested body cannot exhaust the Python
+# stack inside the Sentry hook (review: DoS class). Cart payloads are 2-3
+# levels deep; 25 is far beyond any legitimate structure.
+_MAX_REDACT_DEPTH = 25
+
+
+def _redact_pii(obj, _depth=0):
+    """Recursively replace PII-keyed values with a redaction marker.
+
+    Cart payloads nest PII inside lists/dicts (browsing_history,
+    products_viewed, ...), so a shallow top-level pass is not enough
+    (issue #17). Non-container values pass through unchanged. Anything deeper
+    than _MAX_REDACT_DEPTH is redacted wholesale rather than risk a stack
+    overflow on hostile input.
+
+    NOTE: redaction is by dict key, so a raw-string body (e.g. form-encoded)
+    passes through unchanged — safe today because Sentry body capture is off
+    (max_request_body_size='never')."""
+    if _depth >= _MAX_REDACT_DEPTH:
+        return "[redacted:depth]"
+    if isinstance(obj, dict):
+        return {
+            k: ("[redacted]" if k in _PII_FIELDS else _redact_pii(v, _depth + 1))
+            for k, v in obj.items()
+        }
+    if isinstance(obj, list):
+        return [_redact_pii(item, _depth + 1) for item in obj]
+    return obj
+
+
 def _scrub_pii(event, hint):
-    """Strip PII from Sentry events before they leave the server."""
+    """Strip PII from Sentry events before they leave the server (issue #17).
+
+    Sentry's before_send hook: drops the Authorization header and recursively
+    redacts PII in the request body."""
     if "request" in event:
         if "headers" in event["request"]:
             event["request"]["headers"] = {
                 k: v for k, v in event["request"]["headers"].items()
                 if k.lower() != "authorization"
             }
-        data = event["request"].get("data")
-        if isinstance(data, dict):
-            event["request"]["data"] = {
-                k: ("[redacted]" if k in _PII_FIELDS else v)
-                for k, v in data.items()
-            }
+        if "data" in event["request"]:
+            event["request"]["data"] = _redact_pii(event["request"]["data"])
     return event
+
+
+def _scrub_breadcrumb(crumb, hint):
+    """Sentry's before_breadcrumb hook: recursively redact PII in breadcrumb
+    data so log/HTTP breadcrumbs cannot carry cart PII into an event (#17)."""
+    if isinstance(crumb, dict) and "data" in crumb:
+        crumb["data"] = _redact_pii(crumb["data"])
+    return crumb
 
 
 def create_app(config_class=Config):
@@ -72,6 +111,7 @@ def create_app(config_class=Config):
             # re-enables body capture.
             max_request_body_size="never",
             before_send=_scrub_pii,
+            before_breadcrumb=_scrub_breadcrumb,
         )
 
     app = Flask(__name__)
@@ -115,6 +155,21 @@ def create_app(config_class=Config):
     def log_response(response):
         logger = get_logger('mirofish.request')
         logger.debug(f"响应: {response.status_code}")
+        return response
+
+    # Issue #16 — OWASP baseline security headers on every response.
+    # CSP is deferred: it needs frontend-deployment-specific tuning that
+    # belongs with the frontend split/productionization decision (issue #27).
+    @app.after_request
+    def set_security_headers(response):
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "no-referrer"
+        # HSTS only over HTTPS in production — never on local plain-HTTP dev.
+        if os.environ.get("ENVIRONMENT") == "production":
+            response.headers["Strict-Transport-Security"] = (
+                "max-age=63072000; includeSubDomains"
+            )
         return response
     
     # 注册蓝图
