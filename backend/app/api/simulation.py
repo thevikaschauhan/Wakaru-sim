@@ -236,125 +236,6 @@ def create_simulation():
         }), 500
 
 
-def _check_simulation_prepared(simulation_id: str) -> tuple:
-    """
-    检查模拟是否已经准备完成
-    
-    检查条件：
-    1. state.json 存在且 status 为 "ready"
-    2. 必要文件存在：reddit_profiles.json, twitter_profiles.csv, simulation_config.json
-    
-    注意：运行脚本(run_*.py)保留在 backend/scripts/ 目录，不再复制到模拟目录
-    
-    Args:
-        simulation_id: 模拟ID
-        
-    Returns:
-        (is_prepared: bool, info: dict)
-    """
-    import os
-    from ..config import Config
-    
-    simulation_dir = os.path.join(Config.OASIS_SIMULATION_DATA_DIR, simulation_id)
-    
-    # 检查目录是否存在
-    if not os.path.exists(simulation_dir):
-        return False, {"reason": "模拟目录不存在"}
-    
-    # 必要文件列表（不包括脚本，脚本位于 backend/scripts/）
-    required_files = [
-        "state.json",
-        "simulation_config.json",
-        "reddit_profiles.json",
-        "twitter_profiles.csv"
-    ]
-    
-    # 检查文件是否存在
-    existing_files = []
-    missing_files = []
-    for f in required_files:
-        file_path = os.path.join(simulation_dir, f)
-        if os.path.exists(file_path):
-            existing_files.append(f)
-        else:
-            missing_files.append(f)
-    
-    if missing_files:
-        return False, {
-            "reason": "缺少必要文件",
-            "missing_files": missing_files,
-            "existing_files": existing_files
-        }
-    
-    # 检查state.json中的状态
-    state_file = os.path.join(simulation_dir, "state.json")
-    try:
-        import json
-        with open(state_file, 'r', encoding='utf-8') as f:
-            state_data = json.load(f)
-        
-        status = state_data.get("status", "")
-        config_generated = state_data.get("config_generated", False)
-        
-        # 详细日志
-        logger.debug(f"检测模拟准备状态: {simulation_id}, status={status}, config_generated={config_generated}")
-        
-        # 如果 config_generated=True 且文件存在，认为准备完成
-        # 以下状态都说明准备工作已完成：
-        # - ready: 准备完成，可以运行
-        # - preparing: 如果 config_generated=True 说明已完成
-        # - running: 正在运行，说明准备早就完成了
-        # - completed: 运行完成，说明准备早就完成了
-        # - stopped: 已停止，说明准备早就完成了
-        # - failed: 运行失败（但准备是完成的）
-        prepared_statuses = ["ready", "preparing", "running", "completed", "stopped", "failed"]
-        if status in prepared_statuses and config_generated:
-            # 获取文件统计信息
-            profiles_file = os.path.join(simulation_dir, "reddit_profiles.json")
-            config_file = os.path.join(simulation_dir, "simulation_config.json")
-            
-            profiles_count = 0
-            if os.path.exists(profiles_file):
-                with open(profiles_file, 'r', encoding='utf-8') as f:
-                    profiles_data = json.load(f)
-                    profiles_count = len(profiles_data) if isinstance(profiles_data, list) else 0
-            
-            # 如果状态是preparing但文件已完成，自动更新状态为ready
-            if status == "preparing":
-                try:
-                    state_data["status"] = "ready"
-                    from datetime import datetime
-                    state_data["updated_at"] = datetime.now().isoformat()
-                    with open(state_file, 'w', encoding='utf-8') as f:
-                        json.dump(state_data, f, ensure_ascii=False, indent=2)
-                    logger.info(f"自动更新模拟状态: {simulation_id} preparing -> ready")
-                    status = "ready"
-                except Exception as e:
-                    logger.warning(f"自动更新状态失败: {e}")
-            
-            logger.info(f"模拟 {simulation_id} 检测结果: 已准备完成 (status={status}, config_generated={config_generated})")
-            return True, {
-                "status": status,
-                "entities_count": state_data.get("entities_count", 0),
-                "profiles_count": profiles_count,
-                "entity_types": state_data.get("entity_types", []),
-                "config_generated": config_generated,
-                "created_at": state_data.get("created_at"),
-                "updated_at": state_data.get("updated_at"),
-                "existing_files": existing_files
-            }
-        else:
-            logger.warning(f"模拟 {simulation_id} 检测结果: 未准备完成 (status={status}, config_generated={config_generated})")
-            return False, {
-                "reason": f"状态不在已准备列表中或config_generated为false: status={status}, config_generated={config_generated}",
-                "status": status,
-                "config_generated": config_generated
-            }
-            
-    except Exception as e:
-        return False, {"reason": f"读取状态文件失败: {str(e)}"}
-
-
 @simulation_bp.route('/prepare', methods=['POST'])
 def prepare_simulation():
     """
@@ -427,7 +308,7 @@ def prepare_simulation():
         # 检查是否已经准备完成（避免重复生成）
         if not force_regenerate:
             logger.debug(f"检查模拟 {simulation_id} 是否已准备完成...")
-            is_prepared, prepare_info = _check_simulation_prepared(simulation_id)
+            is_prepared, prepare_info = SimulationManager._check_simulation_prepared(simulation_id)
             logger.debug(f"检查结果: is_prepared={is_prepared}, prepare_info={prepare_info}")
             if is_prepared:
                 logger.info(f"模拟 {simulation_id} 已准备完成，跳过重复生成")
@@ -672,7 +553,7 @@ def get_prepare_status():
         
         # 如果提供了simulation_id，先检查是否已准备完成
         if simulation_id:
-            is_prepared, prepare_info = _check_simulation_prepared(simulation_id)
+            is_prepared, prepare_info = SimulationManager._check_simulation_prepared(simulation_id)
             if is_prepared:
                 return jsonify({
                     "success": True,
@@ -711,7 +592,7 @@ def get_prepare_status():
         if not task:
             # 任务不存在，但如果有simulation_id，检查是否已准备完成
             if simulation_id:
-                is_prepared, prepare_info = _check_simulation_prepared(simulation_id)
+                is_prepared, prepare_info = SimulationManager._check_simulation_prepared(simulation_id)
                 if is_prepared:
                     return jsonify({
                         "success": True,
@@ -1535,7 +1416,7 @@ def start_simulation():
         # 智能处理状态：如果准备工作已完成，允许重新启动
         if state.status != SimulationStatus.READY:
             # 检查准备工作是否已完成
-            is_prepared, prepare_info = _check_simulation_prepared(simulation_id)
+            is_prepared, prepare_info = SimulationManager._check_simulation_prepared(simulation_id)
 
             if is_prepared:
                 # 准备工作已完成，检查是否有正在运行的进程

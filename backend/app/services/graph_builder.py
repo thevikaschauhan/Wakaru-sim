@@ -184,6 +184,76 @@ class GraphBuilderService:
             error_msg = f"{str(e)}\n{traceback.format_exc()}"
             self.task_manager.fail_task(task_id, error_msg)
     
+    def build_graph_sync(
+        self,
+        text: str,
+        ontology: Dict[str, Any],
+        graph_name: str,
+        chunk_size: int = 500,
+        chunk_overlap: int = 50,
+        batch_size: int = 3,
+        progress_callback: Optional[Callable[[str, int], None]] = None,
+        on_graph_created: Optional[Callable[[str], None]] = None,
+    ) -> Dict[str, Any]:
+        """
+        同步构建知识图谱：分块 → 创建 → 设置本体 → 分批写入 → 等待处理 → 读取图谱数据。
+
+        由 graph_bp 的 /graph/build 异步路由和进程内 cart-recovery 编排器（issue #19）
+        共享，确保两条路径执行完全相同的构建序列，而不再各自内联一份逻辑。
+
+        progress_callback(message, percent) 复用路由原有的 0-100 进度刻度；
+        on_graph_created(graph_id) 在创建后立即触发，便于调用方在后续步骤前持久化 graph_id。
+
+        Returns:
+            {graph_id, graph_data, node_count, edge_count, chunk_count}
+        """
+        def _progress(message: str, percent: int):
+            if progress_callback:
+                progress_callback(message, percent)
+
+        # 文本分块
+        _progress("文本分块中...", 5)
+        chunks = TextProcessor.split_text(text, chunk_size=chunk_size, overlap=chunk_overlap)
+        total_chunks = len(chunks)
+
+        # 创建图谱
+        _progress("创建Zep图谱...", 10)
+        graph_id = self.create_graph(name=graph_name)
+        if on_graph_created:
+            on_graph_created(graph_id)
+
+        # 设置本体
+        _progress("设置本体定义...", 15)
+        self.set_ontology(graph_id, ontology)
+
+        # 添加文本（add_text_batches 的 progress_callback 签名是 (msg, progress_ratio)）
+        _progress(f"开始添加 {total_chunks} 个文本块...", 15)
+        episode_uuids = self.add_text_batches(
+            graph_id,
+            chunks,
+            batch_size=batch_size,
+            progress_callback=lambda msg, ratio: _progress(msg, 15 + int(ratio * 40)),  # 15%-55%
+        )
+
+        # 等待Zep处理完成
+        _progress("等待Zep处理数据...", 55)
+        self._wait_for_episodes(
+            episode_uuids,
+            lambda msg, ratio: _progress(msg, 55 + int(ratio * 35)),  # 55%-90%
+        )
+
+        # 获取图谱数据
+        _progress("获取图谱数据...", 95)
+        graph_data = self.get_graph_data(graph_id)
+
+        return {
+            "graph_id": graph_id,
+            "graph_data": graph_data,
+            "node_count": graph_data.get("node_count", 0),
+            "edge_count": graph_data.get("edge_count", 0),
+            "chunk_count": total_chunks,
+        }
+
     def create_graph(self, name: str) -> str:
         """创建Zep图谱（公开方法）"""
         graph_id = f"mirofish_{uuid.uuid4().hex[:16]}"
