@@ -115,8 +115,8 @@ def analyze():
         return jsonify({"success": False, "error": f"Invalid cart data: {str(e)}"}), 400
 
     # Progress logging callback
-    def on_progress(stage: str, message: str):
-        logger.info(f"[{request_id}] {stage}: {message}")
+    def on_progress(stage: str, state: object):
+        logger.info(f"[{request_id}] {stage}: {state}")
 
     # Run analysis
     try:

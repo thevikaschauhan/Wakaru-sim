@@ -224,10 +224,12 @@ def _safe_stop(simulation_id: str) -> None:
             RunnerStatus.PAUSED,
         ):
             SimulationRunner.stop_simulation(simulation_id)
-    except (ValueError, ProcessLookupError):
-        # stop_simulation raises ValueError when runner_status is no longer
-        # RUNNING/PAUSED (already terminal) — the normal-completion path — so
-        # swallow it; ProcessLookupError guards an already-reaped pid.
+    except Exception:
+        # Best-effort cleanup invoked from the caller's finally. A stop error
+        # here — ValueError when the run is already terminal (the normal
+        # completion path), or an OSError while stop_simulation persists state —
+        # must NEVER replace the real analyze result or the original exception
+        # propagating through the finally. So swallow everything.
         pass
 
 
