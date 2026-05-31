@@ -117,6 +117,14 @@ backend/app/services/
 
 ### The Entry Point
 
+`POST /api/cart-recovery/analyze` (`backend/app/api/cart_recovery.py`) is the
+Vakaru integration point. Since issue #19 the handler runs the pipeline
+**in-process** via `backend/app/services/cart_recovery_workflow.py` →
+`run_cart_recovery(cart)`, which calls the backend services directly
+(ontology → graph → simulation → report). It does **not** self-HTTP back into
+this Flask process and never constructs `MiroFishClient`.
+
+The external Python SDK path remains unchanged for outside callers:
 `cart_recovery/engine.py` → `CartRecoveryEngine.analyze_abandonment(cart: ShopifyCartData)`:
 1. `ShopifyFormatter.format_as_seed_doc(cart)` → temp `.txt` file
 2. `MiroFishClient.run_full_pipeline(files, requirement)` → `Report`
@@ -266,7 +274,7 @@ There is a small Next.js app inside `engine-main/web/` for monitoring simulation
 
 - **Zep Cloud** is a hard dependency for knowledge graphs. No fallback if Zep is down — analysis fails at graph build stage.
 - **Agent profiles are generated in parallel** (3 at a time, configurable). Scale this up for larger simulations.
-- **Simulation is stateless** — each `analyze_abandonment()` call creates an isolated project + simulation. No shared memory between cart events.
+- **Simulation is stateless** — each cart-recovery run (the in-process `run_cart_recovery()`, or the SDK's `analyze_abandonment()`) creates an isolated project + simulation. No shared memory between cart events. This invariant still holds after issue #19 (the in-process path mints a fresh project + simulation per call).
 - **The GRU classifier** (`engine-main/classification/`) is a separate POC system. MiroFish does not use it. Do not confuse the two.
 - **Simulation seed document quality** directly drives output quality. The more rich, contextual data in the seed doc (shipping cost, payment method, browsing history, customer history), the better the personas and the more accurate the predicted abandonment reason.
 

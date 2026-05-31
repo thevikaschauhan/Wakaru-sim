@@ -19,23 +19,13 @@ _mirofish_root = os.path.abspath(
 if _mirofish_root not in sys.path:
     sys.path.insert(0, _mirofish_root)
 
-from cart_recovery.engine import CartRecoveryEngine, ShopifyCartData  # noqa: E402
+from cart_recovery.shopify_formatter import ShopifyCartData  # noqa: E402
+
+from ..services.cart_recovery_workflow import run_cart_recovery  # noqa: E402
 
 logger = logging.getLogger("mirofish.cart_recovery")
 
 cart_recovery_bp = Blueprint("cart_recovery", __name__)
-
-# Single engine instance — reused across requests
-_engine: CartRecoveryEngine | None = None
-
-
-def _get_engine() -> CartRecoveryEngine:
-    global _engine
-    if _engine is None:
-        # When running standalone, MiroFish calls itself on localhost:5001
-        mirofish_url = os.environ.get("MIROFISH_SELF_URL", "http://localhost:5001")
-        _engine = CartRecoveryEngine(mirofish_url=mirofish_url)
-    return _engine
 
 
 @cart_recovery_bp.route("/analyze", methods=["POST"])
@@ -130,8 +120,7 @@ def analyze():
 
     # Run analysis
     try:
-        engine = _get_engine()
-        insight = engine.analyze_abandonment(cart, on_progress=on_progress)
+        insight = run_cart_recovery(cart, on_progress=on_progress)
     except Exception as e:
         # Don't send the exception object to Sentry: its .args (and frame
         # locals via the traceback) can carry PII from cart data into the

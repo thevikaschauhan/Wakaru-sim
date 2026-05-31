@@ -8,7 +8,7 @@ collide with any real customer record.
 import logging
 import re
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 PII_TOKENS = (
     "pii-test@example.com",
@@ -42,8 +42,6 @@ def _assert_no_pii(caplog_records):
 
 
 def test_cart_recovery_analyze_emits_no_pii(client, caplog):
-    fake_engine = MagicMock()
-
     def fake_analyze(cart, on_progress=None):
         # Exercise the on_progress callback so the INFO log line is captured.
         if on_progress is not None:
@@ -61,9 +59,7 @@ def test_cart_recovery_analyze_emits_no_pii(client, caplog):
             confidence_reasoning="",
         )
 
-    fake_engine.analyze_abandonment.side_effect = fake_analyze
-
-    with patch("app.api.cart_recovery._get_engine", return_value=fake_engine):
+    with patch("app.api.cart_recovery.run_cart_recovery", side_effect=fake_analyze):
         with caplog.at_level(logging.DEBUG, logger="mirofish.cart_recovery"):
             with caplog.at_level(logging.DEBUG, logger="mirofish.request"):
                 resp = client.post("/api/cart-recovery/analyze", json=PII_PAYLOAD)
@@ -88,10 +84,7 @@ def test_cart_recovery_analyze_emits_no_pii(client, caplog):
 def test_cart_recovery_exception_path_emits_no_pii(client, caplog):
     """When the engine raises, the 500-error log must include the request_id
     prefix and must not embed customer_id or other PII."""
-    fake_engine = MagicMock()
-    fake_engine.analyze_abandonment.side_effect = RuntimeError("engine boom")
-
-    with patch("app.api.cart_recovery._get_engine", return_value=fake_engine):
+    with patch("app.api.cart_recovery.run_cart_recovery", side_effect=RuntimeError("engine boom")):
         with caplog.at_level(logging.DEBUG, logger="mirofish.cart_recovery"):
             with caplog.at_level(logging.DEBUG, logger="mirofish.request"):
                 resp = client.post("/api/cart-recovery/analyze", json=PII_PAYLOAD)
