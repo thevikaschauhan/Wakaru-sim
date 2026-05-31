@@ -25,6 +25,7 @@ from app.services.report_agent import ReportStatus
 from app.services.simulation_manager import SimulationStatus
 from app.services.simulation_runner import RunnerStatus
 from cart_recovery.email_prompt_builder import AbandonmentInsight
+from cart_recovery.recovery_spec import assess_confidence_heuristic
 from cart_recovery.shopify_formatter import ShopifyCartData
 
 
@@ -202,6 +203,17 @@ def test_report_dedup_skips_generation(harness):
     assert "report_gen" not in harness.calls  # COMPLETED report reused, not regenerated
 
 
+def test_prepare_dedup_short_circuits_prepare(harness):
+    """When _check_simulation_prepared reports True, prepare is skipped (the other
+    idempotency gate). Defensive in production — each run mints a fresh sim — but
+    the docstring promises both gates, so exercise the short-circuit branch."""
+    harness.state.already_prepared = True
+    insight = wf.run_cart_recovery(_make_cart())
+    assert "prepare" not in harness.calls   # already-prepared sim skips prepare
+    assert "start" in harness.calls          # pipeline still proceeds
+    assert isinstance(insight, AbandonmentInsight)
+
+
 def test_prepare_failure_raises_before_run(harness):
     harness.state.prepare_status = SimulationStatus.FAILED
     with pytest.raises(RuntimeError, match="prepare failed"):
@@ -371,6 +383,33 @@ def test_concurrent_runs_isolated(monkeypatch):
     assert len(results) == 2
     assert all(isinstance(r, AbandonmentInsight) for r in results.values())
     assert len(set(created)) == 2  # distinct simulation_ids; no cross-contamination
+
+
+def test_assess_confidence_heuristic_arithmetic():
+    """Direct guard on the relocated heuristic's score arithmetic + the min(.,1.0)
+    cap (shared verbatim by the SDK engine and the in-process orchestrator)."""
+    bare = ShopifyCartData(
+        customer_id="c", customer_name="n", email="e@example.com",
+        cart_items=[], cart_total=0.0)
+    score, reason = assess_confidence_heuristic(bare)
+    assert score == 0.3          # baseline, no signals
+    assert "minimal" in reason
+
+    full = ShopifyCartData(
+        customer_id="c", customer_name="n", email="e@example.com",
+        cart_items=[], cart_total=0.0,
+        shopper_profile={"x": 1},          # +0.15
+        behavioral_memory="m",             # +0.10
+        form_interactions=[{}],            # +0.10
+        hover_signals=[{}],                # +0.10
+        ontology_hint="h",                 # +0.15
+        recovery_history=[{}],             # +0.10
+        alert_messages_shown=["a"],        # +0.05
+        searches_submitted=["s"],          # +0.05
+    )
+    score, reason = assess_confidence_heuristic(full)
+    assert score == 1.0          # 0.3 + 1.10 raw -> capped at 1.0
+    assert "minimal" not in reason
 
 
 def test_orchestrator_import_graph_is_mirofish_free():
