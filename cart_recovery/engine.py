@@ -9,6 +9,7 @@ from typing import Callable
 from mirofish import MiroFishClient
 
 from .email_prompt_builder import AbandonmentInsight, EmailPromptBuilder
+from .recovery_spec import RECOVERY_REQUIREMENT, assess_confidence_heuristic
 from .shopify_formatter import ShopifyCartData, ShopifyFormatter
 
 logger = logging.getLogger("mirofish.cart_recovery")
@@ -40,17 +41,6 @@ confirm or contradict it? Agreement = higher confidence.
 
 Return ONLY a JSON object:
 {{"confidence": 0.XX, "reasoning": "one sentence explaining the score"}}"""
-
-# The simulation requirement sent to MiroFish for every cart recovery analysis.
-_RECOVERY_REQUIREMENT = (
-    "Simulate the psychology of a customer who abandoned their shopping cart. "
-    "Analyse the seed document to understand who this customer is, what they left behind, "
-    "and what likely caused them to leave. Predict the emotional and rational reasons for "
-    "abandonment, identify the key objections or barriers, and determine the most effective "
-    "messaging angle to bring them back to complete the purchase. "
-    "Focus on human behavioural dynamics: price sensitivity, trust, urgency, social proof, "
-    "and loyalty. Output actionable insights for a personalized recovery email."
-)
 
 
 class CartRecoveryEngine:
@@ -124,7 +114,7 @@ class CartRecoveryEngine:
         try:
             report = self._client.run_full_pipeline(
                 files=[tmp_path],
-                requirement=_RECOVERY_REQUIREMENT,
+                requirement=RECOVERY_REQUIREMENT,
                 enable_twitter=True,
                 enable_reddit=self._enable_reddit,
                 simulation_hours=self._simulation_hours,
@@ -165,7 +155,7 @@ class CartRecoveryEngine:
         """
         if self._llm_client is not None:
             return self._assess_confidence_llm(report_text, cart_data)
-        return self._assess_confidence_heuristic(cart_data)
+        return assess_confidence_heuristic(cart_data)
 
     def _assess_confidence_llm(
         self, report_text: str, cart_data: ShopifyCartData
@@ -193,43 +183,6 @@ class CartRecoveryEngine:
         except Exception as e:
             logger.warning(f"Confidence assessment failed: {e}")
             return 0.5, "Assessment failed — defaulting to uncertain"
-
-    @staticmethod
-    def _assess_confidence_heuristic(cart_data: ShopifyCartData) -> tuple[float, str]:
-        """Deterministic fallback when no LLM client is available."""
-        score = 0.3  # baseline for having cart + exit data
-        reasons = []
-
-        if getattr(cart_data, "shopper_profile", None):
-            score += 0.15
-            reasons.append("profile")
-        if getattr(cart_data, "behavioral_memory", ""):
-            score += 0.1
-            reasons.append("memory")
-        if len(getattr(cart_data, "form_interactions", [])) > 0:
-            score += 0.1
-            reasons.append("forms")
-        if len(getattr(cart_data, "hover_signals", [])) > 0:
-            score += 0.1
-            reasons.append("hovers")
-        if getattr(cart_data, "ontology_hint", None):
-            score += 0.15
-            reasons.append("hint")
-        if len(getattr(cart_data, "recovery_history", [])) > 0:
-            score += 0.1
-            reasons.append("history")
-        if len(getattr(cart_data, "alert_messages_shown", [])) > 0:
-            score += 0.05
-            reasons.append("alerts")
-        if len(getattr(cart_data, "searches_submitted", [])) > 0:
-            score += 0.05
-            reasons.append("searches")
-
-        score = min(score, 1.0)
-        reasoning = (
-            f"Heuristic score based on {', '.join(reasons) or 'minimal'} signals"
-        )
-        return round(score, 2), reasoning
 
     def interview(self, simulation_id: str, question: str) -> str:
         """
