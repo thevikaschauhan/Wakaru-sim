@@ -50,7 +50,11 @@ def main() -> None:
     # create_app() above did the config/Sentry/cleanup setup; this process is a
     # non-HTTP RQ consumer, so we deliberately do NOT call app.run() (contrast
     # run.py's web entrypoint). It serves no HTTP — hence no /health (see docstring).
-    worker = Worker([ANALYZE_QUEUE_NAME], connection=connection)
+    # log_job_description=False: defense-in-depth so RQ never logs a job
+    # description (the enqueue side already pins a PII-free one — issue #7).
+    worker = Worker(
+        [ANALYZE_QUEUE_NAME], connection=connection, log_job_description=False
+    )
     worker.work(with_scheduler=False)
 
 

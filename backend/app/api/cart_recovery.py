@@ -215,6 +215,10 @@ def enqueue_job():
         job = queue.enqueue(
             run_analysis_job,
             asdict(cart),
+            # PII-safe: RQ's default job description renders the call args
+            # (the cart dict — customer_id/name/email) into a string stored in
+            # Redis and logged at dequeue. Pin an explicit PII-free description.
+            description="cart-recovery analysis",
             job_timeout=analyze_job_timeout(),
             result_ttl=RESULT_TTL_SECONDS,
             failure_ttl=FAILURE_TTL_SECONDS,

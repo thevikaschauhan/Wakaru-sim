@@ -22,7 +22,12 @@ from rq import Queue
 from rq.job import Job
 
 from app.services.cart_recovery_jobs import run_analysis_job
-from app.services.job_queue import ANALYZE_QUEUE_NAME
+from app.services.job_queue import (
+    ANALYZE_QUEUE_NAME,
+    DEFAULT_ANALYZE_JOB_TIMEOUT,
+    analyze_job_timeout,
+    get_redis_connection,
+)
 from cart_recovery.shopify_formatter import ShopifyCartData
 
 SEVEN_KEYS = {
@@ -276,3 +281,40 @@ def test_run_analysis_job_rebuilds_cart_faithfully(monkeypatch):
     # The worker-side rebuild must equal what the web tier serialized, incl. the
     # device/device_type __post_init__ alias.
     assert captured["cart"] == original
+
+
+# --------------------------------------------------------------------------
+# Review fixes — PII in job.description, job_timeout floor, malformed REDIS_URL
+# --------------------------------------------------------------------------
+
+def test_enqueue_description_is_pii_free(client, patched_queue):
+    """RQ's default job description renders the call args (the cart dict, which
+    carries PII) into a string stored in Redis + logged at dequeue. The enqueue
+    must pin a PII-free description instead."""
+    job_id = client.post("/api/cart-recovery/jobs", json=PII_PAYLOAD).get_json()["job_id"]
+    job = Job.fetch(job_id, connection=patched_queue.connection)
+    assert job.description == "cart-recovery analysis"
+    _assert_no_pii(job.description or "")
+
+
+def test_analyze_job_timeout_floor(monkeypatch):
+    monkeypatch.delenv("ANALYZE_JOB_TIMEOUT", raising=False)
+    assert analyze_job_timeout() == DEFAULT_ANALYZE_JOB_TIMEOUT
+    # Below the 3480s poll ceiling -> unsafe -> safe default (would SIGKILL worker).
+    monkeypatch.setenv("ANALYZE_JOB_TIMEOUT", "60")
+    assert analyze_job_timeout() == DEFAULT_ANALYZE_JOB_TIMEOUT
+    # Non-integer -> safe default.
+    monkeypatch.setenv("ANALYZE_JOB_TIMEOUT", "not-a-number")
+    assert analyze_job_timeout() == DEFAULT_ANALYZE_JOB_TIMEOUT
+    # A safe higher value is honoured verbatim.
+    monkeypatch.setenv("ANALYZE_JOB_TIMEOUT", "7200")
+    assert analyze_job_timeout() == 7200
+
+
+def test_get_redis_connection_malformed_url_returns_none(monkeypatch):
+    """A bad scheme makes redis.from_url raise ValueError (not RedisError); it
+    must surface as None (-> 503), not an unhandled 500."""
+    monkeypatch.setenv("REDIS_URL", "not-a-redis-url")
+    assert get_redis_connection() is None
+    monkeypatch.delenv("REDIS_URL", raising=False)
+    assert get_redis_connection() is None
