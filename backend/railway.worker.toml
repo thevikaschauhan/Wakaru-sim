@@ -1,0 +1,23 @@
+# Railway config-as-code for the cart-recovery RQ WORKER service (issue #20).
+#
+# This is a SEPARATE Railway service from the web app, built from the SAME repo
+# and image. Point the worker service's "Config-as-code file path" (service
+# settings) at /backend/railway.worker.toml so it uses THIS file instead of the
+# repo-root railway.toml.
+#
+# Why a separate file: railway.toml is config-as-code and "always overrides
+# values from the dashboard", and it sets healthcheckPath = /health. A bare RQ
+# worker serves no HTTP, so inheriting /health would mark it unhealthy and
+# restart-loop it forever. This file therefore defines NO healthcheck and
+# overrides the start command to run the worker instead of gunicorn.
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "backend/Dockerfile"
+
+[deploy]
+# WORKDIR is /app/backend (see backend/Dockerfile); worker.py lives there.
+# Overrides the Dockerfile's gunicorn CMD. No healthcheckPath — serves no HTTP.
+startCommand = "python worker.py"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
