@@ -25,6 +25,7 @@ from app.services.cart_recovery_jobs import run_analysis_job
 from app.services.job_queue import (
     ANALYZE_QUEUE_NAME,
     DEFAULT_ANALYZE_JOB_TIMEOUT,
+    MIN_ANALYZE_JOB_TIMEOUT,
     analyze_job_timeout,
     get_redis_connection,
 )
@@ -300,8 +301,16 @@ def test_enqueue_description_is_pii_free(client, patched_queue):
 def test_analyze_job_timeout_floor(monkeypatch):
     monkeypatch.delenv("ANALYZE_JOB_TIMEOUT", raising=False)
     assert analyze_job_timeout() == DEFAULT_ANALYZE_JOB_TIMEOUT
-    # Below the 3480s poll ceiling -> unsafe -> safe default (would SIGKILL worker).
+    # Below the floor -> unsafe -> safe default (would SIGKILL worker mid-pipeline).
     monkeypatch.setenv("ANALYZE_JOB_TIMEOUT", "60")
+    assert analyze_job_timeout() == DEFAULT_ANALYZE_JOB_TIMEOUT
+    # The bare poll ceiling (3480s) leaves no room for pre/post stages -> rejected.
+    monkeypatch.setenv("ANALYZE_JOB_TIMEOUT", "3480")
+    assert analyze_job_timeout() == DEFAULT_ANALYZE_JOB_TIMEOUT
+    # Exact boundary: MIN is safe and honoured; MIN-1 falls back to the default.
+    monkeypatch.setenv("ANALYZE_JOB_TIMEOUT", str(MIN_ANALYZE_JOB_TIMEOUT))
+    assert analyze_job_timeout() == MIN_ANALYZE_JOB_TIMEOUT
+    monkeypatch.setenv("ANALYZE_JOB_TIMEOUT", str(MIN_ANALYZE_JOB_TIMEOUT - 1))
     assert analyze_job_timeout() == DEFAULT_ANALYZE_JOB_TIMEOUT
     # Non-integer -> safe default.
     monkeypatch.setenv("ANALYZE_JOB_TIMEOUT", "not-a-number")

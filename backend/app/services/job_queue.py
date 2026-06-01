@@ -29,11 +29,15 @@ ANALYZE_QUEUE_NAME = "analyze"
 # or RQ SIGKILLs the worker mid-pipeline and orphans the OASIS subprocess.
 DEFAULT_ANALYZE_JOB_TIMEOUT = 5400  # 90 min
 
-# Hard floor: a configured timeout at/below the workflow's 3480s poll ceiling
-# would SIGKILL the worker mid-pipeline and orphan the OASIS subprocess — the
-# exact failure this timeout exists to prevent. Anything under the floor is
-# treated as misconfiguration and falls back to the safe default.
-MIN_ANALYZE_JOB_TIMEOUT = 3480
+# Safety floor for an env-overridden timeout. The workflow's internal poll
+# ceiling alone is 3480s (cart_recovery_workflow._RUN_POLL_TIMEOUT_SECONDS); a
+# run also has pre-poll (ontology/graph/prepare) and post-poll (report) stages,
+# so a near-ceiling poll that then completes + reports can reach ~4140s wall
+# clock. RQ's job_timeout must clear that or it SIGKILLs the worker mid-pipeline
+# and orphans the OASIS subprocess. Floor = 3480 + ~720s headroom; a value below
+# it is treated as misconfiguration and falls back to the safe default. The
+# boundary value itself is safe, so the check is strict `<` (not `<=`).
+MIN_ANALYZE_JOB_TIMEOUT = 4200  # 70 min
 
 # Keep finished results and failure metadata readable long after a run so the
 # engine's poll loop can always reach a terminal job (RQ's ~500s result default
