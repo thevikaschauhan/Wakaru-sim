@@ -94,7 +94,7 @@ OASIS_DEFAULT_MAX_ROUNDS   10  (default simulation rounds)
 | `graph_bp` | `/graph` | `POST /ontology/generate`, `POST /graph/build/{id}`, `GET /graph/status/{task_id}`, `GET /project/{id}` |
 | `simulation_bp` | `/simulation` | `POST /create`, `POST /{id}/prepare`, `GET /{id}/prepare_status`, `POST /{id}/start`, `GET /{id}/run_status`, `POST /{id}/stop`, `GET /{id}/actions`, `GET /{id}/timeline` |
 | `report_bp` | `/report` | `POST /{id}/generate`, `GET /{id}/status`, `GET /{id}/full`, `POST /{id}/interview` |
-| `cart_recovery_bp` | `/cart-recovery` | `POST /analyze` ← **Vakaru integration point** |
+| `cart_recovery_bp` | `/cart-recovery` | `POST /analyze` (sync), `POST /jobs` + `GET /jobs/{id}` (async, #20) ← **Vakaru integration point** |
 
 ### Services Directory
 
@@ -157,6 +157,8 @@ emotional_state: str           # price-sensitive | anxious | indecisive | compar
 recommended_angle: str         # discount-or-value | trust-and-social-proof | urgency-scarcity | welcome-and-reassurance | loyalty-and-reward | gentle-reminder
 key_objections: list[str]      # ["$18.99 shipping on $45 order", "No free shipping threshold shown"]
 email_prompt_context: str      # Full LLM prompt — paste into GPT-4/Claude to generate email
+confidence: float              # 0.0-1.0 heuristic confidence in the analysis
+confidence_reasoning: str      # one-sentence explanation of the confidence score
 ```
 
 ### Vakaru → MiroFish API Contract
@@ -186,14 +188,27 @@ Content-Type: application/json
   ...
 }
 
-Response:
+Response (200):
 {
-  "predicted_reason": "...",
-  "emotional_state": "...",
-  "recommended_angle": "...",
-  "key_objections": [...],
-  "email_prompt_context": "..."
+  "success": true,
+  "data": {
+    "predicted_reason": "...",
+    "emotional_state": "...",
+    "recommended_angle": "...",
+    "key_objections": [...],
+    "email_prompt_context": "...",
+    "confidence": 0.62,
+    "confidence_reasoning": "..."
+  }
 }
+
+# Async alternative (issue #20) — enqueue instead of blocking 8-17 min:
+POST /api/cart-recovery/jobs           # same request body as above
+→ 202 { "success": true, "job_id": "<id>", "status_url": "/api/cart-recovery/jobs/<id>" }
+
+GET /api/cart-recovery/jobs/<job_id>
+→ 200 { "success": true, "status": "queued|started|finished|failed",
+        "progress": {...}, "result": {<7-field data block>}?, "error": "Analysis failed (<Type>)"? }
 ```
 
 ---
