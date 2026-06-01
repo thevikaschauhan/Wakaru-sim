@@ -39,3 +39,10 @@ pydantic>=2.0.0
 
 # ============= 生产服务器 =============
 gunicorn>=22.0,<23
+
+# ============= 异步任务队列 (issue #20) =============
+# Redis + RQ move /api/cart-recovery/jobs off the synchronous request path.
+# Installed in the deployed image (this is the prod install path; see Dockerfile);
+# the worker runs as a SEPARATE Railway service off the same image.
+redis>=5.0,<6
+rq>=1.16,<2

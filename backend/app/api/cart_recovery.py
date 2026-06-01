@@ -1,6 +1,9 @@
 """
 Cart Recovery API Blueprint — Vakaru Integration Point
-POST /api/cart-recovery/analyze
+
+POST /api/cart-recovery/analyze        synchronous (legacy; blocks ~8-17 min)
+POST /api/cart-recovery/jobs           enqueue async analysis -> {job_id, status_url}
+GET  /api/cart-recovery/jobs/<job_id>  poll status / progress / result (issue #20)
 """
 
 import sys
@@ -8,9 +11,13 @@ import os
 import logging
 import traceback
 import uuid
+from dataclasses import asdict
 
 from flask import Blueprint, request, jsonify
 import sentry_sdk
+from redis.exceptions import RedisError
+from rq.exceptions import NoSuchJobError
+from rq.job import Job
 
 # Add MiroFish-main root to sys.path so cart_recovery module is importable
 _mirofish_root = os.path.abspath(
@@ -22,36 +29,40 @@ if _mirofish_root not in sys.path:
 from cart_recovery.shopify_formatter import ShopifyCartData  # noqa: E402
 
 from ..services.cart_recovery_workflow import run_cart_recovery  # noqa: E402
+from ..services.cart_recovery_jobs import run_analysis_job  # noqa: E402
+from ..services.job_queue import (  # noqa: E402
+    analyze_job_timeout,
+    get_analyze_queue,
+    get_redis_connection,
+    FAILURE_TTL_SECONDS,
+    RESULT_TTL_SECONDS,
+)
 
 logger = logging.getLogger("mirofish.cart_recovery")
 
 cart_recovery_bp = Blueprint("cart_recovery", __name__)
 
 
-@cart_recovery_bp.route("/analyze", methods=["POST"])
-def analyze():
-    """
-    Analyze a cart abandonment event using MiroFish psychology simulation.
+def _build_cart_from_body(request_id):
+    """Shared web-tier validation + ShopifyCartData construction.
 
-    Input JSON: ShopifyCartData fields
-    Output JSON: { "success": true, "data": AbandonmentInsight }
+    Used by both /analyze (sync) and /jobs (async) so the two paths reject the
+    same malformed payloads with the same 400s. Returns ``(cart, None)`` on
+    success or ``(None, (response, status))`` on a client error: non-JSON body,
+    missing required fields, or uncoercible numeric values.
     """
-    # Short per-request correlation id for log triage.
-    # See issue #7; a proper request-id middleware will land with Phase 3.
-    request_id = uuid.uuid4().hex[:8]
-
     body = request.get_json(silent=True)
     if not body:
-        return jsonify({"success": False, "error": "Request body must be valid JSON"}), 400
+        return None, (jsonify({"success": False, "error": "Request body must be valid JSON"}), 400)
 
     # Validate required fields
     required = ["customer_id", "email"]
     missing = [f for f in required if not body.get(f)]
     if missing:
-        return jsonify({
+        return None, (jsonify({
             "success": False,
             "error": f"Missing required fields: {', '.join(missing)}"
-        }), 400
+        }), 400)
 
     # Build ShopifyCartData from request body
     try:
@@ -112,7 +123,29 @@ def analyze():
         # type is enough for log triage; the full message is still returned
         # in the 400 response so the caller can fix their payload.
         logger.warning(f"[{request_id}] Invalid cart data ({type(e).__name__})")
-        return jsonify({"success": False, "error": f"Invalid cart data: {str(e)}"}), 400
+        return None, (jsonify({"success": False, "error": f"Invalid cart data: {str(e)}"}), 400)
+
+    return cart, None
+
+
+@cart_recovery_bp.route("/analyze", methods=["POST"])
+def analyze():
+    """
+    Analyze a cart abandonment event synchronously (legacy path).
+
+    Input JSON: ShopifyCartData fields
+    Output JSON: { "success": true, "data": AbandonmentInsight }
+
+    Blocks for the full ~8-17 min pipeline. New callers should prefer the async
+    POST /jobs + GET /jobs/<id> path (issue #20).
+    """
+    # Short per-request correlation id for log triage.
+    # See issue #7; a proper request-id middleware will land with Phase 3.
+    request_id = uuid.uuid4().hex[:8]
+
+    cart, error = _build_cart_from_body(request_id)
+    if error is not None:
+        return error
 
     # Progress logging callback
     def on_progress(stage: str, state: object):
@@ -149,3 +182,92 @@ def analyze():
             "confidence_reasoning": insight.confidence_reasoning,
         }
     }), 200
+
+
+@cart_recovery_bp.route("/jobs", methods=["POST"])
+def enqueue_job():
+    """
+    Enqueue a cart abandonment analysis and return immediately (issue #20).
+
+    Input JSON: ShopifyCartData fields (same as /analyze).
+    Output JSON (202): { success, job_id, status_url }
+
+    The cheap web-tier validation runs inline (same 400s as /analyze); the
+    ~8-17 min pipeline runs on a separate RQ worker. Poll GET /jobs/<id> for
+    progress and the terminal 7-field result.
+    """
+    request_id = uuid.uuid4().hex[:8]
+
+    cart, error = _build_cart_from_body(request_id)
+    if error is not None:
+        return error
+
+    queue = get_analyze_queue()
+    if queue is None:
+        # REDIS_URL unset: the async path is unavailable, but /analyze is not.
+        logger.error(f"[{request_id}] Job queue unavailable (REDIS_URL not configured)")
+        return jsonify({"success": False, "error": "Job queue unavailable"}), 503
+
+    try:
+        # No auto-retry (RQ default): an 8-17 min, paid LLM job must not silently
+        # re-run, and there is no idempotency yet (issue #12). A failed job is
+        # terminal — GET surfaces status=failed and the caller decides what to do.
+        job = queue.enqueue(
+            run_analysis_job,
+            asdict(cart),
+            job_timeout=analyze_job_timeout(),
+            result_ttl=RESULT_TTL_SECONDS,
+            failure_ttl=FAILURE_TTL_SECONDS,
+        )
+    except RedisError:
+        logger.error(f"[{request_id}] Job enqueue failed (Redis unreachable)")
+        return jsonify({"success": False, "error": "Job queue unavailable"}), 503
+
+    return jsonify({
+        "success": True,
+        "job_id": job.id,
+        "status_url": f"/api/cart-recovery/jobs/{job.id}",
+    }), 202
+
+
+@cart_recovery_bp.route("/jobs/<job_id>", methods=["GET"])
+def job_status(job_id):
+    """
+    Return status / progress / result for an enqueued analysis job (issue #20).
+
+    Output JSON (200): { success, job_id, status, progress, result?, error? }
+      - status:   queued | started | finished | failed | deferred | ...
+      - progress: latest { stage, state } the worker recorded (PII-free)
+      - result:   the 7-field AbandonmentInsight dict, when status == finished
+      - error:    a PII-free failure marker, when status == failed
+    """
+    request_id = uuid.uuid4().hex[:8]
+
+    connection = get_redis_connection()
+    if connection is None:
+        logger.error(f"[{request_id}] Job queue unavailable (REDIS_URL not configured)")
+        return jsonify({"success": False, "error": "Job queue unavailable"}), 503
+
+    try:
+        job = Job.fetch(job_id, connection=connection)
+    except NoSuchJobError:
+        return jsonify({"success": False, "error": "Job not found"}), 404
+    except RedisError:
+        logger.error(f"[{request_id}] Job fetch failed (Redis unreachable)")
+        return jsonify({"success": False, "error": "Job queue unavailable"}), 503
+
+    status = job.get_status()
+    payload = {
+        "success": True,
+        "job_id": job.id,
+        "status": status,
+        "progress": job.meta or {},
+    }
+    if status == "finished":
+        payload["result"] = job.result
+    elif status == "failed":
+        # NEVER return job.exc_info (full traceback — may carry PII). The worker
+        # writes a PII-free marker to job.meta["error"]; fall back to a generic.
+        payload["error"] = (job.meta or {}).get("error", "Analysis failed")
+
+    return jsonify(payload), 200

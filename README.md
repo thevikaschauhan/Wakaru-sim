@@ -67,20 +67,72 @@ Content-Type: application/json
 }
 ```
 
-**Response:**
+**Response** (`200`):
 
 ```json
 {
-  "predicted_reason": "Shipping cost shock at checkout — $12.99 on a $99.99 order",
-  "emotional_state": "price-sensitive",
-  "recommended_angle": "discount-or-value",
-  "key_objections": [
-    "$12.99 shipping on a $99 order feels disproportionate",
-    "No free shipping threshold was shown earlier in the journey"
-  ],
-  "email_prompt_context": "Write a cart recovery email for Sarah who abandoned..."
+  "success": true,
+  "data": {
+    "predicted_reason": "Shipping cost shock at checkout — $12.99 on a $99.99 order",
+    "emotional_state": "price-sensitive",
+    "recommended_angle": "discount-or-value",
+    "key_objections": [
+      "$12.99 shipping on a $99 order feels disproportionate",
+      "No free shipping threshold was shown earlier in the journey"
+    ],
+    "email_prompt_context": "Write a cart recovery email for Sarah who abandoned...",
+    "confidence": 0.62,
+    "confidence_reasoning": "Strong shipping-cost signal; limited browsing history."
+  }
 }
 ```
+
+> ⚠️ `POST /analyze` is **synchronous** — it blocks for the full 8–17 min pipeline.
+> New integrations should prefer the async job API below (issue #20).
+
+### Async Cart Recovery (Redis + RQ)
+
+`POST /api/cart-recovery/jobs` validates the payload (same body + same `400`s as
+`/analyze`), enqueues the analysis on Redis, and returns immediately so the
+caller never holds an 8–17 min connection:
+
+```
+POST /api/cart-recovery/jobs          # same body as /analyze
+→ 202 { "success": true, "job_id": "<id>", "status_url": "/api/cart-recovery/jobs/<id>" }
+```
+
+Poll for progress and the terminal result:
+
+```
+GET /api/cart-recovery/jobs/<job_id>
+→ 200 {
+    "success": true,
+    "job_id":  "<id>",
+    "status":  "queued | started | finished | failed",
+    "progress": { "stage": "...", "state": { ... } },          // PII-free, while running
+    "result":  { ...the same 7-field `data` block as /analyze },  // when finished
+    "error":   "Analysis failed (<ExceptionType>)"                // when failed (PII-free)
+  }
+```
+
+Requires `REDIS_URL`; `/jobs` returns `503` if the queue is unavailable (`/analyze`
+is unaffected). The RQ worker runs as a separate Railway service and scales
+independently of the web workers.
+
+**Operational notes**
+
+- **Failed jobs are terminal** — no automatic retry is configured. An 8–17 min,
+  paid LLM run must not silently re-run, and there is no idempotency yet (issue
+  #12). On `status: "failed"` the caller decides whether to re-`POST /jobs`.
+- **Deploying the worker** — a *separate* Railway service off the same image with
+  start command `python worker.py` (from `/app/backend`). Set `REDIS_URL` on
+  **both** the web and worker services. **Disable the worker service's health
+  check**: the shared `railway.toml` sets `healthcheckPath = /health`, but the
+  worker serves no HTTP and would otherwise be marked unhealthy and restart-looped.
+- **Throughput** — concurrency scales by worker *replicas*, not gunicorn
+  `--workers`. The enqueue p95 latency and 20-concurrent behaviour are exercised
+  in unit tests only against in-memory `fakeredis`; run a live load test against
+  real Redis before production scale-up.
 
 ### Other Endpoints
 
