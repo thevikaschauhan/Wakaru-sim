@@ -4,11 +4,37 @@ LLM客户端封装
 """
 
 import json
+import logging
 import re
 from typing import Optional, Dict, Any, List
-from openai import OpenAI
+from openai import OpenAI, BadRequestError
 
 from ..config import Config
+
+logger = logging.getLogger("mirofish.llm_client")
+
+
+def create_chat_completion(client: OpenAI, **kwargs):
+    """Call ``chat.completions.create``, falling back to a plain call when the
+    provider rejects ``response_format``.
+
+    Some OpenAI-compatible providers (notably DeepSeek) return
+    ``400 "This response_format type is unavailable now"`` for
+    ``response_format={"type": "json_object"}``. Every JSON-mode call site pairs
+    response_format with prompt-level JSON instructions and downstream JSON
+    recovery (chat_json strips ``` fences; the simulation generators extract the
+    object via a ``{...}`` regex), so dropping response_format degrades
+    gracefully instead of failing the whole cart-recovery pipeline with a
+    BadRequestError. A non-response_format 400 is re-raised unchanged.
+    """
+    try:
+        return client.chat.completions.create(**kwargs)
+    except BadRequestError:
+        if "response_format" not in kwargs:
+            raise
+        logger.warning("provider rejected response_format; retrying without it")
+        kwargs.pop("response_format")
+        return client.chat.completions.create(**kwargs)
 
 
 class LLMClient:
@@ -60,8 +86,8 @@ class LLMClient:
         
         if response_format:
             kwargs["response_format"] = response_format
-        
-        response = self.client.chat.completions.create(**kwargs)
+
+        response = create_chat_completion(self.client, **kwargs)
         content = response.choices[0].message.content
         # 部分模型（如MiniMax M2.5）会在content中包含<think>思考内容，需要移除
         content = re.sub(r'<think>[\s\S]*?</think>', '', content).strip()
