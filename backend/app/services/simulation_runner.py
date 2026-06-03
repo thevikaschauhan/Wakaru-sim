@@ -431,7 +431,15 @@ class SimulationRunner:
             env = os.environ.copy()
             env['PYTHONUTF8'] = '1'  # Python 3.7+ 支持，让所有 open() 默认使用 UTF-8
             env['PYTHONIOENCODING'] = 'utf-8'  # 确保 stdout/stderr 使用 UTF-8
-            
+            # 问题 #45: OASIS 无参 get_db_path() 默认写到自身 site-packages 下的 data/ 并
+            # makedirs；非 root 的 appuser 容器（#9 加固）无权写入 → PermissionError。改指向
+            # 本次模拟目录（可写，已由上面的 _save_run_state() 经 makedirs 创建）。必须绝对
+            # 路径：子进程以 cwd=sim_dir 运行，相对值会相对 cwd 再拼接而双重嵌套；get_db_path()
+            # 原样返回该值（不 makedirs）。文件名沿用 OASIS 的 DB_NAME 默认 social_media.db
+            # （agent_environment 的 get_db_path() 读它，与传给 oasis.make 的主库
+            # twitter_simulation.db 本就是两个文件——OASIS 既有行为，非本次引入）。
+            env['OASIS_DB_PATH'] = os.path.join(os.path.abspath(sim_dir), 'social_media.db')
+
             # 设置工作目录为模拟目录（数据库等文件会生成在此）
             # 使用 start_new_session=True 创建新的进程组，确保可以通过 os.killpg 终止所有子进程
             process = subprocess.Popen(
@@ -1135,6 +1143,7 @@ class SimulationRunner:
             "stderr.log",
             "twitter_simulation.db",  # Twitter 平台数据库
             "reddit_simulation.db",   # Reddit 平台数据库
+            "social_media.db",        # OASIS 无参 get_db_path() 的默认库（问题 #45）
             "env_status.json",        # 环境状态文件
         ]
         
