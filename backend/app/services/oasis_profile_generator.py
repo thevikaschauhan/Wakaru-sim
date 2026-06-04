@@ -172,13 +172,19 @@ class OasisProfileGenerator:
     # Individual entity types (need a concrete persona generated)
     INDIVIDUAL_ENTITY_TYPES = [
         "student", "alumni", "professor", "person", "publicfigure",
-        "expert", "faculty", "official", "journalist", "activist"
+        "expert", "faculty", "official", "journalist", "activist",
+        "shopper", "customer", "buyer", "browser", "pricesensitiveshopper",
+        "comparisonshopper", "firsttimebuyer", "loyalcustomer", "dealhunter",
+        "hesitantbrowser", "giftbuyer", "abandoningcustomer", "visitor"
     ]
 
     # Group/institutional entity types (need a representative group persona generated)
     GROUP_ENTITY_TYPES = [
         "university", "governmentagency", "organization", "ngo",
-        "mediaoutlet", "company", "institution", "group", "community"
+        "mediaoutlet", "company", "institution", "group", "community",
+        "brand", "store", "merchant", "retailer", "marketplace",
+        "paymentprovider", "shippingprovider", "reviewplatform",
+        "loyaltyprogram", "supportteam"
     ]
     
     def __init__(
@@ -499,7 +505,29 @@ class OasisProfileGenerator:
 
     def _is_individual_entity(self, entity_type: str) -> bool:
         """Determine whether this is an individual-type entity"""
-        return entity_type.lower() in self.INDIVIDUAL_ENTITY_TYPES
+        type_lower = entity_type.lower()
+        if type_lower in self.INDIVIDUAL_ENTITY_TYPES:
+            return True
+        if type_lower in self.GROUP_ENTITY_TYPES:
+            return False
+        # Keyword fallback: be robust to LLM type-name variation
+        individual_keywords = (
+            "shopper", "customer", "buyer", "browser", "visitor",
+            "person", "user", "guest", "member", "advocate",
+            "reviewer", "influencer"
+        )
+        if any(kw in type_lower for kw in individual_keywords):
+            return True
+        group_keywords = (
+            "brand", "store", "merchant", "retailer", "marketplace",
+            "provider", "platform", "program", "team", "organization",
+            "org", "agency", "segment", "network", "institution",
+            "community", "group"
+        )
+        if any(kw in type_lower for kw in group_keywords):
+            return False
+        # Default: in cart-recovery the common case is an individual shopper
+        return True
 
     def _is_group_entity(self, entity_type: str) -> bool:
         """Determine whether this is a group/institutional-type entity"""
@@ -792,11 +820,11 @@ Generate JSON with the following fields:
    - Shopping and online behavior (how they browse, research, and decide; price sensitivity; brand loyalty; checkout habits; what makes them hesitate)
    - Stance and objections (their attitude toward the product, price, shipping, trust, and checkout; what could push them to abandon or what could win them back)
    - Distinctive traits (catchphrases, notable experiences, personal hobbies)
-   - Cart memory (a key part of the persona: describe this shopper's connection to the abandoned cart, what they left behind, and how they have already reacted during the abandonment)
+   - Cart memory (a key part of the persona: describe this shopper's connection to the abandoned cart, what they left behind, their likely emotional state at the moment of abandonment, and any prior signals (e.g. removed items, applied/removed discounts) that hint at their reasoning.)
 3. age: Age as a number (must be an integer)
 4. gender: Gender, must be in English: "male" or "female"
 5. mbti: MBTI type (e.g. INTJ, ENFP)
-6. country: Country (e.g. "US")
+6. country: Country (e.g. "US", "UK", "Germany" — match the entity's actual location)
 7. profession: Occupation
 8. interested_topics: An array of topics of interest
 
@@ -851,11 +879,11 @@ Generate JSON with the following fields:
    - Behavior patterns (typical shopping behavior, how often the segment buys, when it is most active)
    - Stance and objections (the segment's collective attitude toward the product, price, shipping, trust, and checkout; how it handles hesitation or doubt)
    - Special notes (the shopper profile it represents, its purchasing habits)
-   - Cart memory (a key part of the persona: describe this segment's connection to the abandoned cart, what was left behind, and how the segment has already reacted during the abandonment)
+   - Cart memory (a key part of the persona: describe this segment's typical relationship to the cart items and the hesitation signals or decision patterns that lead to abandonment.)
 3. age: Always set to 30 (the virtual age of a group account)
 4. gender: Always set to "other" (a group account uses "other" to indicate it is not an individual)
 5. mbti: MBTI type, used to describe the account's style (e.g. ISTJ for rigorous and conservative)
-6. country: Country (e.g. "US")
+6. country: Country (e.g. "US", "UK", "Germany" — match the entity's actual location)
 7. profession: A description of the group's function
 8. interested_topics: An array of focus areas
 
@@ -909,7 +937,7 @@ Important:
                 "age": 30,  # Virtual age for a group account
                 "gender": "other",  # Group accounts use "other"
                 "mbti": "ISTJ",  # Group style: rigorous and conservative
-                "country": "US",
+                "country": random.choice(self.COUNTRIES),
                 "profession": "Trend-driven shopper segment",
                 "interested_topics": ["Trending Products", "Social Proof", "Recommendations"],
             }
@@ -921,7 +949,7 @@ Important:
                 "age": 30,  # Virtual age for a group account
                 "gender": "other",  # Group accounts use "other"
                 "mbti": "ISTJ",  # Group style: rigorous and conservative
-                "country": "US",
+                "country": random.choice(self.COUNTRIES),
                 "profession": entity_type,
                 "interested_topics": ["Value & Reliability", "Customer Experience", "Checkout Friction"],
             }
@@ -1229,6 +1257,11 @@ Important:
             "male": "male",
             "female": "female",
             "other": "other",
+            # Backward-compat i18n shim: legacy persisted Chinese values
+            "男": "male",
+            "女": "female",
+            "机构": "other",
+            "其他": "other",
         }
 
         return gender_map.get(gender_lower, "other")

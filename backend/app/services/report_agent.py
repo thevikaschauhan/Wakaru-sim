@@ -658,7 +658,7 @@ Stay focused on the shopper's likely behavior — the simulation results are the
 2. [You must quote the agents' original statements and behavior]
    - The agents' statements and behavior are predictions of how a real shopper would react
    - Show these predictions in the report using quote format, for example:
-     > "A price-sensitive shopper would say: original content..."
+     > "A price-sensitive shopper would say: $18.99 shipping on a $45 order felt excessive..."
    - These quotes are the core evidence of the simulation's prediction
 
 3. [Language consistency - quoted content must be in the report language]

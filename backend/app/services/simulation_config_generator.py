@@ -28,7 +28,7 @@ from .zep_entity_reader import EntityNode, ZepEntityReader
 logger = get_logger('mirofish.simulation_config')
 
 # Shopper daily-rhythm configuration (local store time)
-CHINA_TIMEZONE_CONFIG = {
+SHOPPER_TIMEZONE_CONFIG = {
     # Overnight hours (almost no shopper activity)
     "dead_hours": [0, 1, 2, 3, 4, 5],
     # Morning hours (shoppers gradually waking up)
@@ -762,6 +762,10 @@ Return JSON format (no markdown):
             "alumni": ["alumni", "person"],
             "organization": ["organization", "ngo", "company", "group"],
             "person": ["person", "student", "alumni"],
+            "brand": ["brand", "store", "merchant", "retailer", "official", "university", "governmentagency"],
+            "reviewer": ["reviewer", "influencer", "mediaoutlet"],
+            "shopper": ["shopper", "customer", "buyer", "person", "student", "alumni"],
+            "customer": ["customer", "shopper", "buyer", "person"],
         }
         
         # Track the agent index already used per type, to avoid reusing the same agent
@@ -916,7 +920,7 @@ Return JSON format (no markdown):
         """Rule-based generation of a single agent configuration (typical shopper daily rhythm)"""
         entity_type = (entity.get_entity_type() or "Unknown").lower()
 
-        if entity_type in ["university", "governmentagency", "ngo"]:
+        if entity_type in ["university", "governmentagency", "ngo", "brand", "store", "merchant", "retailer"]:
             # Brand/store accounts: active during working hours, low frequency, high influence
             return {
                 "activity_level": 0.2,
@@ -929,7 +933,7 @@ Return JSON format (no markdown):
                 "stance": "neutral",
                 "influence_weight": 3.0
             }
-        elif entity_type in ["mediaoutlet"]:
+        elif entity_type in ["mediaoutlet", "reviewer", "influencer"]:
             # Reviewers / influencers: active all day, medium frequency, high influence
             return {
                 "activity_level": 0.5,
@@ -955,7 +959,7 @@ Return JSON format (no markdown):
                 "stance": "neutral",
                 "influence_weight": 2.0
             }
-        elif entity_type in ["student"]:
+        elif entity_type in ["student", "shopper", "customer", "buyer"]:
             # Younger / impulse shoppers: mainly active in the evening, high frequency
             return {
                 "activity_level": 0.8,
