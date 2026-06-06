@@ -81,6 +81,11 @@ class Config:
             errors.append("LLM_API_KEY 未配置")
         if not os.environ.get('ZEP_API_KEY'):
             errors.append("ZEP_API_KEY 未配置")
+        # Issue #10: the X-API-Key guard on /api/* fails closed at boot. An empty
+        # key would also make hmac.compare_digest("", "") return True at request
+        # time (auth bypass), so refuse to start without it.
+        if not os.environ.get('WAKARU_API_KEY'):
+            errors.append("WAKARU_API_KEY is not configured (required for /api/* auth; issue #10)")
         # .strip() defends against shell/dashboard inputs that wrap the
         # forbidden literal in whitespace (multi-agent review round 1).
         secret = (os.environ.get('SECRET_KEY') or '').strip()

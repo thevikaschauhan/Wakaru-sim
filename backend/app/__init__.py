@@ -2,6 +2,7 @@
 MiroFish Backend - Flask应用工厂
 """
 
+import hmac
 import os
 import warnings
 import sentry_sdk
@@ -10,7 +11,7 @@ import sentry_sdk
 # 需要在所有其他导入之前设置
 warnings.filterwarnings("ignore", message=".*resource_tracker.*")
 
-from flask import Flask, request
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 
 from .config import Config
@@ -135,8 +136,33 @@ def create_app(config_class=Config):
         logger.info("MiroFish Backend 启动中...")
         logger.info("=" * 50)
     
-    # 启用CORS
-    CORS(app, resources={r"/api/*": {"origins": "*"}})
+    # Issue #10: restrict CORS on /api/* to an explicit allowlist instead of the
+    # former wildcard. ALLOWED_ORIGINS is a comma-separated list; empty = no
+    # browser origin is permitted. The engine calls /api/* server→server (no CORS
+    # needed); the Vue frontend is local-dev only and not a deployed origin.
+    allowed_origins = [
+        o.strip() for o in os.environ.get("ALLOWED_ORIGINS", "").split(",") if o.strip()
+    ]
+    CORS(app, resources={r"/api/*": {"origins": allowed_origins}})
+
+    # Issue #10: single shared-secret X-API-Key guard on /api/*. The /api/ prefix
+    # check leaves /health (not under /api/) open. OPTIONS preflight carries no
+    # auth header by design, so it is exempted and answered by flask-cors. This
+    # is an interim model; per-merchant keys land with multi-tenancy (#24).
+    @app.before_request
+    def require_api_key():
+        if request.method == "OPTIONS" or not request.path.startswith("/api/"):
+            return None
+        expected = os.environ.get("WAKARU_API_KEY")
+        if not expected:
+            # Fail closed: an empty expected key makes hmac.compare_digest("", "")
+            # return True (auth bypass). validate() blocks this at boot; this is
+            # defense in depth for any path that bypasses the boot gate.
+            return jsonify({"error": "server_auth_not_configured"}), 503
+        provided = request.headers.get("X-API-Key", "")
+        if not hmac.compare_digest(provided, expected):
+            return jsonify({"error": "unauthorized"}), 401
+        return None
     
     # 注册模拟进程清理函数（确保服务器关闭时终止所有模拟进程）
     from .services.simulation_runner import SimulationRunner

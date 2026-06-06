@@ -22,9 +22,14 @@ if str(_REPO_ROOT) not in sys.path:
 from app import create_app  # noqa: E402
 
 
+# Shared test secret for the issue-#10 X-API-Key guard. The value is arbitrary;
+# only that the autouse env and the `client` fixture agree on it.
+TEST_WAKARU_API_KEY = "test-wakaru-api-key"
+
+
 @pytest.fixture(autouse=True)
 def config_env(monkeypatch):
-    """Set required env vars so create_app()'s validate() (issue #6) passes
+    """Set required env vars so create_app()'s validate() (issues #6, #10) passes
     by default. Individual tests can override with monkeypatch.delenv /
     monkeypatch.setenv before calling create_app() themselves.
 
@@ -33,6 +38,7 @@ def config_env(monkeypatch):
     monkeypatch.setenv("SECRET_KEY", "test-secret")
     monkeypatch.setenv("LLM_API_KEY", "test")
     monkeypatch.setenv("ZEP_API_KEY", "test")
+    monkeypatch.setenv("WAKARU_API_KEY", TEST_WAKARU_API_KEY)
 
 
 @pytest.fixture
@@ -53,4 +59,9 @@ def app():
 
 @pytest.fixture
 def client(app):
-    return app.test_client()
+    c = app.test_client()
+    # Authenticate every request by default (issue #10) so existing /api/* tests
+    # need no changes. Tests that want an unauthenticated request build their own
+    # client from the `app` fixture.
+    c.environ_base["HTTP_X_API_KEY"] = TEST_WAKARU_API_KEY
+    return c
