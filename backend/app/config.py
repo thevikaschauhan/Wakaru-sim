@@ -21,6 +21,10 @@ else:
 # Exported so tests can reference it without re-typing the string.
 BANNED_SECRET_KEY_DEFAULT = 'mirofish-secret-key'
 
+# Issue #10: WAKARU_API_KEY must not equal the .env.example placeholder (it is
+# public, so booting with it would expose an enumerable shared secret).
+BANNED_WAKARU_API_KEY_DEFAULT = 'your_wakaru_api_key_here'
+
 
 class Config:
     """Flask配置类"""
@@ -83,9 +87,15 @@ class Config:
             errors.append("ZEP_API_KEY 未配置")
         # Issue #10: the X-API-Key guard on /api/* fails closed at boot. An empty
         # key would also make hmac.compare_digest("", "") return True at request
-        # time (auth bypass), so refuse to start without it.
-        if not os.environ.get('WAKARU_API_KEY'):
-            errors.append("WAKARU_API_KEY is not configured (required for /api/* auth; issue #10)")
+        # time (auth bypass), so refuse to start without it. .strip() + placeholder
+        # rejection mirror the SECRET_KEY defense above (a padded or copy-pasted
+        # .env.example value must not satisfy the gate).
+        wakaru_key = (os.environ.get('WAKARU_API_KEY') or '').strip()
+        if not wakaru_key or wakaru_key == BANNED_WAKARU_API_KEY_DEFAULT:
+            errors.append(
+                f"WAKARU_API_KEY is not configured (required for /api/* auth; "
+                f"issue #10; cannot use the placeholder '{BANNED_WAKARU_API_KEY_DEFAULT}')"
+            )
         # .strip() defends against shell/dashboard inputs that wrap the
         # forbidden literal in whitespace (multi-agent review round 1).
         secret = (os.environ.get('SECRET_KEY') or '').strip()

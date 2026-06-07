@@ -33,6 +33,13 @@ def test_unauthenticated_api_request_returns_401(app):
     assert resp.get_json()["error"] == "unauthorized"
 
 
+def test_unauthenticated_get_returns_401(app):
+    # The guard is an app-level before_request, so it must fire on GET routes too
+    # (not just the POST exercised above) — proves it covers the whole blueprint.
+    resp = app.test_client().get("/api/cart-recovery/jobs/any-id")
+    assert resp.status_code == 401
+
+
 def test_wrong_api_key_returns_401(app):
     resp = app.test_client().post(
         "/api/cart-recovery/jobs",
@@ -78,6 +85,24 @@ def test_cors_does_not_allow_arbitrary_origin(app):
     acao = resp.headers.get("Access-Control-Allow-Origin")
     assert acao != "https://evil.example"
     assert acao != "*"
+
+
+def test_cors_allows_listed_origin(monkeypatch):
+    # Positive case: a configured allowlist origin IS echoed. Without this, the
+    # negative test alone would also pass if CORS were removed entirely (the
+    # header would simply be absent). ALLOWED_ORIGINS is read at create_app().
+    monkeypatch.setenv("ALLOWED_ORIGINS", "https://trusted.example")
+    app = create_app()
+    app.config["TESTING"] = True
+    resp = app.test_client().open(
+        "/api/cart-recovery/jobs",
+        method="OPTIONS",
+        headers={
+            "Origin": "https://trusted.example",
+            "Access-Control-Request-Method": "POST",
+        },
+    )
+    assert resp.headers.get("Access-Control-Allow-Origin") == "https://trusted.example"
 
 
 def test_create_app_fails_closed_without_wakaru_api_key(monkeypatch):

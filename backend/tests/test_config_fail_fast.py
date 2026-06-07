@@ -8,7 +8,7 @@ env vars; each test overrides via monkeypatch.
 import pytest
 
 from app import create_app
-from app.config import BANNED_SECRET_KEY_DEFAULT
+from app.config import BANNED_SECRET_KEY_DEFAULT, BANNED_WAKARU_API_KEY_DEFAULT
 
 
 def test_create_app_raises_when_secret_key_missing(monkeypatch):
@@ -50,3 +50,19 @@ def test_flask_debug_defaults_false(app):
     # are handled. FLASK_DEBUG is not set by the autouse env fixture, so the
     # default in config.py must take effect.
     assert app.config["DEBUG"] is False
+
+
+def test_create_app_raises_when_wakaru_api_key_is_whitespace(monkeypatch):
+    # Issue #10: a whitespace-only key must be rejected at boot, mirroring the
+    # SECRET_KEY .strip() defense (a padded dashboard value is effectively empty).
+    monkeypatch.setenv("WAKARU_API_KEY", "   ")
+    with pytest.raises(RuntimeError, match="WAKARU_API_KEY"):
+        create_app()
+
+
+def test_create_app_raises_when_wakaru_api_key_is_placeholder(monkeypatch):
+    # The .env.example placeholder is public; booting with it would expose an
+    # enumerable shared secret. Reject it at boot like the SECRET_KEY literal.
+    monkeypatch.setenv("WAKARU_API_KEY", BANNED_WAKARU_API_KEY_DEFAULT)
+    with pytest.raises(RuntimeError, match="WAKARU_API_KEY"):
+        create_app()

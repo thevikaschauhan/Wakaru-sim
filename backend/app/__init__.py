@@ -38,6 +38,12 @@ _PII_FIELDS = frozenset({
 _MAX_REDACT_DEPTH = 25
 
 
+# Request headers that carry credentials and must never reach Sentry (compared
+# case-insensitively). X-API-Key is the issue-#10 shared secret on every /api/*
+# request; Authorization is the long-standing bearer header.
+_SENSITIVE_HEADERS = frozenset({"authorization", "x-api-key"})
+
+
 def _redact_pii(obj, _depth=0):
     """Recursively replace PII-keyed values with a redaction marker.
 
@@ -65,13 +71,13 @@ def _redact_pii(obj, _depth=0):
 def _scrub_pii(event, hint):
     """Strip PII from Sentry events before they leave the server (issue #17).
 
-    Sentry's before_send hook: drops the Authorization header and recursively
-    redacts PII in the request body."""
+    Sentry's before_send hook: drops credential headers (Authorization,
+    X-API-Key) and recursively redacts PII in the request body."""
     if "request" in event:
         if "headers" in event["request"]:
             event["request"]["headers"] = {
                 k: v for k, v in event["request"]["headers"].items()
-                if k.lower() != "authorization"
+                if k.lower() not in _SENSITIVE_HEADERS
             }
         if "data" in event["request"]:
             event["request"]["data"] = _redact_pii(event["request"]["data"])
