@@ -13,6 +13,7 @@ fakeredis backs both the queue and the idempotency store. Synthetic data only.
 from types import SimpleNamespace
 
 import fakeredis
+from redis.exceptions import RedisError
 from rq import Queue
 
 from app import create_app
@@ -133,3 +134,45 @@ def test_analyze_same_idempotency_key_runs_pipeline_once(client, monkeypatch):
     assert len(calls) == 1  # pipeline ran exactly once
     assert r2.get_json().get("replayed") is True
     assert r1.get_json()["data"] == r2.get_json()["data"]
+
+
+# --------------------------------------------------------------------------
+# record() failure after the paid work must NOT lose the result (best-effort
+# cache write — the authoritative paid outcome is still returned).
+# --------------------------------------------------------------------------
+
+def test_jobs_record_failure_still_returns_job_id(client, monkeypatch):
+    conn = fakeredis.FakeStrictRedis()
+    queue = Queue(ANALYZE_QUEUE_NAME, connection=conn)
+    _wire(monkeypatch, conn, queue)
+
+    def boom(*a, **k):
+        raise RedisError("redis blip after enqueue")
+
+    monkeypatch.setattr("app.api.cart_recovery.record", boom)
+    resp = client.post(
+        "/api/cart-recovery/jobs", json=VALID_PAYLOAD, headers={"Idempotency-Key": "idem-rec-1"}
+    )
+    # The paid job was created; a failed cache write must not 500 away its id.
+    assert resp.status_code == 202, resp.get_data(as_text=True)
+    assert resp.get_json()["job_id"]
+    assert len(queue.job_ids) == 1
+
+
+def test_analyze_record_failure_still_returns_result(client, monkeypatch):
+    conn = fakeredis.FakeStrictRedis()
+    monkeypatch.setattr("app.api.cart_recovery.get_redis_connection", lambda: conn)
+    monkeypatch.setattr(
+        "app.api.cart_recovery.run_cart_recovery", lambda cart, on_progress=None: _fake_insight()
+    )
+
+    def boom(*a, **k):
+        raise RedisError("redis blip after pipeline")
+
+    monkeypatch.setattr("app.api.cart_recovery.record", boom)
+    resp = client.post(
+        "/api/cart-recovery/analyze", json=VALID_PAYLOAD, headers={"Idempotency-Key": "idem-rec-2"}
+    )
+    # The ~8-17 min paid pipeline ran; a failed cache write must not 500 it away.
+    assert resp.status_code == 200, resp.get_data(as_text=True)
+    assert resp.get_json()["data"]["predicted_reason"] == "Shipping cost shock"

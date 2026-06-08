@@ -54,6 +54,21 @@ def _paid_rate_limit():
     return f"{os.environ.get('CART_RECOVERY_RATE_LIMIT_PER_MIN', '60')} per minute"
 
 
+def _record_idempotency_best_effort(conn, scope, idem_key, value, request_id):
+    """Persist the idempotency result without ever letting a cache-write failure
+    discard already-completed PAID work (issue #12). The job/analysis has already
+    succeeded by the time this is called, so the caller must still get its result.
+    A Redis hiccup here only costs the replay-on-retry optimization: a same-key
+    retry will 409 on the lingering PENDING marker, or re-run after the 24h TTL."""
+    try:
+        record(conn, scope, idem_key, value)
+    except RedisError:
+        logger.error(
+            f"[{request_id}] idempotency record failed for scope={scope} "
+            f"(paid work already succeeded; returning its result anyway)"
+        )
+
+
 def _build_cart_from_body(request_id):
     """Shared web-tier validation + ShopifyCartData construction.
 
@@ -212,7 +227,7 @@ def analyze():
         "confidence_reasoning": insight.confidence_reasoning,
     }
     if idem_conn is not None:
-        record(idem_conn, "analyze", idem_key, json.dumps(data))
+        _record_idempotency_best_effort(idem_conn, "analyze", idem_key, json.dumps(data), request_id)
     return jsonify({"success": True, "data": data}), 200
 
 
@@ -291,7 +306,7 @@ def enqueue_job():
         return jsonify({"success": False, "error": "Job queue unavailable"}), 503
 
     if idem_conn is not None:
-        record(idem_conn, "jobs", idem_key, job.id)
+        _record_idempotency_best_effort(idem_conn, "jobs", idem_key, job.id, request_id)
 
     return jsonify({
         "success": True,
