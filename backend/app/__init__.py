@@ -15,6 +15,7 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 
 from .config import Config
+from .extensions import limiter
 from .utils.logger import setup_logger, get_logger
 
 
@@ -169,7 +170,25 @@ def create_app(config_class=Config):
         if not hmac.compare_digest(provided, expected):
             return jsonify({"error": "unauthorized"}), 401
         return None
-    
+
+    # Issue #12: rate limit the paid cart-recovery POSTs. Init AFTER the auth
+    # before_request above so a missing key still 401s before any 429. Use the
+    # provisioned Redis for storage so the limit coheres across gunicorn workers
+    # (an in-process counter would not); fall back to in-memory if REDIS_URL is
+    # unset (the sync path still works — the limit is just per-process then).
+    redis_url = os.environ.get("REDIS_URL")
+    if redis_url:
+        app.config["RATELIMIT_STORAGE_URI"] = redis_url
+    elif should_log_startup:
+        logger.warning(
+            "REDIS_URL not set — rate limiting uses in-memory storage "
+            "(per-process, not shared across workers)."
+        )
+    # Emit X-RateLimit-* on limited responses and a Retry-After on 429 so the
+    # caller can back off correctly (issue #12 AC).
+    app.config["RATELIMIT_HEADERS_ENABLED"] = True
+    limiter.init_app(app)
+
     # 注册模拟进程清理函数（确保服务器关闭时终止所有模拟进程）
     from .services.simulation_runner import SimulationRunner
     SimulationRunner.register_cleanup()

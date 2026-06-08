@@ -46,3 +46,8 @@ gunicorn>=22.0,<23
 # the worker runs as a SEPARATE Railway service off the same image.
 redis>=5.0,<6
 rq>=1.16,<2
+
+# ============= Rate limiting (issue #12) =============
+# Per-IP rate limit on the paid cart-recovery endpoints. Redis storage so the
+# limit coheres across the 2 gunicorn workers (in-process state would not).
+flask-limiter>=3.5,<4
