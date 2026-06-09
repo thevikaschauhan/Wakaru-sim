@@ -46,6 +46,20 @@ def test_scrub_pii_strips_authorization_keeps_other_headers():
     assert headers["Content-Type"] == "application/json"
 
 
+def test_scrub_pii_strips_x_api_key_header():
+    # Issue #10 puts the shared secret on every /api/* request as X-API-Key. It
+    # must be redacted from Sentry events alongside Authorization, or any in-
+    # request exception ships the credential to the Sentry cloud.
+    event = {
+        "request": {
+            "headers": {"X-API-Key": "super-secret-key", "Content-Type": "application/json"}
+        }
+    }
+    headers = _scrub_pii(event, None)["request"]["headers"]
+    assert "X-API-Key" not in headers
+    assert headers["Content-Type"] == "application/json"
+
+
 def test_scrub_pii_noop_without_request():
     event = {"level": "error", "message": "boom"}
     assert _scrub_pii(event, None) == {"level": "error", "message": "boom"}

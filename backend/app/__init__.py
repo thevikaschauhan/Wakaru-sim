@@ -2,6 +2,7 @@
 MiroFish Backend - Flask应用工厂
 """
 
+import hmac
 import os
 import warnings
 import sentry_sdk
@@ -10,7 +11,7 @@ import sentry_sdk
 # 需要在所有其他导入之前设置
 warnings.filterwarnings("ignore", message=".*resource_tracker.*")
 
-from flask import Flask, request
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 
 from .config import Config
@@ -35,6 +36,12 @@ _PII_FIELDS = frozenset({
 # stack inside the Sentry hook (review: DoS class). Cart payloads are 2-3
 # levels deep; 25 is far beyond any legitimate structure.
 _MAX_REDACT_DEPTH = 25
+
+
+# Request headers that carry credentials and must never reach Sentry (compared
+# case-insensitively). X-API-Key is the issue-#10 shared secret on every /api/*
+# request; Authorization is the long-standing bearer header.
+_SENSITIVE_HEADERS = frozenset({"authorization", "x-api-key"})
 
 
 def _redact_pii(obj, _depth=0):
@@ -64,13 +71,13 @@ def _redact_pii(obj, _depth=0):
 def _scrub_pii(event, hint):
     """Strip PII from Sentry events before they leave the server (issue #17).
 
-    Sentry's before_send hook: drops the Authorization header and recursively
-    redacts PII in the request body."""
+    Sentry's before_send hook: drops credential headers (Authorization,
+    X-API-Key) and recursively redacts PII in the request body."""
     if "request" in event:
         if "headers" in event["request"]:
             event["request"]["headers"] = {
                 k: v for k, v in event["request"]["headers"].items()
-                if k.lower() != "authorization"
+                if k.lower() not in _SENSITIVE_HEADERS
             }
         if "data" in event["request"]:
             event["request"]["data"] = _redact_pii(event["request"]["data"])
@@ -135,8 +142,33 @@ def create_app(config_class=Config):
         logger.info("MiroFish Backend 启动中...")
         logger.info("=" * 50)
     
-    # 启用CORS
-    CORS(app, resources={r"/api/*": {"origins": "*"}})
+    # Issue #10: restrict CORS on /api/* to an explicit allowlist instead of the
+    # former wildcard. ALLOWED_ORIGINS is a comma-separated list; empty = no
+    # browser origin is permitted. The engine calls /api/* server→server (no CORS
+    # needed); the Vue frontend is local-dev only and not a deployed origin.
+    allowed_origins = [
+        o.strip() for o in os.environ.get("ALLOWED_ORIGINS", "").split(",") if o.strip()
+    ]
+    CORS(app, resources={r"/api/*": {"origins": allowed_origins}})
+
+    # Issue #10: single shared-secret X-API-Key guard on /api/*. The /api/ prefix
+    # check leaves /health (not under /api/) open. OPTIONS preflight carries no
+    # auth header by design, so it is exempted and answered by flask-cors. This
+    # is an interim model; per-merchant keys land with multi-tenancy (#24).
+    @app.before_request
+    def require_api_key():
+        if request.method == "OPTIONS" or not request.path.startswith("/api/"):
+            return None
+        expected = os.environ.get("WAKARU_API_KEY")
+        if not expected:
+            # Fail closed: an empty expected key makes hmac.compare_digest("", "")
+            # return True (auth bypass). validate() blocks this at boot; this is
+            # defense in depth for any path that bypasses the boot gate.
+            return jsonify({"error": "server_auth_not_configured"}), 503
+        provided = request.headers.get("X-API-Key", "")
+        if not hmac.compare_digest(provided, expected):
+            return jsonify({"error": "unauthorized"}), 401
+        return None
     
     # 注册模拟进程清理函数（确保服务器关闭时终止所有模拟进程）
     from .services.simulation_runner import SimulationRunner
