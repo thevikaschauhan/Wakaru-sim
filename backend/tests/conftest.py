@@ -45,6 +45,10 @@ def config_env(monkeypatch):
 def app():
     app = create_app()
     app.config["TESTING"] = True
+    # Issue #12: disable rate limiting by default so the broad suite isn't
+    # throttled (every test shares the test client's IP). The dedicated
+    # rate-limit tests build their own app with limiting enabled.
+    app.config["RATELIMIT_ENABLED"] = False
 
     # caplog attaches its handler to the root logger and relies on
     # propagation. The mirofish logger sets propagate=False in production

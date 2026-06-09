@@ -36,6 +36,10 @@ dependencies = [
     # 异步任务队列 (issue #20) — Redis + RQ for /api/cart-recovery/jobs
     "redis>=5.0,<6",
     "rq>=1.16,<2",
+
+    # Rate limiting (issue #12) — per-IP limit on the paid cart-recovery
+    # endpoints; Redis storage so the limit coheres across gunicorn workers.
+    "flask-limiter>=3.5,<4",
 ]
 
 [project.optional-dependencies]
