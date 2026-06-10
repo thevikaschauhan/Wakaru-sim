@@ -8,7 +8,7 @@ import traceback
 import threading
 
 import magic
-from flask import request, jsonify
+from flask import request, jsonify, g
 
 from . import graph_bp
 from ..config import Config
@@ -290,10 +290,12 @@ def generate_ontology():
         })
         
     except Exception as e:
+        logger.error(f"Graph API request failed ({type(e).__name__})")
+        logger.debug(traceback.format_exc())
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": "internal_error",
+            "request_id": g.request_id
         }), 500
 
 
@@ -486,7 +488,7 @@ def build_graph():
                     task_id,
                     status=TaskStatus.FAILED,
                     message=f"构建失败: {str(e)}",
-                    error=traceback.format_exc()
+                    error=str(e)
                 )
         
         # 启动后台线程
@@ -503,10 +505,12 @@ def build_graph():
         })
         
     except Exception as e:
+        logger.error(f"Graph API request failed ({type(e).__name__})")
+        logger.debug(traceback.format_exc())
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": "internal_error",
+            "request_id": g.request_id
         }), 500
 
 
@@ -568,10 +572,12 @@ def get_graph_data(graph_id: str):
         })
         
     except Exception as e:
+        logger.error(f"Graph API request failed ({type(e).__name__})")
+        logger.debug(traceback.format_exc())
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": "internal_error",
+            "request_id": g.request_id
         }), 500
 
 
@@ -596,8 +602,10 @@ def delete_graph(graph_id: str):
         })
         
     except Exception as e:
+        logger.error(f"Graph API request failed ({type(e).__name__})")
+        logger.debug(traceback.format_exc())
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": "internal_error",
+            "request_id": g.request_id
         }), 500

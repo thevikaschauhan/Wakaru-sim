@@ -4,6 +4,8 @@ MiroFish Backend - Flask应用工厂
 
 import hmac
 import os
+import traceback
+import uuid
 import warnings
 import sentry_sdk
 
@@ -11,8 +13,9 @@ import sentry_sdk
 # 需要在所有其他导入之前设置
 warnings.filterwarnings("ignore", message=".*resource_tracker.*")
 
-from flask import Flask, jsonify, request
+from flask import Flask, g, jsonify, request
 from flask_cors import CORS
+from werkzeug.exceptions import HTTPException
 
 from .config import Config
 from .extensions import limiter
@@ -152,6 +155,14 @@ def create_app(config_class=Config):
     ]
     CORS(app, resources={r"/api/*": {"origins": allowed_origins}})
 
+    # Issue #14: tag every request with a short correlation id so the opaque
+    # error responses can be matched to their server-side log line. Registered
+    # before require_api_key so even rejected requests are tagged. Supersedes the
+    # per-handler request_id noted as a Phase-3 TODO in cart_recovery.
+    @app.before_request
+    def assign_request_id():
+        g.request_id = uuid.uuid4().hex[:8]
+
     # Issue #10: single shared-secret X-API-Key guard on /api/*. The /api/ prefix
     # check leaves /health (not under /api/) open. OPTIONS preflight carries no
     # auth header by design, so it is exempted and answered by flask-cors. This
@@ -222,7 +233,34 @@ def create_app(config_class=Config):
                 "max-age=63072000; includeSubDomains"
             )
         return response
-    
+
+    # Issue #14: global catch-all so an unhandled exception returns an opaque
+    # 500 instead of a stack trace — a stack trace leaks container paths, library
+    # versions, and internal module layout. The full traceback is still written
+    # to the server log (the file handler is DEBUG) for triage.
+    @app.errorhandler(Exception)
+    def handle_unexpected_error(error):
+        # HTTPExceptions are deliberate control flow — the #10 auth 401, the #12
+        # rate-limit 429 + Retry-After, 404s, etc. A bare Exception handler is
+        # otherwise matched for them via the class hierarchy, so re-render them
+        # unchanged; they are not info leaks.
+        if isinstance(error, HTTPException):
+            return error
+        request_id = getattr(g, "request_id", "unknown")
+        # Sanitized ERROR line only — the type name, never str(e) or exc_info.
+        # The mirofish logger reaches Sentry via LoggingIntegration, and an
+        # exception's .args / frame locals can carry PII (issues #7/#17). The
+        # full traceback goes to DEBUG, which is below Sentry's event level but
+        # still written to the log file.
+        logger.error(f"[{request_id}] Unhandled exception ({type(error).__name__})")
+        logger.debug(traceback.format_exc())
+        sentry_sdk.capture_message(
+            f"Unhandled exception ({type(error).__name__})", level="error"
+        )
+        return jsonify(
+            {"success": False, "error": "internal_error", "request_id": request_id}
+        ), 500
+
     # 注册蓝图
     from .api import graph_bp, simulation_bp, report_bp
     app.register_blueprint(graph_bp, url_prefix='/api/graph')
