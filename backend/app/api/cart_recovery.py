@@ -8,8 +8,11 @@ GET  /api/cart-recovery/jobs/<job_id>  poll status / progress / result (issue #2
 
 import sys
 import os
+import hashlib
+import hmac
 import json
 import logging
+import time
 import traceback
 import uuid
 from dataclasses import asdict
@@ -44,6 +47,58 @@ from ..services.idempotency import claim_or_get, record, release  # noqa: E402
 logger = logging.getLogger("mirofish.cart_recovery")
 
 cart_recovery_bp = Blueprint("cart_recovery", __name__)
+
+# Issue #11: replay window for the internal HMAC, in seconds, symmetric around
+# now (also rejects far-future timestamps from a skewed or hostile clock). The
+# timestamp is the engine's SEND time, never the cart-event time — cart recovery
+# is inherently delayed (the engine waits to detect abandonment), so an
+# event-time timestamp would be "expired" on every legitimate request.
+HMAC_TIMESTAMP_WINDOW_SECONDS = 300
+
+
+@cart_recovery_bp.before_request
+def verify_internal_hmac():
+    """Issue #11: HMAC-SHA256 body signing on the paid cart-recovery POSTs.
+
+    X-API-Key (#10) proves "a key holder"; it neither binds the request body to
+    a sender nor stops replay of a captured request. The engine signs
+    f"{timestamp}.{rawbody}" with the shared WAKARU_INTERNAL_SECRET and sends
+    X-Wakaru-Signature (hex) + X-Wakaru-Timestamp (unix seconds at send time);
+    we verify the signature and the replay window. See docs/integration.md.
+
+    POST-only: the poll GET has no body to bind (X-API-Key suffices). Runs
+    after the app-level hooks (request-id #14 → X-API-Key #10 → rate limit #12)
+    because blueprint-level before_request handlers run last — an
+    unauthenticated request 401s at the key guard before any HMAC work.
+    merchant_id binding is deferred to multi-tenancy (#24).
+    """
+    if request.method != "POST":
+        return None
+    secret = (os.environ.get("WAKARU_INTERNAL_SECRET") or "").strip()
+    if not secret:
+        # Fail closed, mirroring the #10 guard: an empty secret must never
+        # verify. validate() blocks this at boot; defense in depth here.
+        return jsonify({"error": "server_auth_not_configured"}), 503
+    timestamp = request.headers.get("X-Wakaru-Timestamp", "")
+    signature = request.headers.get("X-Wakaru-Signature", "")
+    if not timestamp or not signature:
+        return jsonify({"error": "missing_signature"}), 401
+    try:
+        sent_at = int(timestamp)
+    except ValueError:
+        return jsonify({"error": "invalid_timestamp"}), 401
+    if abs(time.time() - sent_at) > HMAC_TIMESTAMP_WINDOW_SECONDS:
+        return jsonify({"error": "expired_timestamp"}), 401
+    # get_data() caches the body on the request object, so the handlers'
+    # later get_json() still parses it (pinned by test).
+    expected = hmac.new(
+        secret.encode(),
+        f"{timestamp}.".encode() + request.get_data(),
+        hashlib.sha256,
+    ).hexdigest()
+    if not hmac.compare_digest(signature.lower(), expected):
+        return jsonify({"error": "invalid_signature"}), 401
+    return None
 
 
 def _paid_rate_limit():

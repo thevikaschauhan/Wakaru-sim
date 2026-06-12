@@ -18,7 +18,7 @@ from rq import Queue
 
 from app import create_app
 from app.services.job_queue import ANALYZE_QUEUE_NAME
-from tests.conftest import TEST_WAKARU_API_KEY
+from tests.conftest import TEST_WAKARU_API_KEY, SigningFlaskClient
 
 VALID_PAYLOAD = {
     "customer_id": "cust_test",
@@ -58,6 +58,7 @@ def test_rate_limit_429_after_threshold(monkeypatch):
     monkeypatch.setenv("CART_RECOVERY_RATE_LIMIT_PER_MIN", "2")
     app = create_app()
     app.config["TESTING"] = True
+    app.test_client_class = SigningFlaskClient  # pass #11 HMAC (body-signed POSTs)
     client = app.test_client()
     client.environ_base["HTTP_X_API_KEY"] = TEST_WAKARU_API_KEY  # pass #10 auth
 
@@ -77,6 +78,7 @@ def test_poll_get_is_not_rate_limited(monkeypatch):
     monkeypatch.setenv("CART_RECOVERY_RATE_LIMIT_PER_MIN", "2")
     app = create_app()
     app.config["TESTING"] = True
+    app.test_client_class = SigningFlaskClient  # GETs pass through unsigned
     conn = fakeredis.FakeStrictRedis()
     monkeypatch.setattr("app.api.cart_recovery.get_redis_connection", lambda: conn)
     client = app.test_client()
