@@ -25,6 +25,10 @@ BANNED_SECRET_KEY_DEFAULT = 'mirofish-secret-key'
 # public, so booting with it would expose an enumerable shared secret).
 BANNED_WAKARU_API_KEY_DEFAULT = 'your_wakaru_api_key_here'
 
+# Issue #11: WAKARU_INTERNAL_SECRET must not equal the .env.example placeholder
+# (it is public, so booting with it would let anyone forge request signatures).
+BANNED_WAKARU_INTERNAL_SECRET_DEFAULT = 'your_wakaru_internal_secret_here'
+
 
 class Config:
     """Flask配置类"""
@@ -95,6 +99,19 @@ class Config:
             errors.append(
                 f"WAKARU_API_KEY is not configured (required for /api/* auth; "
                 f"issue #10; cannot use the placeholder '{BANNED_WAKARU_API_KEY_DEFAULT}')"
+            )
+        # Issue #11: the HMAC body-signature guard on the cart-recovery POSTs
+        # fails closed at request time, but refuse to boot without the secret so
+        # a missing var surfaces at deploy instead of as a 503 storm. Same
+        # .strip() + placeholder rejection as WAKARU_API_KEY above. Required on
+        # web AND worker (both boot via create_app()); must match the engine's
+        # WAKARU_INTERNAL_SECRET.
+        internal_secret = (os.environ.get('WAKARU_INTERNAL_SECRET') or '').strip()
+        if not internal_secret or internal_secret == BANNED_WAKARU_INTERNAL_SECRET_DEFAULT:
+            errors.append(
+                f"WAKARU_INTERNAL_SECRET is not configured (required for HMAC "
+                f"verification on the cart-recovery POSTs; issue #11; cannot use "
+                f"the placeholder '{BANNED_WAKARU_INTERNAL_SECRET_DEFAULT}')"
             )
         # .strip() defends against shell/dashboard inputs that wrap the
         # forbidden literal in whitespace (multi-agent review round 1).

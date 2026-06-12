@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 
 from app import create_app
-from tests.conftest import TEST_WAKARU_API_KEY
+from tests.conftest import TEST_WAKARU_API_KEY, SigningFlaskClient
 
 # The raising view embeds a recognisable string + a fake internal path so the
 # leak tests can assert that neither str(e) nor a path reaches the response.
@@ -105,6 +105,7 @@ def test_rate_limit_429_passes_through_with_retry_after(monkeypatch):
     monkeypatch.setenv("CART_RECOVERY_RATE_LIMIT_PER_MIN", "1")
     app = create_app()
     app.config["TESTING"] = True
+    app.test_client_class = SigningFlaskClient  # pass #11 HMAC (body-signed POSTs)
     client = app.test_client()
     client.environ_base["HTTP_X_API_KEY"] = TEST_WAKARU_API_KEY
 
