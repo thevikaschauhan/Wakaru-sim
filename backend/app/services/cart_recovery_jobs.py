@@ -4,7 +4,7 @@ The web tier validates + builds the cart, then enqueues :func:`run_analysis_job`
 with ``dataclasses.asdict(cart)``. The worker rebuilds the ``ShopifyCartData``
 and calls the same in-process orchestrator the synchronous ``/analyze`` handler
 uses (:func:`run_cart_recovery`), so the queued path produces a byte-identical
-7-field insight.
+AbandonmentInsight dict.
 
 PII discipline (issue #7) is load-bearing here and mirrors the ``/analyze``
 handler: progress state is PII-free by design, and on failure we re-raise a
@@ -35,8 +35,8 @@ class AnalysisJobError(Exception):
 
 
 def run_analysis_job(cart_dict: dict) -> dict:
-    """Run the cart-recovery pipeline for one queued job and return the 7-field
-    insight dict (the same shape the synchronous ``/analyze`` 200 response builds).
+    """Run the cart-recovery pipeline for one queued job and return the
+    AbandonmentInsight dict (the same shape the synchronous ``/analyze`` 200 response builds).
 
     Progress is written to ``job.meta`` so ``GET /jobs/<id>`` reflects live state
     and survives a web-worker restart (it lives in Redis, not process memory).
@@ -77,6 +77,7 @@ def run_analysis_job(cart_dict: dict) -> dict:
 
     return {
         "predicted_reason": insight.predicted_reason,
+        "reason_category": insight.reason_category,
         "emotional_state": insight.emotional_state,
         "recommended_angle": insight.recommended_angle,
         "key_objections": insight.key_objections,

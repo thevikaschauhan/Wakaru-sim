@@ -15,7 +15,7 @@ import pytest
 import responses
 from responses import matchers
 
-from cart_recovery import CartRecoveryEngine, ShopifyCartData
+from cart_recovery import REASON_CATEGORIES, CartRecoveryEngine, ShopifyCartData
 from mirofish import MiroFishClient
 
 BASE = "http://localhost:5001"
@@ -237,6 +237,8 @@ def test_cart_recovery_engine_full_pipeline(cart):
     }
     assert insight.recommended_angle
     assert insight.email_prompt_context
+    # reason_category is always one of the 7 contract values (issue #3), never null/empty.
+    assert insight.reason_category in REASON_CATEGORIES
 
     # Every stubbed endpoint must have been hit at least once.
     expected_routes = {

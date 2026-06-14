@@ -51,6 +51,7 @@ def test_cart_recovery_analyze_emits_no_pii(client, caplog):
         # cart_recovery/__init__.py.
         return SimpleNamespace(
             predicted_reason="stub reason",
+            reason_category="unknown",
             emotional_state="anxious",
             recommended_angle="discount-or-value",
             key_objections=[],

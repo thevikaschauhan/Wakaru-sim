@@ -74,6 +74,7 @@ Content-Type: application/json
   "success": true,
   "data": {
     "predicted_reason": "Shipping cost shock at checkout — $12.99 on a $99.99 order",
+    "reason_category": "shipping_cost",
     "emotional_state": "price-sensitive",
     "recommended_angle": "discount-or-value",
     "key_objections": [
@@ -86,6 +87,24 @@ Content-Type: application/json
   }
 }
 ```
+
+**`reason_category`** is the categorical companion to the free-form
+`predicted_reason` (issue #3). It is always exactly one of 7 values, so downstream
+consumers (Vakaru's Inkwell planner) can pattern-match deterministically without
+an LLM call:
+
+| Value | Meaning |
+|---|---|
+| `shipping_cost` | Balked at shipping cost or delivery time |
+| `price_sensitivity` | Found the product itself too expensive |
+| `sizing_doubt` | Uncertain about fit, size, or dimensions |
+| `payment_friction` | Hit a payment-step problem (declined card, broken flow, unfamiliar gateway) |
+| `just_browsing` | Wasn't actually buying — exploring, comparing, gift-shopping |
+| `out_of_stock_concern` | Worried about stock or fulfillment |
+| `unknown` | No primary reason could be determined |
+
+The value is never null or empty; an ambiguous analysis resolves to `unknown`
+rather than guessing.
 
 > ⚠️ `POST /analyze` is **synchronous** — it blocks for the full 8–17 min pipeline.
 > New integrations should prefer the async job API below (issue #20).
@@ -110,7 +129,7 @@ GET /api/cart-recovery/jobs/<job_id>
     "job_id":  "<id>",
     "status":  "queued | started | finished | failed",
     "progress": { "stage": "...", "state": { ... } },          // PII-free, while running
-    "result":  { ...the same 7-field `data` block as /analyze },  // when finished
+    "result":  { ...the same `data` block as /analyze },          // when finished
     "error":   "Analysis failed (<ExceptionType>)"                // when failed (PII-free)
   }
 ```

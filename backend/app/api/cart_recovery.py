@@ -274,6 +274,7 @@ def analyze():
 
     data = {
         "predicted_reason": insight.predicted_reason,
+        "reason_category": insight.reason_category,
         "emotional_state": insight.emotional_state,
         "recommended_angle": insight.recommended_angle,
         "key_objections": insight.key_objections,
@@ -297,7 +298,7 @@ def enqueue_job():
 
     The cheap web-tier validation runs inline (same 400s as /analyze); the
     ~8-17 min pipeline runs on a separate RQ worker. Poll GET /jobs/<id> for
-    progress and the terminal 7-field result.
+    progress and the terminal AbandonmentInsight result.
 
     Idempotent on the Idempotency-Key header (issue #12): a repeated POST with
     the same key replays the original job_id instead of enqueuing a second paid
@@ -378,7 +379,7 @@ def job_status(job_id):
     Output JSON (200): { success, job_id, status, progress, result?, error? }
       - status:   queued | started | finished | failed | deferred | ...
       - progress: latest { stage, state } the worker recorded (PII-free)
-      - result:   the 7-field AbandonmentInsight dict, when status == finished
+      - result:   the AbandonmentInsight dict, when status == finished
       - error:    a PII-free failure marker, when status == failed
     """
     request_id = uuid.uuid4().hex[:8]

@@ -40,6 +40,7 @@ def _wire(monkeypatch, conn, queue):
 def _fake_insight():
     return SimpleNamespace(
         predicted_reason="Shipping cost shock",
+        reason_category="shipping_cost",
         emotional_state="price-sensitive",
         recommended_angle="discount-or-value",
         key_objections=["$18 shipping"],
