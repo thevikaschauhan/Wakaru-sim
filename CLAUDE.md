@@ -153,6 +153,7 @@ hours_since_last_abandonment                        # serial abandoner signal
 
 ```python
 predicted_reason: str          # "Shipping cost shock at checkout"
+reason_category: str           # shipping_cost | price_sensitivity | sizing_doubt | payment_friction | just_browsing | out_of_stock_concern | unknown  (issue #3)
 emotional_state: str           # price-sensitive | anxious | indecisive | comparison-shopping | trust-lacking | distracted
 recommended_angle: str         # discount-or-value | trust-and-social-proof | urgency-scarcity | welcome-and-reassurance | loyalty-and-reward | gentle-reminder
 key_objections: list[str]      # ["$18.99 shipping on $45 order", "No free shipping threshold shown"]
@@ -193,6 +194,7 @@ Response (200):
   "success": true,
   "data": {
     "predicted_reason": "...",
+    "reason_category": "shipping_cost",
     "emotional_state": "...",
     "recommended_angle": "...",
     "key_objections": [...],
@@ -208,7 +210,7 @@ POST /api/cart-recovery/jobs           # same request body as above
 
 GET /api/cart-recovery/jobs/<job_id>
 → 200 { "success": true, "status": "queued|started|finished|failed",
-        "progress": {...}, "result": {<7-field data block>}?, "error": "Analysis failed (<Type>)"? }
+        "progress": {...}, "result": {<data block, same shape as /analyze>}?, "error": "Analysis failed (<Type>)"? }
 ```
 
 ---

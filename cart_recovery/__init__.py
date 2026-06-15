@@ -7,7 +7,11 @@ This keeps the in-process backend orchestrator (issue #19) free of the
 SDK/HTTP dependency, while ``from cart_recovery import CartRecoveryEngine``
 still works unchanged for external SDK users.
 """
-from .email_prompt_builder import AbandonmentInsight, EmailPromptBuilder
+from .email_prompt_builder import (
+    REASON_CATEGORIES,
+    AbandonmentInsight,
+    EmailPromptBuilder,
+)
 from .shopify_formatter import ShopifyCartData, ShopifyFormatter
 
 __all__ = [
@@ -16,6 +20,7 @@ __all__ = [
     "ShopifyFormatter",
     "AbandonmentInsight",
     "EmailPromptBuilder",
+    "REASON_CATEGORIES",
 ]
 
 

@@ -31,8 +31,9 @@ from app.services.job_queue import (
 )
 from cart_recovery.shopify_formatter import ShopifyCartData
 
-SEVEN_KEYS = {
+RESULT_KEYS = {
     "predicted_reason",
+    "reason_category",
     "emotional_state",
     "recommended_angle",
     "key_objections",
@@ -78,6 +79,7 @@ def _stub_success(cart, on_progress=None):
         on_progress("graph_completed", {"project_id": "proj_test", "graph_id": "g_test"})
     return SimpleNamespace(
         predicted_reason="stub reason",
+        reason_category="shipping_cost",
         emotional_state="anxious",
         recommended_angle="discount-or-value",
         key_objections=[],
@@ -196,7 +198,7 @@ def test_get_503_when_redis_unconfigured(client, monkeypatch):
     assert resp.status_code == 503
 
 
-def test_finished_job_returns_7_field_result_and_progress(client, sync_queue, monkeypatch):
+def test_finished_job_returns_result_and_progress(client, sync_queue, monkeypatch):
     monkeypatch.setattr(
         "app.services.cart_recovery_jobs.run_cart_recovery", _stub_success
     )
@@ -205,8 +207,9 @@ def test_finished_job_returns_7_field_result_and_progress(client, sync_queue, mo
     resp = client.get(f"/api/cart-recovery/jobs/{job_id}")
     data = resp.get_json()
     assert data["status"] == "finished"
-    assert set(data["result"].keys()) == SEVEN_KEYS
+    assert set(data["result"].keys()) == RESULT_KEYS
     assert data["result"]["predicted_reason"] == "stub reason"
+    assert data["result"]["reason_category"] == "shipping_cost"
     assert data["result"]["confidence_reasoning"] == "heuristic"
     # Progress was persisted to Redis (survives a web-worker restart).
     assert data["progress"].get("stage") == "graph_completed"
@@ -245,7 +248,7 @@ def test_job_meta_progress_is_pii_free(client, sync_queue, monkeypatch):
 # run_analysis_job — direct (no worker / no job context)
 # --------------------------------------------------------------------------
 
-def test_run_analysis_job_returns_7_field_dict(monkeypatch):
+def test_run_analysis_job_returns_result_dict(monkeypatch):
     monkeypatch.setattr(
         "app.services.cart_recovery_jobs.run_cart_recovery", _stub_success
     )
@@ -259,7 +262,7 @@ def test_run_analysis_job_returns_7_field_dict(monkeypatch):
         )
     )
     result = run_analysis_job(cart_dict)
-    assert set(result.keys()) == SEVEN_KEYS
+    assert set(result.keys()) == RESULT_KEYS
 
 
 def test_run_analysis_job_rebuilds_cart_faithfully(monkeypatch):

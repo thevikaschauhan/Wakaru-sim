@@ -6,6 +6,22 @@ from dataclasses import dataclass, field
 from .shopify_formatter import ShopifyCartData
 
 
+# Canonical reason_category enum (Inkwell M2 contract, issue Wakaru#3). Exactly
+# these 7 values — Inkwell's planner heuristic table is keyed on this set, so any
+# value outside it is coerced to "unknown" on Inkwell's side regardless. The
+# categorical companion to the free-form predicted_reason: predicted_reason is
+# the human-readable reasoning, reason_category is what the planner pattern-matches.
+REASON_CATEGORIES = (
+    "shipping_cost",
+    "price_sensitivity",
+    "sizing_doubt",
+    "payment_friction",
+    "just_browsing",
+    "out_of_stock_concern",
+    "unknown",
+)
+
+
 @dataclass
 class AbandonmentInsight:
     """
@@ -15,6 +31,9 @@ class AbandonmentInsight:
     predicted_reason: str           # primary abandonment reason identified
     emotional_state: str            # e.g. "anxious", "indecisive", "price-sensitive"
     recommended_angle: str          # e.g. "urgency", "trust", "discount", "social-proof"
+    # Categorical form of predicted_reason, drawn from REASON_CATEGORIES (Wakaru#3).
+    # Defaults to "unknown" so the field is never null/empty even on a fail-safe path.
+    reason_category: str = "unknown"
     key_objections: list[str] = field(default_factory=list)
     email_prompt_context: str = ""  # ready-to-use context block for your LLM
     confidence: float = 0.5         # 0.0-1.0 confidence in the analysis
@@ -58,6 +77,7 @@ situation and the specific insight from the psychology simulation."""
         emotional_state = self._extract_emotion(report_content)
         angle = self._choose_angle(report_content, cart)
         objections = self._extract_objections(report_content)
+        reason_category = self._classify_reason_category(report_content, reason)
         prompt_context = self._build_prompt_context(
             report_content, cart, reason, emotional_state, angle, objections
         )
@@ -66,6 +86,7 @@ situation and the specific insight from the psychology simulation."""
             predicted_reason=reason,
             emotional_state=emotional_state,
             recommended_angle=angle,
+            reason_category=reason_category,
             key_objections=objections,
             email_prompt_context=prompt_context,
             confidence=confidence,
@@ -105,6 +126,65 @@ situation and the specific insight from the psychology simulation."""
             scores[emotion] = sum(report_lower.count(kw) for kw in keywords)
         top = max(scores, key=scores.get)
         return top if scores[top] > 0 else "indecisive"
+
+    def _classify_reason_category(self, report: str, reason: str) -> str:
+        """Map the free-form predicted reason to the categorical reason_category
+        enum (Inkwell M2 contract, Wakaru#3).
+
+        Deterministic keyword classifier — no LLM call, mirroring _extract_emotion
+        and _base_angle_from_report. Scores each category over the report text plus
+        the already-extracted reason (so the category stays consistent with
+        predicted_reason), then picks the highest-scoring category. An ambiguous or
+        signal-free report falls back to "unknown" rather than guessing. A
+        keyword-only classifier is the spec's accepted v1 (Inkwell's
+        wakaru_reason_category_spec.md, Option 2); the returned value is always one
+        of REASON_CATEGORIES, so it never needs out-of-enum coercion.
+
+        Dict insertion order is the tie-break: more specific categories come first
+        so they win when a report mixes overlapping cost/price/shipping language.
+        """
+        text = f"{reason}\n{report}".lower()
+        category_keywords = {
+            "payment_friction": [
+                # Multi-word phrases only — bare "declined"/"gateway" fire on
+                # non-payment prose ("declined the survey", "gateway.shopify.com").
+                "payment failed", "payment declined", "card declined",
+                "payment error", "checkout error", "payment gateway", "could not pay",
+                "unable to pay", "transaction failed",
+            ],
+            "out_of_stock_concern": [
+                # No bare "inventory" — it fires on "inventory management system".
+                "out of stock", "out-of-stock", "sold out", "back order",
+                "backorder", "low stock", "limited stock", "restock",
+            ],
+            "sizing_doubt": [
+                # " fit" (leading space) catches the standalone word incl. punctuated
+                # forms ("poor fit.") without matching outfit/benefit/fitness.
+                "size", "sizing", " fit", "true to size", "too big", "too small",
+                "dimension", "measurement", "wrong size",
+            ],
+            "shipping_cost": [
+                # No "delivery time": slow delivery is a speed complaint, not a cost
+                # one, and has no home in the 7-enum — let it fall to "unknown".
+                "shipping cost", "shipping fee", "shipping price", "high shipping",
+                "expensive shipping", "delivery cost", "shipping",
+                "free shipping", "freight",
+            ],
+            "price_sensitivity": [
+                "too expensive", "overpriced", "expensive", "afford", "budget",
+                "pricey", "price", "discount", "cheaper", "sticker shock",
+            ],
+            "just_browsing": [
+                "just browsing", "just looking", "comparing", "comparison",
+                "window shopping", "researching", "exploring", "gift",
+            ],
+        }
+        scores = {
+            category: sum(text.count(kw) for kw in keywords)
+            for category, keywords in category_keywords.items()
+        }
+        top = max(scores, key=scores.get)
+        return top if scores[top] > 0 else "unknown"
 
     def _choose_angle(self, report: str, cart: ShopifyCartData) -> str:
         """Pick the email persuasion angle, rotating away from failed prior attempts."""
