@@ -146,21 +146,28 @@ situation and the specific insight from the psychology simulation."""
         text = f"{reason}\n{report}".lower()
         category_keywords = {
             "payment_friction": [
-                "payment failed", "payment declined", "card declined", "declined",
-                "payment error", "checkout error", "gateway", "could not pay",
+                # Multi-word phrases only — bare "declined"/"gateway" fire on
+                # non-payment prose ("declined the survey", "gateway.shopify.com").
+                "payment failed", "payment declined", "card declined",
+                "payment error", "checkout error", "payment gateway", "could not pay",
                 "unable to pay", "transaction failed",
             ],
             "out_of_stock_concern": [
+                # No bare "inventory" — it fires on "inventory management system".
                 "out of stock", "out-of-stock", "sold out", "back order",
-                "backorder", "low stock", "limited stock", "restock", "inventory",
+                "backorder", "low stock", "limited stock", "restock",
             ],
             "sizing_doubt": [
-                "size", "sizing", "fit ", "true to size", "too big", "too small",
+                # " fit" (leading space) catches the standalone word incl. punctuated
+                # forms ("poor fit.") without matching outfit/benefit/fitness.
+                "size", "sizing", " fit", "true to size", "too big", "too small",
                 "dimension", "measurement", "wrong size",
             ],
             "shipping_cost": [
+                # No "delivery time": slow delivery is a speed complaint, not a cost
+                # one, and has no home in the 7-enum — let it fall to "unknown".
                 "shipping cost", "shipping fee", "shipping price", "high shipping",
-                "expensive shipping", "delivery cost", "delivery time", "shipping",
+                "expensive shipping", "delivery cost", "shipping",
                 "free shipping", "freight",
             ],
             "price_sensitivity": [

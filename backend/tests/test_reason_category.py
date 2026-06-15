@@ -82,6 +82,25 @@ def test_classify_empty_inputs_is_unknown():
     assert builder._classify_reason_category("", "") == "unknown"
 
 
+# Non-payment / non-sizing / non-stock prose that bare keywords used to
+# false-positive on (review fold). Each must NOT classify into the tempting bucket.
+_FALSE_POSITIVES = [
+    ("The customer declined to answer the post-exit survey.", "payment_friction"),
+    ("Traffic arrived from gateway.shopify.com on mobile.", "payment_friction"),
+    ("The store's inventory management system updates daily and is excellent.", "out_of_stock_concern"),
+    ("The shopper bought a similar outfit elsewhere last week.", "sizing_doubt"),
+    ("Estimated delivery time was 14 days, far too slow for the shopper.", "shipping_cost"),
+]
+
+
+@pytest.mark.parametrize("report, tempting_bucket", _FALSE_POSITIVES)
+def test_classify_avoids_bare_keyword_false_positives(report, tempting_bucket):
+    """A report that merely mentions a bare keyword in an unrelated context must
+    not be dragged into that category."""
+    builder = EmailPromptBuilder()
+    assert builder._classify_reason_category(report, "") != tempting_bucket
+
+
 @pytest.mark.parametrize("expected, reason, report", _CLEAR_CUT)
 def test_classify_always_returns_valid_enum(expected, reason, report):
     """Every classification is a member of the 7-value contract enum."""
