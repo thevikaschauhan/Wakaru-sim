@@ -14,6 +14,7 @@ from enum import Enum
 
 from ..config import Config
 from ..utils.logger import get_logger
+from ..utils.paths import safe_join
 from .zep_entity_reader import ZepEntityReader, FilteredEntities
 from .oasis_profile_generator import OasisProfileGenerator, OasisAgentProfile
 from .simulation_config_generator import SimulationConfigGenerator, SimulationParameters
@@ -135,15 +136,20 @@ class SimulationManager:
         # 内存中的模拟状态缓存
         self._simulations: Dict[str, SimulationState] = {}
     
-    def _get_simulation_dir(self, simulation_id: str) -> str:
-        """获取模拟数据目录"""
-        sim_dir = os.path.join(self.SIMULATION_DATA_DIR, simulation_id)
-        os.makedirs(sim_dir, exist_ok=True)
+    def _get_simulation_dir(self, simulation_id: str, create: bool = False) -> str:
+        """Return the simulation's data directory, containment-checked (#13).
+
+        create defaults to False so a read of a garbage/traversal id can't
+        materialize an attacker-named directory before any existence check.
+        Write callers (_save_simulation_state, prepare) pass create=True."""
+        sim_dir = safe_join(self.SIMULATION_DATA_DIR, simulation_id)
+        if create:
+            os.makedirs(sim_dir, exist_ok=True)
         return sim_dir
     
     def _save_simulation_state(self, state: SimulationState):
         """保存模拟状态到文件"""
-        sim_dir = self._get_simulation_dir(state.simulation_id)
+        sim_dir = self._get_simulation_dir(state.simulation_id, create=True)
         state_file = os.path.join(sim_dir, "state.json")
         
         state.updated_at = datetime.now().isoformat()
@@ -210,11 +216,11 @@ class SimulationManager:
         import os
         from ..config import Config
 
-        # NOTE: deliberately uses Config.OASIS_SIMULATION_DATA_DIR + a raw join,
-        # NOT the instance _get_simulation_dir() helper — that helper calls
-        # os.makedirs(exist_ok=True), which would create the directory and defeat
-        # the "directory does not exist" guard below (the prepare-dedup check).
-        simulation_dir = os.path.join(Config.OASIS_SIMULATION_DATA_DIR, simulation_id)
+        # Containment-checked with safe_join (#13). This is a @staticmethod, so
+        # the instance _get_simulation_dir() helper isn't available here anyway;
+        # it must also stay non-creating so the "directory does not exist" guard
+        # below (the prepare-dedup check) remains meaningful.
+        simulation_dir = safe_join(Config.OASIS_SIMULATION_DATA_DIR, simulation_id)
     
         # 检查目录是否存在
         if not os.path.exists(simulation_dir):
@@ -388,8 +394,8 @@ class SimulationManager:
         try:
             state.status = SimulationStatus.PREPARING
             self._save_simulation_state(state)
-            
-            sim_dir = self._get_simulation_dir(simulation_id)
+
+            sim_dir = self._get_simulation_dir(simulation_id, create=True)
             
             # ========== 阶段1: 读取并过滤实体 ==========
             if progress_callback:
@@ -589,7 +595,7 @@ class SimulationManager:
         if os.path.exists(self.SIMULATION_DATA_DIR):
             for sim_id in os.listdir(self.SIMULATION_DATA_DIR):
                 # 跳过隐藏文件（如 .DS_Store）和非目录文件
-                sim_path = os.path.join(self.SIMULATION_DATA_DIR, sim_id)
+                sim_path = safe_join(self.SIMULATION_DATA_DIR, sim_id)
                 if sim_id.startswith('.') or not os.path.isdir(sim_path):
                     continue
                 

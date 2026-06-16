@@ -21,6 +21,7 @@ from enum import Enum
 from ..config import Config
 from ..utils.llm_client import LLMClient
 from ..utils.logger import get_logger
+from ..utils.paths import safe_join
 from .zep_tools import (
     ZepToolsService, 
     SearchResult, 
@@ -49,7 +50,7 @@ class ReportLogger:
             report_id: report ID, used to determine the log file path
         """
         self.report_id = report_id
-        self.log_file_path = os.path.join(
+        self.log_file_path = safe_join(
             Config.UPLOAD_FOLDER, 'reports', report_id, 'agent_log.jsonl'
         )
         self.start_time = datetime.now()
@@ -322,7 +323,7 @@ class ReportConsoleLogger:
             report_id: report ID, used to determine the log file path
         """
         self.report_id = report_id
-        self.log_file_path = os.path.join(
+        self.log_file_path = safe_join(
             Config.UPLOAD_FOLDER, 'reports', report_id, 'console_log.txt'
         )
         self._ensure_log_file()
@@ -1920,8 +1921,11 @@ class ReportManager:
 
     @classmethod
     def _get_report_folder(cls, report_id: str) -> str:
-        """Get the report folder path"""
-        return os.path.join(cls.REPORTS_DIR, report_id)
+        """Get the report folder path (containment-checked, #13).
+
+        Chokepoint for the per-report files (_get_report_path / _get_*_path all
+        route through it), so safe_join here covers every report read/write."""
+        return safe_join(cls.REPORTS_DIR, report_id)
 
     @classmethod
     def _ensure_report_folder(cls, report_id: str) -> str:
@@ -2461,7 +2465,7 @@ class ReportManager:
 
         if not os.path.exists(path):
             # Backward compatibility: check for a file stored directly under the reports directory
-            old_path = os.path.join(cls.REPORTS_DIR, f"{report_id}.json")
+            old_path = safe_join(cls.REPORTS_DIR, f"{report_id}.json")
             if os.path.exists(old_path):
                 path = old_path
             else:
@@ -2513,7 +2517,7 @@ class ReportManager:
         cls._ensure_reports_dir()
 
         for item in os.listdir(cls.REPORTS_DIR):
-            item_path = os.path.join(cls.REPORTS_DIR, item)
+            item_path = safe_join(cls.REPORTS_DIR, item)
             # New format: folder
             if os.path.isdir(item_path):
                 report = cls.get_report(item)
@@ -2535,7 +2539,7 @@ class ReportManager:
 
         reports = []
         for item in os.listdir(cls.REPORTS_DIR):
-            item_path = os.path.join(cls.REPORTS_DIR, item)
+            item_path = safe_join(cls.REPORTS_DIR, item)
             # New format: folder
             if os.path.isdir(item_path):
                 report = cls.get_report(item)
@@ -2570,8 +2574,8 @@ class ReportManager:
 
         # Backward compatibility: delete the individual files
         deleted = False
-        old_json_path = os.path.join(cls.REPORTS_DIR, f"{report_id}.json")
-        old_md_path = os.path.join(cls.REPORTS_DIR, f"{report_id}.md")
+        old_json_path = safe_join(cls.REPORTS_DIR, f"{report_id}.json")
+        old_md_path = safe_join(cls.REPORTS_DIR, f"{report_id}.md")
         
         if os.path.exists(old_json_path):
             os.remove(old_json_path)

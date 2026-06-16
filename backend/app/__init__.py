@@ -20,6 +20,7 @@ from werkzeug.exceptions import HTTPException
 from .config import Config
 from .extensions import limiter
 from .utils.logger import setup_logger, get_logger
+from .utils.paths import ID_PARAM_PREFIXES, InvalidID, validate_id
 
 
 # PII field names that must never leave the server (see issues #7, #17).
@@ -180,6 +181,26 @@ def create_app(config_class=Config):
         provided = request.headers.get("X-API-Key", "")
         if not hmac.compare_digest(provided, expected):
             return jsonify({"error": "unauthorized"}), 401
+        return None
+
+    # Issue #13: reject a malformed project_id/simulation_id/report_id at the
+    # route boundary before it can reach a filesystem join (Flask's <string:>
+    # converter happily accepts "..", a dotted id, etc.). Keyed on the view_arg
+    # NAME so it ignores task_id (a bare in-memory uuid) and graph_id (a Zep-only
+    # key) without 400ing their routes. Registered after require_api_key so an
+    # unauthenticated probe still 401s first. This is the fail-fast UX layer for
+    # URL ids; safe_join at the filesystem layer is the real containment boundary
+    # and additionally covers ids that arrive in a POST body.
+    @app.before_request
+    def validate_path_ids():
+        for name, value in (request.view_args or {}).items():
+            prefix = ID_PARAM_PREFIXES.get(name)
+            if prefix is None:
+                continue
+            try:
+                validate_id(value, prefix)
+            except InvalidID:
+                return jsonify({"error": "invalid_id"}), 400
         return None
 
     # Issue #12: rate limit the paid cart-recovery POSTs. Init AFTER the auth

@@ -14,6 +14,7 @@ from ..services.oasis_profile_generator import OasisProfileGenerator
 from ..services.simulation_manager import SimulationManager, SimulationStatus
 from ..services.simulation_runner import SimulationRunner, RunnerStatus
 from ..utils.logger import get_logger
+from ..utils.paths import safe_join
 from ..models.project import ProjectManager
 
 logger = get_logger('mirofish.api.simulation')
@@ -948,7 +949,7 @@ def get_simulation_profiles_realtime(simulation_id: str):
         platform = request.args.get('platform', 'reddit')
         
         # 获取模拟目录
-        sim_dir = os.path.join(Config.OASIS_SIMULATION_DATA_DIR, simulation_id)
+        sim_dir = safe_join(Config.OASIS_SIMULATION_DATA_DIR, simulation_id)
         
         if not os.path.exists(sim_dir):
             return jsonify({
@@ -1052,7 +1053,7 @@ def get_simulation_config_realtime(simulation_id: str):
     
     try:
         # 获取模拟目录
-        sim_dir = os.path.join(Config.OASIS_SIMULATION_DATA_DIR, simulation_id)
+        sim_dir = safe_join(Config.OASIS_SIMULATION_DATA_DIR, simulation_id)
         
         if not os.path.exists(sim_dir):
             return jsonify({
@@ -1901,10 +1902,7 @@ def get_simulation_posts(simulation_id: str):
         limit = request.args.get('limit', 50, type=int)
         offset = request.args.get('offset', 0, type=int)
         
-        sim_dir = os.path.join(
-            os.path.dirname(__file__),
-            f'../../uploads/simulations/{simulation_id}'
-        )
+        sim_dir = safe_join(Config.OASIS_SIMULATION_DATA_DIR, simulation_id)
         
         db_file = f"{platform}_simulation.db"
         db_path = os.path.join(sim_dir, db_file)
@@ -1978,10 +1976,7 @@ def get_simulation_comments(simulation_id: str):
         limit = request.args.get('limit', 50, type=int)
         offset = request.args.get('offset', 0, type=int)
         
-        sim_dir = os.path.join(
-            os.path.dirname(__file__),
-            f'../../uploads/simulations/{simulation_id}'
-        )
+        sim_dir = safe_join(Config.OASIS_SIMULATION_DATA_DIR, simulation_id)
         
         db_path = os.path.join(sim_dir, "reddit_simulation.db")
         

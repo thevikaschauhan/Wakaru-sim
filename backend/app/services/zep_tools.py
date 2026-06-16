@@ -18,6 +18,7 @@ from zep_cloud.client import Zep
 from ..config import Config
 from ..utils.logger import get_logger
 from ..utils.llm_client import LLMClient
+from ..utils.paths import safe_join
 from ..utils.zep_paging import fetch_all_nodes, fetch_all_edges
 
 logger = get_logger('mirofish.zep_tools')
@@ -1507,11 +1508,8 @@ class ZepToolsService:
         import os
         import csv
         
-        # 构建人设文件路径
-        sim_dir = os.path.join(
-            os.path.dirname(__file__), 
-            f'../../uploads/simulations/{simulation_id}'
-        )
+        # Build the agent-profile file path (containment-checked, #13)
+        sim_dir = safe_join(Config.OASIS_SIMULATION_DATA_DIR, simulation_id)
         
         profiles = []
         
