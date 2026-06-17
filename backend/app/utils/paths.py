@@ -38,10 +38,11 @@ ID_PARAM_PREFIXES = {
     "report_id": "report",
 }
 
-# Exactly the minted shape: prefix + 12 lowercase hex chars. Intentionally
-# strict so a generator drift (e.g. a bump to hex[:16]) fails loudly in the
-# round-trip tests rather than silently widening the accepted surface.
-_ID_RE = re.compile(r"^(?:proj|sim|report)_[a-f0-9]{12}$")
+# Exactly the minted shape: prefix + 12 lowercase hex chars. \A/\Z (not ^/$)
+# so a trailing newline can't slip through — $ also matches just before a final
+# "\n". Intentionally strict so a generator drift (e.g. a bump to hex[:16])
+# fails loudly in the round-trip tests rather than silently widening the surface.
+_ID_RE = re.compile(r"\A(?:proj|sim|report)_[a-f0-9]{12}\Z")
 
 
 def validate_id(value, prefix):

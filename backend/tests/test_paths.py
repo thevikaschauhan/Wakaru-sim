@@ -51,6 +51,8 @@ def test_validate_id_accepts_canonical_ids(value, prefix):
         "proj_0123456789zz",        # non-hex chars
         "PROJ_0123456789ab",        # uppercase prefix
         "proj0123456789ab",         # missing underscore
+        "proj_0123456789ab\n",      # trailing newline ($ would accept; \\Z rejects)
+        "proj_0123456789ab\nx",     # embedded newline
     ],
 )
 def test_validate_id_rejects_malformed(value):
