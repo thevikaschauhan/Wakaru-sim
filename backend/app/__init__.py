@@ -149,8 +149,8 @@ def create_app(config_class=Config):
     
     # Issue #10: restrict CORS on /api/* to an explicit allowlist instead of the
     # former wildcard. ALLOWED_ORIGINS is a comma-separated list; empty = no
-    # browser origin is permitted. The engine calls /api/* server→server (no CORS
-    # needed); the Vue frontend is local-dev only and not a deployed origin.
+    # browser origin is permitted. The engine calls /api/* server→server, so the
+    # default empty allowlist is correct; this repo ships no browser frontend.
     allowed_origins = [
         o.strip() for o in os.environ.get("ALLOWED_ORIGINS", "").split(",") if o.strip()
     ]
@@ -241,8 +241,8 @@ def create_app(config_class=Config):
         return response
 
     # Issue #16 — OWASP baseline security headers on every response.
-    # CSP is deferred: it needs frontend-deployment-specific tuning that
-    # belongs with the frontend split/productionization decision (issue #27).
+    # No Content-Security-Policy: this service is a pure JSON API with no
+    # browser frontend, so a CSP would have no document/scripts to govern.
     @app.after_request
     def set_security_headers(response):
         response.headers["X-Content-Type-Options"] = "nosniff"

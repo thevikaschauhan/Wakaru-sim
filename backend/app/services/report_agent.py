@@ -265,8 +265,8 @@ class ReportLogger:
         """
         Record that a section finished generating
 
-        The frontend should listen for this log to determine whether a section
-        is truly complete and to retrieve the full content.
+        Emits a section_complete action so a consumer can tell a section is
+        truly complete and retrieve its full content.
         """
         self.log(
             action="section_complete",
@@ -2224,7 +2224,8 @@ class ReportManager:
         """
         Update the report generation progress
 
-        The frontend can read progress.json to get real-time progress
+        Writes progress.json (served back via the report status API) for
+        real-time progress polling.
         """
         cls._ensure_report_folder(report_id)
         

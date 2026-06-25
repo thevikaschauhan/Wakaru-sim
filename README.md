@@ -205,8 +205,8 @@ OASIS_DEFAULT_MAX_ROUNDS=10
 ### 2. Install and run
 
 ```bash
-# Install all dependencies (Node + Python)
-npm run setup:all
+# Install backend dependencies
+pip install -r backend/requirements.txt
 
 # Start the backend (port 5001)
 cd backend && python run.py
@@ -219,12 +219,13 @@ pip install ./client
 python client/examples/cart_recovery_example.py
 ```
 
-### Docker (recommended for production)
+### Docker
 
 ```bash
 cp .env.example .env
 # Fill in API keys in .env
-docker compose up -d
+docker build -f backend/Dockerfile -t mirofish-backend .
+docker run -p 5001:5001 --env-file .env mirofish-backend
 ```
 
 ---
