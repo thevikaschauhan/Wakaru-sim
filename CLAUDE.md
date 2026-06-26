@@ -18,8 +18,8 @@ In the context of the **Vakaru cart recovery system**, MiroFish acts as the prim
 # Start the Flask backend (port 5001 by default)
 cd backend && python run.py
 
-# Docker (recommended for production)
-docker-compose up --build
+# Docker (build + run the backend image)
+docker build -f backend/Dockerfile -t mirofish-backend . && docker run -p 5001:5001 --env-file backend/.env mirofish-backend
 
 # Install Python deps
 pip install -r backend/requirements.txt

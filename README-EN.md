@@ -99,7 +99,6 @@ Click the image to watch MiroFish's deep prediction of the lost ending based on 
 
 | Tool | Version | Description | Check Installation |
 |------|---------|-------------|-------------------|
-| **Node.js** | 18+ | Frontend runtime, includes npm | `node -v` |
 | **Python** | ≥3.11, ≤3.12 | Backend runtime | `python --version` |
 | **uv** | Latest | Python package manager | `uv --version` |
 
@@ -130,37 +129,18 @@ ZEP_API_KEY=your_zep_api_key
 #### 2. Install Dependencies
 
 ```bash
-# One-click installation of all dependencies (root + frontend + backend)
-npm run setup:all
+# Install backend dependencies (auto-creates a virtual environment)
+cd backend && uv sync
 ```
 
-Or install step by step:
+#### 3. Start the Backend
 
 ```bash
-# Install Node dependencies (root + frontend)
-npm run setup
-
-# Install Python dependencies (backend, auto-creates virtual environment)
-npm run setup:backend
+cd backend && uv run python run.py
 ```
 
-#### 3. Start Services
-
-```bash
-# Start both frontend and backend (run from project root)
-npm run dev
-```
-
-**Service URLs:**
-- Frontend: `http://localhost:3000`
+**Service URL:**
 - Backend API: `http://localhost:5001`
-
-**Start Individually:**
-
-```bash
-npm run backend   # Start backend only
-npm run frontend  # Start frontend only
-```
 
 ### Option 2: Docker Deployment
 
@@ -168,13 +148,12 @@ npm run frontend  # Start frontend only
 # 1. Configure environment variables (same as source deployment)
 cp .env.example .env
 
-# 2. Pull image and start
-docker compose up -d
+# 2. Build and run the backend image
+docker build -f backend/Dockerfile -t mirofish-backend .
+docker run -p 5001:5001 --env-file .env mirofish-backend
 ```
 
-Reads `.env` from root directory by default, maps ports `3000 (frontend) / 5001 (backend)`
-
-> Mirror address for faster pulling is provided as comments in `docker-compose.yml`, replace if needed.
+Maps port `5001 (backend API)`.
 
 ## 📬 Join the Conversation
 

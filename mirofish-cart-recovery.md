@@ -34,11 +34,11 @@ Send via Klaviyo / SendGrid / Postmark
 
 1. **MiroFish backend running** (one of):
    ```bash
-   # Docker (recommended)
-   cd MiroFish-main && docker-compose up
+   # Docker
+   docker build -f backend/Dockerfile -t mirofish-backend . && docker run -p 5001:5001 --env-file backend/.env mirofish-backend
 
    # Local
-   cd MiroFish-main/backend && python run.py
+   cd backend && python run.py
    ```
 
 2. **Environment variables** (in `backend/.env`):

@@ -5,8 +5,6 @@
 .DS_Store
 .env
 
-node_modules
-frontend/node_modules
 backend/.venv
 .venv
 .python-version
@@ -16,8 +14,5 @@ __pycache__
 .pytest_cache
 .mypy_cache
 .ruff_cache
-
-frontend/dist
-frontend/.vite
 
 backend/uploads
