@@ -1,0 +1,41 @@
+name: backend-ci
+
+# Runs the backend test suite + a bug-class lint on every PR and on pushes to
+# main. (The repo's prior CI only built a Docker image on tags and ran no
+# tests; that workflow was removed with the frontend in #56.)
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv (+ Python 3.12)
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      # Bug-class lint only (syntax errors, undefined names, broken
+      # comparisons/asserts). Intentionally NOT the full ruff rule set: the
+      # codebase has ~95 pre-existing style/hygiene findings (unused imports,
+      # f-strings, etc.) that are out of scope here — widen the --select set in
+      # a dedicated cleanup once those are addressed.
+      - name: Lint (ruff, bug-class baseline)
+        run: uvx ruff@0.15.14 check app tests --select E9,F63,F7,F82
+
+      - name: Install dependencies (locked)
+        run: uv sync --frozen
+
+      - name: Run tests
+        run: uv run --frozen pytest -q
