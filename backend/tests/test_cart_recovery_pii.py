@@ -46,9 +46,8 @@ def test_cart_recovery_analyze_emits_no_pii(client, caplog):
         # Exercise the on_progress callback so the INFO log line is captured.
         if on_progress is not None:
             on_progress("preparing", "stub progress message")
-        # SimpleNamespace avoids importing the real cart_recovery package,
-        # which would transitively pull in the mirofish client SDK via
-        # cart_recovery/__init__.py.
+        # SimpleNamespace stands in for the AbandonmentInsight result so the
+        # test needn't construct the real object or run the pipeline.
         return SimpleNamespace(
             predicted_reason="stub reason",
             reason_category="unknown",

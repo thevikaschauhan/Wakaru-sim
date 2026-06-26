@@ -1,14 +1,11 @@
 """
 Pure, transport-agnostic cart-recovery specification.
 
-Holds the pieces of the cart-recovery analysis that carry NO dependency on
-MiroFishClient / HTTP, so they can be shared by BOTH:
-  * the external SDK path  -> cart_recovery/engine.py
-  * the in-process backend  -> backend/app/services/cart_recovery_workflow.py (issue #19)
-
-Keeping these here lets the backend orchestrator reuse the exact requirement
-string + confidence heuristic without importing cart_recovery.engine (which
-imports `mirofish` and would drag the self-HTTP path back into the backend).
+Holds the pieces of the cart-recovery analysis that carry no transport/HTTP
+dependency — the requirement string + the confidence heuristic — used by the
+in-process backend orchestrator (backend/app/services/cart_recovery_workflow.py,
+issue #19). The SDK-based external path (cart_recovery/engine.py -> mirofish) that
+once also shared these was removed in the #24 prune.
 """
 from __future__ import annotations
 

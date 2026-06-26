@@ -1,11 +1,9 @@
 """Cart-recovery package.
 
-``CartRecoveryEngine`` is exported lazily (PEP 562 ``__getattr__``) so that
-importing the PURE submodules (``shopify_formatter`` / ``email_prompt_builder``
-/ ``recovery_spec``) does NOT eagerly import ``engine.py`` -> ``mirofish``.
-This keeps the in-process backend orchestrator (issue #19) free of the
-SDK/HTTP dependency, while ``from cart_recovery import CartRecoveryEngine``
-still works unchanged for external SDK users.
+The pure modules used by the in-process backend orchestrator (issue #19):
+``shopify_formatter``, ``email_prompt_builder``, ``recovery_spec``. The
+SDK-based ``CartRecoveryEngine`` (engine.py -> mirofish) was removed with the
+mirofish client SDK (#24 prune) — the pre-#19 self-HTTP standalone path is gone.
 """
 from .email_prompt_builder import (
     REASON_CATEGORIES,
@@ -15,20 +13,9 @@ from .email_prompt_builder import (
 from .shopify_formatter import ShopifyCartData, ShopifyFormatter
 
 __all__ = [
-    "CartRecoveryEngine",
     "ShopifyCartData",
     "ShopifyFormatter",
     "AbandonmentInsight",
     "EmailPromptBuilder",
     "REASON_CATEGORIES",
 ]
-
-
-def __getattr__(name: str):
-    # Lazy import: only pull engine.py (-> mirofish) when CartRecoveryEngine is
-    # actually accessed, so pure-submodule imports stay dependency-light (#19).
-    if name == "CartRecoveryEngine":
-        from .engine import CartRecoveryEngine
-
-        return CartRecoveryEngine
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
