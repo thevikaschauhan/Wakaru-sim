@@ -20,10 +20,9 @@ RUN pip install --no-cache-dir -r backend/requirements.txt
 # Copy all MiroFish-main source (build context = MiroFish-main/)
 COPY . .
 
-# Install the MiroFish client SDK (client/) and cart_recovery module
-RUN pip install --no-cache-dir ./client
-
-# cart_recovery and client modules live at MiroFish-main root — already copied above
+# cart_recovery lives at the repo root and is imported via PYTHONPATH below
+# (already copied above). The mirofish client SDK (client/) was removed (#24
+# prune) — the in-process orchestrator (#19) never used it.
 ENV PYTHONPATH=/app
 ENV FLASK_APP=backend/run.py
 
