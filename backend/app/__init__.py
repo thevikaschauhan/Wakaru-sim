@@ -21,10 +21,8 @@ from .config import Config
 from .extensions import limiter
 from .utils.logger import setup_logger, get_logger
 from .utils.paths import (
-    ID_PARAM_PREFIXES,
     InvalidID,
     SENTINEL_MERCHANT_ID,
-    validate_id,
     validate_merchant_id,
 )
 
@@ -189,26 +187,6 @@ def create_app(config_class=Config):
             return jsonify({"error": "unauthorized"}), 401
         return None
 
-    # Issue #13: reject a malformed project_id/simulation_id/report_id at the
-    # route boundary before it can reach a filesystem join (Flask's <string:>
-    # converter happily accepts "..", a dotted id, etc.). Keyed on the view_arg
-    # NAME so it ignores task_id (a bare in-memory uuid) and graph_id (a Zep-only
-    # key) without 400ing their routes. Registered after require_api_key so an
-    # unauthenticated probe still 401s first. This is the fail-fast UX layer for
-    # URL ids; safe_join at the filesystem layer is the real containment boundary
-    # and additionally covers ids that arrive in a POST body.
-    @app.before_request
-    def validate_path_ids():
-        for name, value in (request.view_args or {}).items():
-            prefix = ID_PARAM_PREFIXES.get(name)
-            if prefix is None:
-                continue
-            try:
-                validate_id(value, prefix)
-            except InvalidID:
-                return jsonify({"error": "invalid_id"}), 400
-        return None
-
     # Issue #24: bind the engine-supplied merchant to the request so storage,
     # rate limit, idempotency, and logs can be scoped per tenant. Registered
     # AFTER require_api_key (a key holder is authenticated first) and BEFORE
@@ -321,13 +299,10 @@ def create_app(config_class=Config):
             {"success": False, "error": "internal_error", "request_id": request_id}
         ), 500
 
-    # 注册蓝图
-    from .api import graph_bp, simulation_bp, report_bp
-    app.register_blueprint(graph_bp, url_prefix='/api/graph')
-    app.register_blueprint(simulation_bp, url_prefix='/api/simulation')
-    app.register_blueprint(report_bp, url_prefix='/api/report')
-
-    # Vakaru cart recovery integration
+    # Register the cart-recovery blueprint — the only live HTTP surface. The
+    # OASIS /graph, /simulation, /report blueprints were removed (#24 prune): no
+    # live caller after the frontend was deleted (#56); the in-process pipeline
+    # uses the underlying services directly.
     from .api.cart_recovery import cart_recovery_bp
     app.register_blueprint(cart_recovery_bp, url_prefix='/api/cart-recovery')
 

@@ -1,84 +1,25 @@
-"""Issue #13 — route-level path-traversal containment.
+"""Issue #13 — filesystem path-traversal containment (static guard).
 
-Two layers are exercised here (the pure primitives are unit-tested in
-tests/test_paths.py):
+The route-level before_request gate (Layer 1 of the original #13 design) was
+removed with the OASIS /graph,/simulation,/report endpoints (#24 prune) — no
+remaining route carries a project_id/simulation_id/report_id param. The real
+security boundary, safe_join, stays: the in-process cart-recovery pipeline writes
+its project/simulation/report artifacts under uploads/ through it.
 
-1. The app-level before_request gate turns a malformed path-bearing id
-   (project_id / simulation_id / report_id) into a fail-fast 400 before any
-   handler runs. Params that never touch the filesystem (task_id, graph_id)
-   are deliberately *not* gated.
-2. A static guard pins that no API/service module joins a known base dir with
-   an untrusted id without routing through safe_join.
-
-Routing note: werkzeug rejects an encoded multi-segment payload
-(`..%2F..%2Fetc`) with a 404 at URL-matching time — it never reaches a route,
-so it never reaches the gate. That is still a rejection (no file is read); the
-gate's job is the single-segment ids that *do* reach a route
-(`sim_....`, `notanid`). The genuinely exploitable vector — a traversal id in a
-POST body, which carries no werkzeug normalization — is closed by safe_join at
-the filesystem layer.
+This module keeps the static guard that pins that no service module joins a known
+base dir with an untrusted id without routing through safe_join, plus the
+read-vs-create discipline on the simulation dir. The pure primitives are
+unit-tested in tests/test_paths.py.
 """
 import os
 import re
 from pathlib import Path
 
-from app.utils.paths import ID_PARAM_PREFIXES
-
 
 _BACKEND = Path(__file__).resolve().parent.parent
 
 
-# --- Layer 1: the before_request 400 gate ------------------------------------
-
-# Single-segment ids that reach a route and must be rejected by the gate.
-MALFORMED_ID_ROUTES = [
-    "/api/simulation/notanid/run-status",
-    "/api/simulation/sim_xyz/run-status",        # right prefix, bad body
-    "/api/simulation/sim_0123456789ab_extra/run-status",
-    "/api/report/notareport",
-    "/api/report/report_ZZZZ/progress",          # non-hex
-    "/api/graph/project/notaproj",
-    "/api/graph/project/proj_0123456789",         # 10 hex — too short
-]
-
-
-def test_malformed_url_id_is_rejected_with_400(client):
-    for url in MALFORMED_ID_ROUTES:
-        resp = client.get(url)
-        assert resp.status_code == 400, (url, resp.status_code, resp.data[:120])
-        assert resp.get_json()["error"] == "invalid_id", url
-
-
-def test_valid_url_id_passes_the_gate(client):
-    # A well-formed (if nonexistent) simulation id reaches the handler, which
-    # reports "idle" — proving the gate let it through rather than 400ing it.
-    resp = client.get("/api/simulation/sim_0123456789ab/run-status")
-    assert resp.status_code == 200, resp.data[:200]
-    assert resp.get_json()["data"]["runner_status"] == "idle"
-
-
-def test_non_fs_params_are_not_gated(client):
-    # task_id (bare uuid, in-memory) must not be 400'd as an invalid id — the
-    # handler answers "not found" instead. graph_id (Zep-only) likewise is never
-    # rejected by the id gate.
-    resp = client.get("/api/graph/task/550e8400-e29b-41d4-a716-446655440000")
-    assert resp.status_code != 400 or resp.get_json().get("error") != "invalid_id"
-
-
-def test_encoded_multisegment_traversal_does_not_leak(client):
-    # werkzeug 404s the encoded-slash payload before routing; the point is only
-    # that it never returns a 200 with file contents.
-    resp = client.get("/api/simulation/..%2F..%2F..%2Fetc%2Fpasswd/run-status")
-    assert resp.status_code == 404
-
-
-def test_empty_segment_id_does_not_reach_fs_as_200(client):
-    # A bare ".." normalises away at routing; assert no successful read.
-    resp = client.get("/api/simulation/../run-status")
-    assert resp.status_code != 200
-
-
-# --- Layer 2: static guard — every base-dir id join goes through safe_join ----
+# --- static guard — every base-dir id join goes through safe_join -------------
 
 # Base-dir constants whose first-level joins carry an id taken (directly or
 # transitively) from a request. Each `os.path.join(<BASE>, <id>...)` must be a
@@ -98,7 +39,6 @@ _GUARDED_FILES = [
     "app/services/report_agent.py",
     "app/services/simulation_manager.py",
     "app/services/simulation_runner.py",
-    "app/api/simulation.py",
     "app/services/zep_tools.py",
 ]
 
@@ -151,13 +91,12 @@ def test_no_fstring_id_path_embedding():
 def test_guarded_files_cover_known_base_dirs():
     # Sanity: the base-dir tokens we guard actually still exist in the tree, so
     # a rename can't silently empty the guard.
-    assert ID_PARAM_PREFIXES  # imported symbol is used
     joined = "\n".join((_BACKEND / rel).read_text(encoding="utf-8") for rel in _GUARDED_FILES)
     for token in ("RUN_STATE_DIR", "PROJECTS_DIR", "REPORTS_DIR"):
         assert token in joined, token
 
 
-# --- AC item 3: read-only paths must not create directories ------------------
+# --- read-only paths must not create directories ------------------------------
 
 def test_read_only_get_simulation_dir_does_not_create(tmp_path, monkeypatch):
     # A read (create=False, the default) must not materialize the directory —

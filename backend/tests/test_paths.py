@@ -1,91 +1,25 @@
-"""Issue #13 — unit tests for the path-safety primitives.
+"""Unit tests for the path-safety primitives (issues #13, #24).
 
-`validate_id` and `safe_join` are the two independent guards added by issue
-#13. They are pure functions, so they are pinned here in isolation (the
-route-level behaviour is covered by tests/test_path_traversal.py):
+Pure functions, pinned here in isolation:
 
-- validate_id: fail-fast format check at the route boundary (the UX layer).
-- safe_join: realpath containment — the real security boundary.
+- safe_join: realpath containment — the real security boundary (#13).
+- validate_merchant_id: fail-fast UUID format check for the X-Merchant-Id
+  header at the request boundary (#24).
+
+(The route-boundary validate_id gate was removed with the OASIS endpoints —
+see the #24 prune.)
 """
 import os
 
 import pytest
 
 from app.utils.paths import (
-    ID_PARAM_PREFIXES,
     InvalidID,
     PathTraversal,
     SENTINEL_MERCHANT_ID,
     safe_join,
-    validate_id,
     validate_merchant_id,
 )
-
-
-# --- validate_id --------------------------------------------------------------
-
-@pytest.mark.parametrize(
-    "value,prefix",
-    [
-        ("proj_0123456789ab", "proj"),
-        ("sim_abcdef012345", "sim"),
-        ("report_deadbeef0011", "report"),
-    ],
-)
-def test_validate_id_accepts_canonical_ids(value, prefix):
-    # Returns the value unchanged so callers can validate inline.
-    assert validate_id(value, prefix) == value
-
-
-@pytest.mark.parametrize(
-    "value",
-    [
-        "../../../etc/passwd",
-        "proj_../../etc",
-        "proj_/etc/passwd",
-        "proj_..",
-        "..",
-        "",
-        "proj_",                    # prefix only, no hex
-        "proj_0123456789a",         # 11 hex — too short
-        "proj_0123456789abc",       # 13 hex — too long
-        "proj_0123456789AB",        # uppercase hex rejected
-        "proj_0123456789zz",        # non-hex chars
-        "PROJ_0123456789ab",        # uppercase prefix
-        "proj0123456789ab",         # missing underscore
-        "proj_0123456789ab\n",      # trailing newline ($ would accept; \\Z rejects)
-        "proj_0123456789ab\nx",     # embedded newline
-    ],
-)
-def test_validate_id_rejects_malformed(value):
-    with pytest.raises(InvalidID):
-        validate_id(value, "proj")
-
-
-def test_validate_id_rejects_wrong_prefix_for_kind():
-    # A well-formed id of the wrong kind must not pass on another kind's route:
-    # a project route accepts only proj_ ids, never a valid sim_/report_ id.
-    with pytest.raises(InvalidID):
-        validate_id("sim_0123456789ab", "proj")
-    with pytest.raises(InvalidID):
-        validate_id("report_0123456789ab", "sim")
-
-
-def test_validate_id_rejects_non_string():
-    with pytest.raises(InvalidID):
-        validate_id(None, "proj")
-    with pytest.raises(InvalidID):
-        validate_id(12345, "proj")
-
-
-def test_id_param_prefixes_cover_exactly_the_fs_bearing_params():
-    # task_id (bare uuid, in-memory) and graph_id (Zep-only) must stay absent —
-    # adding them would 400 every legitimate task/graph route.
-    assert ID_PARAM_PREFIXES == {
-        "project_id": "proj",
-        "simulation_id": "sim",
-        "report_id": "report",
-    }
 
 
 # --- validate_merchant_id (#24) ----------------------------------------------
