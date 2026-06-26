@@ -62,10 +62,11 @@ def test_cleanup_artifacts_without_simulation_deletes_project_only(monkeypatch):
     # An early failure (before the simulation exists) passes simulation_id=None;
     # only the project is cleaned, and the report lookup is skipped.
     calls = []
-    monkeypatch.setattr(
-        wf.ReportManager, "get_report_by_simulation",
-        lambda sid: (_ for _ in ()).throw(AssertionError("should not be called")),
-    )
+
+    def _should_not_be_called(sid):
+        raise AssertionError("get_report_by_simulation must not run without a simulation_id")
+
+    monkeypatch.setattr(wf.ReportManager, "get_report_by_simulation", _should_not_be_called)
     monkeypatch.setattr(wf.ProjectManager, "delete_project", lambda pid: calls.append(("project", pid)))
 
     wf._cleanup_artifacts("proj_x", None)
@@ -74,17 +75,26 @@ def test_cleanup_artifacts_without_simulation_deletes_project_only(monkeypatch):
 
 
 def test_cleanup_artifacts_is_best_effort(monkeypatch):
-    # A failure in one removal must not block the others or propagate — cleanup
-    # runs in run_cart_recovery's finally and must never mask the real result.
-    calls = []
-    monkeypatch.setattr(wf.ReportManager, "get_report_by_simulation", lambda sid: None)
+    # Every removal is independently guarded: a failure in any one must not block
+    # the others or propagate — cleanup runs in run_cart_recovery's finally and
+    # must never mask the analysis result. All three raise here, so the only way
+    # all three are attempted is if each has its own guard.
+    attempted = []
 
-    def boom(_):
-        raise OSError("disk gone")
+    def _boom(name):
+        def _raise(_arg):
+            attempted.append(name)
+            raise OSError(f"{name} delete failed")
+        return _raise
 
-    monkeypatch.setattr(wf.ProjectManager, "delete_project", boom)
-    monkeypatch.setattr(wf.SimulationManager, "delete_simulation", lambda sid: calls.append("sim"))
+    monkeypatch.setattr(
+        wf.ReportManager, "get_report_by_simulation",
+        lambda sid: SimpleNamespace(report_id="report_x"),
+    )
+    monkeypatch.setattr(wf.ProjectManager, "delete_project", _boom("project"))
+    monkeypatch.setattr(wf.SimulationManager, "delete_simulation", _boom("sim"))
+    monkeypatch.setattr(wf.ReportManager, "delete_report", _boom("report"))
 
-    wf._cleanup_artifacts("proj_x", "sim_x")  # must not raise
+    wf._cleanup_artifacts("proj_x", "sim_x")  # must not raise despite all three failing
 
-    assert calls == ["sim"]  # sim delete still ran despite the project-delete error
+    assert attempted == ["project", "sim", "report"]
