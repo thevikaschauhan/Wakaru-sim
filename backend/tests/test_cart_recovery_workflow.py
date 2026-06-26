@@ -233,6 +233,42 @@ def test_no_stop_on_normal_completion(harness):
     assert harness.runner.stop_calls == []  # COMPLETED -> _safe_stop is a no-op
 
 
+def test_scratch_cleanup_fires_on_success(harness, monkeypatch):
+    # #24 CP2b: the per-analysis scratch is removed after a successful run, with
+    # both the project and simulation ids.
+    cleaned = []
+    monkeypatch.setattr(wf, "_cleanup_artifacts", lambda pid, sid: cleaned.append((pid, sid)))
+    wf.run_cart_recovery(_make_cart())
+    assert cleaned == [("proj_test", "sim_test")]
+
+
+def test_scratch_cleanup_fires_on_failure_after_sim(harness, monkeypatch):
+    # A failure AFTER the simulation is created must still clean its dir —
+    # captured["simulation_id"] is set the moment the sim exists, so the finally
+    # passes it through.
+    harness.state.run_sequence = [RunnerStatus.FAILED]
+    cleaned = []
+    monkeypatch.setattr(wf, "_cleanup_artifacts", lambda pid, sid: cleaned.append((pid, sid)))
+    with pytest.raises(RuntimeError, match="simulation failed"):
+        wf.run_cart_recovery(_make_cart())
+    assert cleaned == [("proj_test", "sim_test")]
+
+
+def test_scratch_cleanup_fires_on_early_failure_without_sim(harness, monkeypatch):
+    # A failure BEFORE the simulation is created cleans the project only (the sim
+    # id is still None).
+    cleaned = []
+    monkeypatch.setattr(wf, "_cleanup_artifacts", lambda pid, sid: cleaned.append((pid, sid)))
+
+    def boom(self, document_texts, simulation_requirement, additional_context=None):
+        raise RuntimeError("ontology boom")
+
+    monkeypatch.setattr(wf.OntologyGenerator, "generate", boom)
+    with pytest.raises(RuntimeError, match="ontology boom"):
+        wf.run_cart_recovery(_make_cart())
+    assert cleaned == [("proj_test", None)]
+
+
 def test_subprocess_cleanup_on_timeout(harness, monkeypatch):
     harness.state.run_sequence = [RunnerStatus.RUNNING]   # never terminates
     monkeypatch.setattr(wf, "_RUN_POLL_TIMEOUT_SECONDS", 0)  # force immediate timeout

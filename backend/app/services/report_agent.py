@@ -11,6 +11,7 @@ Capabilities:
 
 import os
 import json
+import shutil
 import time
 import re
 from typing import Dict, Any, List, Optional, Callable
@@ -1926,6 +1927,15 @@ class ReportManager:
         Chokepoint for the per-report files (_get_report_path / _get_*_path all
         route through it), so safe_join here covers every report read/write."""
         return safe_join(cls.REPORTS_DIR, report_id)
+
+    @classmethod
+    def delete_report(cls, report_id: str) -> bool:
+        """Remove the report's folder (#24 CP2b scratch cleanup). False if absent."""
+        folder = cls._get_report_folder(report_id)
+        if not os.path.exists(folder):
+            return False
+        shutil.rmtree(folder)
+        return True
 
     @classmethod
     def _ensure_report_folder(cls, report_id: str) -> str:

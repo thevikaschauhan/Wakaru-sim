@@ -18,6 +18,7 @@ issue #20 and is intentionally out of scope here.
 """
 from __future__ import annotations
 
+import logging
 import time
 from typing import Callable, Optional
 
@@ -35,6 +36,8 @@ from .simulation_runner import RunnerStatus, SimulationRunner
 from .text_processor import TextProcessor
 
 ProgressCallback = Optional[Callable[[str, object], None]]
+
+logger = logging.getLogger("mirofish.cart_recovery")
 
 # Poll cadence for the OASIS run. The monitor thread advances state every ~2s
 # (simulation_runner._monitor_simulation), so polling faster gains nothing.
@@ -74,13 +77,39 @@ def run_cart_recovery(
         raise RuntimeError("LLM_API_KEY not configured")
 
     formatter = ShopifyFormatter()
-    prompt_builder = EmailPromptBuilder()
     seed_text = TextProcessor.preprocess_text(formatter.format_as_seed_doc(cart))
 
     # --- 1. ontology + project (in-process /graph/ontology/generate) ---
     # Neutral project name: do NOT embed cart.customer_id (PII) — it would land
     # in project.json, the Zep graph name, and (via on_progress) the logs.
     project = ProjectManager.create_project(name="Cart Recovery")
+    # The pipeline's project/simulation/report dirs under uploads/ are write-only
+    # scratch (the insight is returned, never re-read), so they are removed in the
+    # finally — on success OR failure — to avoid cross-tenant co-mingling, unbounded
+    # disk growth, and PII at rest (#24 CP2b). ``captured`` carries the simulation_id
+    # back out so a failure after the simulation is created still cleans its dir.
+    captured: dict = {"simulation_id": None}
+    try:
+        return _run_analysis(project, cart, seed_text, on_progress, captured)
+    finally:
+        _cleanup_artifacts(project.project_id, captured["simulation_id"])
+
+
+def _run_analysis(
+    project,
+    cart: ShopifyCartData,
+    seed_text: str,
+    on_progress: ProgressCallback,
+    captured: dict,
+) -> AbandonmentInsight:
+    """Run the pipeline body for an already-created ``project``.
+
+    Extracted from run_cart_recovery so the caller can wrap it in a try/finally
+    that removes the per-analysis scratch (#24 CP2b). ``captured["simulation_id"]``
+    is set the moment the simulation exists so a mid-pipeline failure still gets
+    its directory cleaned up.
+    """
+    prompt_builder = EmailPromptBuilder()
     project.simulation_requirement = RECOVERY_REQUIREMENT
     project.total_text_length = len(seed_text)
     ProjectManager.save_extracted_text(project.project_id, seed_text)
@@ -134,6 +163,7 @@ def run_cart_recovery(
         enable_reddit=False,
     )
     simulation_id = sim_state.simulation_id
+    captured["simulation_id"] = simulation_id
 
     # Preserve the prepare-dedup gate the HTTP route performs. A freshly created
     # simulation_id has no simulation_config.json and state.json status "created",
@@ -188,6 +218,43 @@ def run_cart_recovery(
     insight = prompt_builder.build(report_content, cart, confidence=confidence)
     insight.confidence_reasoning = confidence_reasoning
     return insight
+
+
+def _cleanup_artifacts(project_id: str, simulation_id: Optional[str]) -> None:
+    """Best-effort removal of one analysis's scratch dirs (#24 CP2b).
+
+    Three dirs hold a run's artifacts: the project, the simulation (state, config,
+    actions.jsonl, OASIS outputs, and run-state all share one
+    uploads/simulations/<id> tree), and the report. Each removal is guarded so a
+    cleanup error never masks the analysis result or its propagating exception.
+    The report id is resolved first — it is keyed under uploads/reports, linked by
+    simulation_id — so deleting the simulation dir cannot affect the lookup. ids
+    (proj_/sim_/report_) are random hex, not PII, so logging them is safe.
+    """
+    report_id = None
+    if simulation_id is not None:
+        try:
+            report = ReportManager.get_report_by_simulation(simulation_id)
+            report_id = report.report_id if report is not None else None
+        except Exception:
+            logger.warning("scratch cleanup: report lookup failed for %s", simulation_id)
+
+    try:
+        ProjectManager.delete_project(project_id)
+    except Exception:
+        logger.warning("scratch cleanup: project delete failed for %s", project_id)
+
+    if simulation_id is not None:
+        try:
+            SimulationManager.delete_simulation(simulation_id)
+        except Exception:
+            logger.warning("scratch cleanup: simulation delete failed for %s", simulation_id)
+
+    if report_id is not None:
+        try:
+            ReportManager.delete_report(report_id)
+        except Exception:
+            logger.warning("scratch cleanup: report delete failed for %s", report_id)
 
 
 def _wait_for_run(simulation_id: str, on_progress: ProgressCallback):
