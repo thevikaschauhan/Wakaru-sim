@@ -1308,7 +1308,7 @@ class ZepToolsService:
         """
         from .simulation_runner import SimulationRunner
         
-        logger.info(f"InterviewAgents 深度采访（真实API）: {interview_requirement[:50]}...")
+        logger.info(f"InterviewAgents in-process interview: {interview_requirement[:50]}...")
         
         result = InterviewResult(
             interview_topic=interview_requirement,

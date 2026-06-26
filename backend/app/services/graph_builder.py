@@ -1,6 +1,7 @@
 """
-图谱构建服务
-接口2：使用Zep API构建Standalone Graph
+Graph builder service: builds a standalone Zep knowledge graph.
+
+Driven in-process by the cart-recovery pipeline via build_graph_sync.
 """
 
 import os

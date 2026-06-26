@@ -526,10 +526,10 @@ A lightweight, fast retrieval tool, good for simple, direct information lookups.
 
 TOOL_DESC_INTERVIEW_AGENTS = """\
 [Deep Interview - real agent interviews (dual platform)]
-Calls the OASIS simulation environment's interview API to conduct real interviews
-with the running simulated shopper agents!
-This is not an LLM mock-up; it calls the real interview endpoint to get the raw
-answers from the simulated shopper personas.
+Runs real interviews with the running simulated shopper agents in-process via
+SimulationRunner.interview_agents_batch() (IPC to the OASIS environment — no HTTP).
+This is not an LLM mock-up; it gets the raw answers straight from the simulated
+shopper personas running in the OASIS processes.
 By default it interviews on both the Twitter and Reddit platforms simultaneously
 to gather a more well-rounded set of viewpoints.
 

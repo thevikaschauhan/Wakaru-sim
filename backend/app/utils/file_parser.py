@@ -11,15 +11,15 @@ def split_text_into_chunks(
     overlap: int = 50
 ) -> List[str]:
     """
-    将文本分割成小块
+    Split text into overlapping chunks.
 
     Args:
-        text: 原始文本
-        chunk_size: 每块的字符数
-        overlap: 重叠字符数
+        text: source text
+        chunk_size: characters per chunk
+        overlap: overlap in characters between consecutive chunks
 
     Returns:
-        文本块列表
+        list of text chunks
     """
     if len(text) <= chunk_size:
         return [text] if text.strip() else []
@@ -30,9 +30,9 @@ def split_text_into_chunks(
     while start < len(text):
         end = start + chunk_size
 
-        # 尝试在句子边界处分割
+        # try to split on a sentence boundary
         if end < len(text):
-            # 查找最近的句子结束符
+            # find the nearest sentence terminator
             for sep in ['。', '！', '？', '.\n', '!\n', '?\n', '\n\n', '. ', '! ', '? ']:
                 last_sep = text[start:end].rfind(sep)
                 if last_sep != -1 and last_sep > chunk_size * 0.3:
@@ -43,7 +43,7 @@ def split_text_into_chunks(
         if chunk:
             chunks.append(chunk)
 
-        # 下一个块从重叠位置开始
+        # next chunk starts at the overlap position
         start = end - overlap if end < len(text) else len(text)
 
     return chunks

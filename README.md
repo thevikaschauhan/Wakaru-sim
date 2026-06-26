@@ -153,19 +153,9 @@ independently of the web workers.
   in unit tests only against in-memory `fakeredis`; run a live load test against
   real Redis before production scale-up.
 
-### Other Endpoints
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/api/graph/ontology/generate` | Generate entity ontology from seed doc |
-| `POST` | `/api/graph/graph/build/{id}` | Build Zep knowledge graph |
-| `GET`  | `/api/graph/status/{task_id}` | Poll graph build status |
-| `POST` | `/api/simulation/create` | Create simulation |
-| `POST` | `/api/simulation/{id}/prepare` | Prepare agents + config |
-| `POST` | `/api/simulation/{id}/start` | Start OASIS simulation |
-| `GET`  | `/api/simulation/{id}/run_status` | Poll simulation progress |
-| `POST` | `/api/report/{id}/generate` | Generate prediction report |
-| `GET`  | `/api/report/{id}/full` | Retrieve full report |
+> The pipeline stages (ontology → graph → simulation → report) run **in-process**
+> inside the cart-recovery handler — there is no standalone `/api/graph`,
+> `/api/simulation`, or `/api/report` HTTP surface (removed in #62).
 
 ---
 
@@ -212,11 +202,17 @@ pip install -r backend/requirements.txt
 cd backend && python run.py
 ```
 
-### 3. Run the cart recovery example
+### 3. Run a cart recovery analysis
+
+Call the HTTP API directly (async path — enqueue, then poll):
 
 ```bash
-pip install ./client
-python client/examples/cart_recovery_example.py
+curl -sX POST localhost:5001/api/cart-recovery/jobs \
+  -H 'Content-Type: application/json' \
+  -d '{"customer_id":"cust_123","email":"sarah@example.com","cart_items":[{"product":"Headphones","price":99.99,"quantity":1}],"cart_total":99.99}'
+# → { "success": true, "job_id": "<id>", "status_url": "/api/cart-recovery/jobs/<id>" }
+
+curl -s localhost:5001/api/cart-recovery/jobs/<id>
 ```
 
 ### Docker
@@ -226,32 +222,6 @@ cp .env.example .env
 # Fill in API keys in .env
 docker build -f backend/Dockerfile -t mirofish-backend .
 docker run -p 5001:5001 --env-file .env mirofish-backend
-```
-
----
-
-## Python Client SDK
-
-```python
-from cart_recovery import CartRecoveryEngine, ShopifyCartData
-
-engine = CartRecoveryEngine("http://localhost:5001")
-
-cart = ShopifyCartData(
-    customer_id="cust_123",
-    customer_name="Sarah Mitchell",
-    email="sarah@example.com",
-    cart_items=[{"product": "Headphones", "price": 99.99, "quantity": 1}],
-    cart_total=99.99,
-    shipping_cost=12.99,
-    exit_page="checkout/payment",
-    abandoned_at_step="payment",
-)
-
-insight = engine.analyze_abandonment(cart)
-print(insight.predicted_reason)       # "Shipping cost shock at checkout"
-print(insight.emotional_state)        # "price-sensitive"
-print(insight.email_prompt_context)   # Paste into GPT-4/Claude to generate email
 ```
 
 ---
@@ -304,9 +274,9 @@ backend/app/services/
 └── zep_tools.py                 InsightForge + PanoramaSearch tools
 
 cart_recovery/
-├── engine.py                    CartRecoveryEngine — main Vakaru entry point
 ├── shopify_formatter.py         ShopifyCartData → seed document text
-└── email_prompt_builder.py      Report → AbandonmentInsight + LLM prompt
+├── email_prompt_builder.py      report → AbandonmentInsight + LLM prompt
+└── recovery_spec.py             shared cart-recovery constants / spec
 ```
 
 **Simulation state machine:**

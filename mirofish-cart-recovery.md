@@ -65,8 +65,10 @@ Send the cart as JSON; MiroFish returns the `AbandonmentInsight` data block.
 POST /api/cart-recovery/analyze
 Content-Type: application/json
 
-{ "customer_id": "cust_123", "cart_items": [...], "cart_total": 149.99,
-  "currency": "USD", "shipping_cost": 12.99, "exit_page": "checkout/payment", ... }
+{ "customer_id": "cust_123", "email": "sarah@example.com",
+  "cart_items": [...], "cart_total": 149.99, "currency": "USD",
+  "shipping_cost": 12.99, "exit_page": "checkout/payment", ... }
+// required fields: customer_id, email
 
 → 200 { "success": true, "data": {
     "predicted_reason": "...", "reason_category": "shipping_cost",
