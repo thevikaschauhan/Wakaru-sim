@@ -3,6 +3,12 @@ name: backend-ci
 # Runs the backend test suite + a bug-class lint on every PR and on pushes to
 # main. (The repo's prior CI only built a Docker image on tags and ran no
 # tests; that workflow was removed with the frontend in #56.)
+#
+# Dependencies are installed the way PRODUCTION installs them — CPU torch wheel
+# then `requirements.txt` (mirrors backend/Dockerfile) — NOT via pyproject.toml /
+# uv.lock, which are stale vs requirements.txt (they omit sentry-sdk, python-magic
+# and gunicorn). requirements.txt is the deployed source of truth; the pyproject/
+# uv.lock drift is tracked separately (see PR description).
 on:
   push:
     branches: [main]
@@ -30,12 +36,16 @@ jobs:
       # comparisons/asserts). Intentionally NOT the full ruff rule set: the
       # codebase has ~95 pre-existing style/hygiene findings (unused imports,
       # f-strings, etc.) that are out of scope here — widen the --select set in
-      # a dedicated cleanup once those are addressed.
+      # a dedicated cleanup once those are addressed (#27).
       - name: Lint (ruff, bug-class baseline)
         run: uvx ruff@0.15.14 check app tests --select E9,F63,F7,F82
 
-      - name: Install dependencies (locked)
-        run: uv sync --frozen
+      - name: Install dependencies (mirrors backend/Dockerfile + test tools)
+        run: |
+          uv venv
+          uv pip install torch --index-url https://download.pytorch.org/whl/cpu
+          uv pip install -r requirements.txt
+          uv pip install pytest pytest-asyncio fakeredis
 
       - name: Run tests
-        run: uv run --frozen pytest -q
+        run: .venv/bin/pytest -q

@@ -129,14 +129,14 @@ ZEP_API_KEY=your_zep_api_key
 #### 2. Install Dependencies
 
 ```bash
-# Install backend dependencies (auto-creates a virtual environment)
-cd backend && uv sync
+# Install backend dependencies (prod set; matches the Docker image)
+cd backend && pip install -r requirements.txt
 ```
 
 #### 3. Start the Backend
 
 ```bash
-cd backend && uv run python run.py
+cd backend && python run.py
 ```
 
 **Service URL:**
