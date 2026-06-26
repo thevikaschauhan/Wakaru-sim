@@ -79,7 +79,7 @@ def run_cart_recovery(
     formatter = ShopifyFormatter()
     seed_text = TextProcessor.preprocess_text(formatter.format_as_seed_doc(cart))
 
-    # --- 1. ontology + project (in-process /graph/ontology/generate) ---
+    # --- 1. ontology + project (in-process) ---
     # Neutral project name: do NOT embed cart.customer_id (PII) — it would land
     # in project.json, the Zep graph name, and (via on_progress) the logs.
     project = ProjectManager.create_project(name="Cart Recovery")
@@ -120,7 +120,7 @@ def _run_analysis(
         additional_context=None,
     )
     # The build step expects the 2-key {entity_types, edge_types} shape; the
-    # analysis_summary is stored separately (matches the /ontology/generate route).
+    # analysis_summary is stored separately.
     project.ontology = {
         "entity_types": ontology.get("entity_types", []),
         "edge_types": ontology.get("edge_types", []),
@@ -133,7 +133,7 @@ def _run_analysis(
         # logs the state at INFO — keep customer data out of the log line).
         on_progress("ontology_generated", {"project_id": project.project_id})
 
-    # --- 2. build graph (in-process /graph/build, called synchronously) ---
+    # --- 2. build graph (in-process, synchronous) ---
     builder = GraphBuilderService(api_key=Config.ZEP_API_KEY)
 
     def _persist_graph_id(graph_id: str) -> None:
@@ -208,7 +208,7 @@ def _run_analysis(
         on_progress("simulation_completed",
                     {"simulation_id": simulation_id, "runner_status": run_state.runner_status.value})
 
-    # --- 6 + 7. report (in-process /report/generate, called synchronously) ---
+    # --- 6 + 7. report (in-process, synchronous) ---
     report_content = _generate_or_reuse_report(
         simulation_id, graph_id, RECOVERY_REQUIREMENT, on_progress
     )

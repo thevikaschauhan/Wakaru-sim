@@ -3,16 +3,11 @@
 """
 
 from typing import List, Optional
-from ..utils.file_parser import FileParser, split_text_into_chunks
+from ..utils.file_parser import split_text_into_chunks
 
 
 class TextProcessor:
     """文本处理器"""
-    
-    @staticmethod
-    def extract_from_files(file_paths: List[str]) -> str:
-        """从多个文件提取文本"""
-        return FileParser.extract_from_multiple(file_paths)
     
     @staticmethod
     def split_text(
@@ -59,13 +54,4 @@ class TextProcessor:
         text = '\n'.join(lines)
         
         return text.strip()
-    
-    @staticmethod
-    def get_text_stats(text: str) -> dict:
-        """获取文本统计信息"""
-        return {
-            "total_chars": len(text),
-            "total_lines": text.count('\n') + 1,
-            "total_words": len(text.split()),
-        }
 

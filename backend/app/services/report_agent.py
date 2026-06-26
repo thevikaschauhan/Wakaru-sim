@@ -526,10 +526,10 @@ A lightweight, fast retrieval tool, good for simple, direct information lookups.
 
 TOOL_DESC_INTERVIEW_AGENTS = """\
 [Deep Interview - real agent interviews (dual platform)]
-Calls the OASIS simulation environment's interview API to conduct real interviews
-with the running simulated shopper agents!
-This is not an LLM mock-up; it calls the real interview endpoint to get the raw
-answers from the simulated shopper personas.
+Runs real interviews with the running simulated shopper agents in-process via
+SimulationRunner.interview_agents_batch() (IPC to the OASIS environment — no HTTP).
+This is not an LLM mock-up; it gets the raw answers straight from the simulated
+shopper personas running in the OASIS processes.
 By default it interviews on both the Twitter and Reddit platforms simultaneously
 to gather a more well-rounded set of viewpoints.
 
@@ -537,7 +537,7 @@ Workflow:
 1. Automatically reads the persona file to learn about all simulated shopper agents
 2. Intelligently selects the agents most relevant to the interview topic (e.g. price-sensitive shopper, comparison shopper, first-time buyer, brand-loyal customer)
 3. Automatically generates interview questions
-4. Calls the /api/simulation/interview/batch endpoint to run real interviews on both platforms
+4. Runs the real agent interviews in-process on both platforms
 5. Combines all interview results to provide a multi-perspective analysis
 
 [When to use]

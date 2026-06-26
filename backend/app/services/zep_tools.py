@@ -1279,35 +1279,36 @@ class ZepToolsService:
         custom_questions: List[str] = None
     ) -> InterviewResult:
         """
-        【InterviewAgents - 深度采访】
+        [InterviewAgents - deep interview]
         
-        调用真实的OASIS采访API，采访模拟中正在运行的Agent：
-        1. 自动读取人设文件，了解所有模拟Agent
-        2. 使用LLM分析采访需求，智能选择最相关的Agent
-        3. 使用LLM生成采访问题
-        4. 调用 /api/simulation/interview/batch 接口进行真实采访（双平台同时采访）
-        5. 整合所有采访结果，生成采访报告
+        Interviews the agents running in the simulation, in-process:
+        1. Reads the persona file to learn about all simulated agents
+        2. Uses an LLM to analyze the interview need and select the most relevant agents
+        3. Uses an LLM to generate interview questions
+        4. Runs the interviews in-process via SimulationRunner.interview_agents_batch()
+           (both platforms at once) — no HTTP call
+        5. Combines all interview results into an interview report
         
-        【重要】此功能需要模拟环境处于运行状态（OASIS环境未关闭）
+        [Important] The simulation environment must be running (OASIS not shut down).
         
-        【使用场景】
-        - 需要从不同角色视角了解事件看法
-        - 需要收集多方意见和观点
-        - 需要获取模拟Agent的真实回答（非LLM模拟）
+        [When to use]
+        - You need event perspectives from different agent roles
+        - You need to collect multiple opinions and viewpoints
+        - You need the simulated agents' real answers (not an LLM mock)
         
         Args:
-            simulation_id: 模拟ID（用于定位人设文件和调用采访API）
-            interview_requirement: 采访需求描述（非结构化，如"了解学生对事件的看法"）
-            simulation_requirement: 模拟需求背景（可选）
-            max_agents: 最多采访的Agent数量
-            custom_questions: 自定义采访问题（可选，若不提供则自动生成）
+            simulation_id: simulation ID (locates the persona file and the interview run)
+            interview_requirement: free-form interview need (e.g. "understand students' views on the event")
+            simulation_requirement: simulation background (optional)
+            max_agents: maximum number of agents to interview
+            custom_questions: custom interview questions (optional; auto-generated if omitted)
             
         Returns:
-            InterviewResult: 采访结果
+            InterviewResult: the interview result
         """
         from .simulation_runner import SimulationRunner
         
-        logger.info(f"InterviewAgents 深度采访（真实API）: {interview_requirement[:50]}...")
+        logger.info(f"InterviewAgents in-process interview: {interview_requirement[:50]}...")
         
         result = InterviewResult(
             interview_topic=interview_requirement,

@@ -30,6 +30,13 @@ Claude / GPT-4: generate personalised recovery email
 Send via Klaviyo / SendGrid / Postmark
 ```
 
+The entire pipeline runs **in-process** behind a single blueprint, `cart_recovery_bp`.
+Callers POST the cart payload as JSON; MiroFish runs ontology → graph → simulation →
+report internally (`backend/app/services/cart_recovery_workflow.py` →
+`run_cart_recovery`) and returns the structured insight. There is **no** external
+Python/Go/TS SDK and **no** granular `/api/graph`, `/api/simulation`, or `/api/report`
+HTTP surface — those were removed once the pipeline moved in-process (#19/#62).
+
 ## Prerequisites
 
 1. **MiroFish backend running** (one of):
@@ -49,56 +56,39 @@ Send via Klaviyo / SendGrid / Postmark
    ZEP_API_KEY=your_zep_cloud_key
    ```
 
-3. **Python client installed**:
-   ```bash
-   pip install MiroFish-main/client
-   ```
+## Integration — the cart-recovery API
 
-## Python Integration (CartRecoveryEngine — recommended)
+Send the cart as JSON; MiroFish returns the `AbandonmentInsight` data block.
 
-The `cart_recovery` module provides a high-level engine. Drop it into your Python backend:
+**Sync** (blocks ~8–17 min — use only for testing / one-off runs):
+```
+POST /api/cart-recovery/analyze
+Content-Type: application/json
 
-```python
-import sys
-sys.path.insert(0, "path/to/MiroFish-main")
+{ "customer_id": "cust_123", "email": "sarah@example.com",
+  "cart_items": [...], "cart_total": 149.99, "currency": "USD",
+  "shipping_cost": 12.99, "exit_page": "checkout/payment", ... }
+// required fields: customer_id, email
 
-from cart_recovery import CartRecoveryEngine, ShopifyCartData
-
-engine = CartRecoveryEngine(
-    mirofish_url="http://localhost:5001",
-    enable_reddit=False,    # Twitter-only for V1 speed
-    simulation_hours=24,    # 24 simulated hours is enough for psychology insight
-)
-
-cart = ShopifyCartData(
-    customer_id="cust_7821",
-    customer_name="Sarah Mitchell",
-    email="sarah@example.com",
-    cart_items=[
-        {"product": "Wireless Headphones", "price": 149.99, "quantity": 1},
-    ],
-    cart_total=149.99,
-    exit_page="checkout/payment",
-    abandoned_at_step="payment",
-    past_orders=2,
-    device="mobile",
-    location="Austin, TX, USA",
-    referral_source="instagram",
-)
-
-insight = engine.analyze_abandonment(cart)
-
-# insight fields:
-# - predicted_reason:   str  (why they left)
-# - emotional_state:    str  (price-sensitive | anxious | indecisive | ...)
-# - recommended_angle:  str  (discount-or-value | trust-and-social-proof | urgency-scarcity | ...)
-# - key_objections:     list[str]
-# - email_prompt_context: str  ← paste into Claude/GPT to generate the email
-
-print(insight.email_prompt_context)
+→ 200 { "success": true, "data": {
+    "predicted_reason": "...", "reason_category": "shipping_cost",
+    "emotional_state": "...", "recommended_angle": "...",
+    "key_objections": [...], "email_prompt_context": "...",
+    "confidence": 0.62, "confidence_reasoning": "..." } }
 ```
 
-**Generate the email** (Anthropic example):
+**Async** (production path — enqueue, then poll; issue #20):
+```
+POST /api/cart-recovery/jobs           # same request body as /analyze
+→ 202 { "success": true, "job_id": "<id>", "status_url": "/api/cart-recovery/jobs/<id>" }
+
+GET /api/cart-recovery/jobs/<job_id>
+→ 200 { "success": true, "status": "queued|started|finished|failed",
+        "progress": {...}, "result": {<same data block as /analyze>}?, "error": "..."? }
+```
+
+`email_prompt_context` is a ready-to-use LLM prompt — paste it into Claude/GPT to
+generate the recovery email:
 ```python
 import anthropic
 
@@ -106,102 +96,9 @@ client = anthropic.Anthropic()
 message = client.messages.create(
     model="claude-opus-4-6",
     max_tokens=512,
-    messages=[{"role": "user", "content": insight.email_prompt_context}],
+    messages=[{"role": "user", "content": insight["email_prompt_context"]}],
 )
 recovery_email = message.content[0].text
-```
-
-## Python Integration (Low-level MiroFishClient)
-
-Use this for custom pipeline control:
-
-```python
-from mirofish import MiroFishClient
-
-client = MiroFishClient("http://localhost:5001")
-
-# Step 1: Upload seed doc + build graph
-project = client.generate_ontology(files=["cart_seed.txt"], requirement="...")
-project = client.build_graph(project.project_id)
-
-# Step 2: Create + prepare simulation
-sim = client.create_simulation(project.project_id, requirement, enable_twitter=True, enable_reddit=False)
-sim = client.prepare_simulation(sim.simulation_id)
-
-# Step 3: Run simulation
-client.start_simulation(sim.simulation_id)
-run_status = client.wait_for_simulation(sim.simulation_id, timeout=3600)
-
-# Step 4: Report
-report = client.generate_report(sim.simulation_id)
-print(report.content)
-
-# Step 5: Interview agents
-answer = client.interview_agent(sim.simulation_id, "What was the customer's biggest hesitation?")
-```
-
-## TypeScript / Next.js Integration
-
-```typescript
-// Install: no package needed — uses native fetch
-const MIROFISH = "http://localhost:5001";
-
-async function runCartRecovery(seedText: string, requirement: string) {
-  // 1. Upload + ontology
-  const form = new FormData();
-  form.append("files", new Blob([seedText]), "cart.txt");
-  form.append("requirement", requirement);
-  const ontologyRes = await fetch(`${MIROFISH}/api/graph/ontology/generate`, { method: "POST", body: form });
-  const { project } = await ontologyRes.json();
-
-  // 2. Build graph (async poll)
-  const { task_id } = await (await fetch(`${MIROFISH}/api/graph/build/${project.project_id}`, { method: "POST" })).json();
-  await pollUntil(`/api/graph/status/${task_id}`, (t) => ["COMPLETED", "FAILED"].includes(t.task.status), 3000);
-
-  // 3. Create simulation
-  const { simulation } = await (await fetch(`${MIROFISH}/api/simulation/create`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ project_id: project.project_id, simulation_requirement: requirement, enable_twitter: true }),
-  })).json();
-
-  // 4. Prepare
-  await fetch(`${MIROFISH}/api/simulation/${simulation.simulation_id}/prepare`, { method: "POST" });
-  await pollUntil(`/api/simulation/${simulation.simulation_id}/prepare_status`, (s) => s.status === "READY", 10000);
-
-  // 5. Run
-  await fetch(`${MIROFISH}/api/simulation/${simulation.simulation_id}/start`, { method: "POST" });
-  await pollUntil(`/api/simulation/${simulation.simulation_id}/run_status`, (s) => ["completed","failed"].includes(s.runner_status), 30000);
-
-  // 6. Report
-  await fetch(`${MIROFISH}/api/report/${simulation.simulation_id}/generate`, { method: "POST" });
-  await pollUntil(`/api/report/${simulation.simulation_id}/status`, (s) => s.status === "completed", 5000);
-  const { content } = await (await fetch(`${MIROFISH}/api/report/${simulation.simulation_id}/full`)).json();
-  return content;
-}
-
-async function pollUntil(path: string, isDone: (data: any) => boolean, intervalMs: number): Promise<void> {
-  while (true) {
-    const data = await (await fetch(MIROFISH + path)).json();
-    if (isDone(data)) return;
-    await new Promise(r => setTimeout(r, intervalMs));
-  }
-}
-```
-
-## Go Integration
-
-```go
-// See client/examples/example_go_client.go for the full implementation.
-// Key pattern: HTTP POST with multipart for file upload, JSON for other calls.
-// Poll /api/graph/status/{task_id} (3s interval) and /api/simulation/{id}/run_status (30s).
-
-// Quick usage:
-// 1. Build seed doc string from your cart struct
-// 2. POST multipart to /api/graph/ontology/generate
-// 3. POST to /api/graph/build/{project_id} → poll task
-// 4. POST to /api/simulation/create → POST /prepare → poll → POST /start → poll
-// 5. POST to /api/report/{sim_id}/generate → poll → GET /full
 ```
 
 ## Seed Document Format
@@ -241,57 +138,28 @@ Similar Shopper B responds to urgency...
 Brand Advocate is a loyal customer...
 ```
 
-The `ShopifyFormatter` class in `cart_recovery/shopify_formatter.py` generates this automatically from a `ShopifyCartData` object.
-
-## API Reference
-
-| Endpoint | Method | Description |
-|---|---|---|
-| `/api/graph/ontology/generate` | POST (multipart) | Upload files + requirement → project |
-| `/api/graph/build/{project_id}` | POST | Start graph build → task_id |
-| `/api/graph/status/{task_id}` | GET | Poll graph build progress |
-| `/api/simulation/create` | POST | Create simulation → simulation_id |
-| `/api/simulation/{id}/prepare` | POST | Start profile/config generation |
-| `/api/simulation/{id}/prepare_status` | GET | Poll preparation progress |
-| `/api/simulation/{id}/start` | POST | Launch OASIS processes |
-| `/api/simulation/{id}/run_status` | GET | Poll execution state |
-| `/api/simulation/{id}/run_status_detail` | GET | + recent_actions array |
-| `/api/simulation/{id}/stop` | POST | Stop running simulation |
-| `/api/simulation/{id}/actions` | GET | All logged agent actions |
-| `/api/simulation/{id}/timeline` | GET | Round-by-round summaries |
-| `/api/report/{id}/generate` | POST | Start report generation |
-| `/api/report/{id}/status` | GET | Poll report generation |
-| `/api/report/{id}/full` | GET | Get full markdown report |
-| `/api/report/{id}/interview` | POST | Interview ReportAgent |
+The `ShopifyFormatter` class in `cart_recovery/shopify_formatter.py` generates this
+automatically from a `ShopifyCartData` object; `EmailPromptBuilder`
+(`cart_recovery/email_prompt_builder.py`) turns the report into the `AbandonmentInsight`.
 
 ## Tuning for Cart Recovery
 
 | Parameter | V1 value | Notes |
 |---|---|---|
-| `enable_twitter` | `true` | Captures social dynamics |
-| `enable_reddit` | `false` | Skip for V1 speed |
-| `simulation_hours` | `24` | Enough for psychology insight |
+| Twitter | on | Captures social dynamics |
+| Reddit | off | Skip for V1 speed |
+| Simulation hours | `24` | Enough for psychology insight |
 | Seed doc length | 500–2000 chars | More detail = richer personas |
 | Agent count | ~5–8 | Customer + peer archetypes |
-
-## V2 Roadmap Hooks
-
-- **Predict recovery likelihood**: After simulation, call `/api/simulation/{id}/actions` and count engagement with the customer-persona agent. High engagement = higher conversion probability.
-- **Full autonomous agent**: Use `client.interview_agent(sim_id, "What discount would bring this customer back?")` to drive dynamic offer generation.
-- **Batch processing**: Run `analyze_abandonment()` in a worker queue (Celery, BullMQ, Go goroutines) for concurrent cart events.
 
 ## Files in This Integration
 
 ```
-MiroFish-main/
-├── client/
-│   ├── mirofish/          # Python SDK (pip install ./client)
-│   └── examples/
-│       ├── cart_recovery_example.py   # Python demo
-│       ├── example_go_client.go       # Go reference
-│       └── example_ts_client.ts       # TypeScript reference
-└── cart_recovery/
-    ├── engine.py           # CartRecoveryEngine (main entry point)
-    ├── shopify_formatter.py  # ShopifyCartData → seed document
-    └── email_prompt_builder.py  # Report → LLM email prompt
+cart_recovery/
+├── shopify_formatter.py     # ShopifyCartData → seed document text
+├── email_prompt_builder.py  # report → AbandonmentInsight + LLM email prompt
+└── recovery_spec.py         # shared cart-recovery constants / spec
+
+backend/app/services/cart_recovery_workflow.py   # run_cart_recovery() — in-process pipeline
+backend/app/api/cart_recovery.py                 # the /api/cart-recovery blueprint
 ```
