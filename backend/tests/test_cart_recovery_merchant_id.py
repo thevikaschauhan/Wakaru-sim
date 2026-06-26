@@ -11,6 +11,7 @@ import logging
 from types import SimpleNamespace
 
 import fakeredis
+import pytest
 from rq import Queue
 
 from app.extensions import _merchant_or_ip_key
@@ -221,9 +222,44 @@ def test_pre_24_job_without_merchant_meta_is_sentinel_scoped(client, monkeypatch
 
     r_sentinel = client.get(f"/api/cart-recovery/jobs/{job.id}")
     assert r_sentinel.status_code == 200, r_sentinel.get_data(as_text=True)
+    assert r_sentinel.get_json()["success"] is True
+    assert r_sentinel.get_json()["job_id"] == job.id
 
     r_a = client.get(f"/api/cart-recovery/jobs/{job.id}", headers={"X-Merchant-Id": MERCHANT_A})
     assert r_a.status_code == 404
+
+
+def test_worker_log_line_carries_merchant_id(monkeypatch, caplog):
+    # CP2a: the RQ worker (no Flask g) recovers merchant_id from job.meta so its
+    # log line carries the same m=<merchant> prefix as the web tier.
+    import app.services.cart_recovery_jobs as jobs
+
+    fake_job = SimpleNamespace(id="abcdef1234567890", meta={"merchant_id": MERCHANT_A})
+    fake_job.save_meta = lambda: None
+    monkeypatch.setattr(jobs, "get_current_job", lambda: fake_job)
+
+    def _raise(cart, on_progress=None):
+        raise RuntimeError("engine boom")
+
+    monkeypatch.setattr(jobs, "run_cart_recovery", _raise)
+    # The mirofish logger sets propagate=False in production; flip it so caplog
+    # (a root handler) sees the worker's record (mirrors the `app` fixture).
+    monkeypatch.setattr(logging.getLogger("mirofish"), "propagate", True)
+
+    cart_dict = {
+        "customer_id": "cust_test",
+        "customer_name": "Shopper",
+        "email": "shopper@example.com",
+        "cart_items": [],
+        "cart_total": 0.0,
+    }
+    with caplog.at_level(logging.ERROR, logger="mirofish.cart_recovery"):
+        with pytest.raises(jobs.AnalysisJobError):
+            jobs.run_analysis_job(cart_dict)
+
+    errs = [r.getMessage() for r in caplog.records if "Cart recovery analysis failed" in r.getMessage()]
+    assert errs, "expected the worker error log line"
+    assert f"m={MERCHANT_A}" in errs[0], errs[0]
 
 
 # --- rate-limit key is per-merchant -------------------------------------------

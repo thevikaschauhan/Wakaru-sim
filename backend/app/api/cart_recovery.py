@@ -427,11 +427,14 @@ def job_status(job_id):
         return jsonify({"success": False, "error": "Job not found"}), 404
 
     status = job.get_status()
+    # Don't echo the internal merchant_id binding (#24) into the public progress
+    # contract — expose only the worker-written progress keys (stage/state/error).
+    progress = {k: v for k, v in (job.meta or {}).items() if k != "merchant_id"}
     payload = {
         "success": True,
         "job_id": job.id,
         "status": status,
-        "progress": job.meta or {},
+        "progress": progress,
     }
     if status == "finished":
         payload["result"] = job.result
