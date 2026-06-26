@@ -196,13 +196,16 @@ class GraphBuilderService:
         on_graph_created: Optional[Callable[[str], None]] = None,
     ) -> Dict[str, Any]:
         """
-        同步构建知识图谱：分块 → 创建 → 设置本体 → 分批写入 → 等待处理 → 读取图谱数据。
+        Build the knowledge graph synchronously: chunk -> create -> set ontology
+        -> batch-write -> wait for processing -> read graph data.
 
-        由 graph_bp 的 /graph/build 异步路由和进程内 cart-recovery 编排器（issue #19）
-        共享，确保两条路径执行完全相同的构建序列，而不再各自内联一份逻辑。
+        Now called only by the in-process cart-recovery orchestrator (issue #19);
+        the /graph/build async route that previously shared it was removed with
+        the OASIS endpoints (#24 prune).
 
-        progress_callback(message, percent) 复用路由原有的 0-100 进度刻度；
-        on_graph_created(graph_id) 在创建后立即触发，便于调用方在后续步骤前持久化 graph_id。
+        progress_callback(message, percent) drives the 0-100 progress scale;
+        on_graph_created(graph_id) fires immediately after creation so the caller
+        can persist graph_id before the later steps run.
 
         Returns:
             {graph_id, graph_data, node_count, edge_count, chunk_count}
