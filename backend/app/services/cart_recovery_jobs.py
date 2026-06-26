@@ -21,6 +21,7 @@ from rq import get_current_job
 from cart_recovery.shopify_formatter import ShopifyCartData
 
 from .cart_recovery_workflow import run_cart_recovery
+from ..utils.paths import SENTINEL_MERCHANT_ID
 
 logger = logging.getLogger("mirofish.cart_recovery")
 
@@ -44,11 +45,10 @@ def run_analysis_job(cart_dict: dict) -> dict:
     job = get_current_job()
     # The RQ job id is the durable correlation key (replaces /analyze's per-request uuid).
     request_id = job.id[:8] if job is not None else "nojob"
-    # NOTE (#24): the worker runs outside the Flask request context, so
-    # g.merchant_id is unavailable — this log line carries request_id only, not
-    # the web tier's m=<merchant> prefix. merchant_id is threaded into the job
-    # (job->merchant binding) in CP2; the "merchant_id on every cart-recovery log
-    # line" AC is completed there.
+    # merchant_id is bound into the job's meta at enqueue (#24, job->merchant
+    # binding); recover it here so the worker's log line carries the same
+    # m=<merchant> prefix the web tier uses (the worker has no Flask g).
+    merchant_id = (job.meta or {}).get("merchant_id", SENTINEL_MERCHANT_ID) if job is not None else SENTINEL_MERCHANT_ID
 
     cart = ShopifyCartData(**cart_dict)
 
@@ -70,7 +70,7 @@ def run_analysis_job(cart_dict: dict) -> dict:
             f"Cart recovery analysis failed ({type(e).__name__})",
             level="error",
         )
-        logger.error(f"[{request_id}] Cart recovery analysis failed ({type(e).__name__})")
+        logger.error(f"[{request_id} m={merchant_id}] Cart recovery analysis failed ({type(e).__name__})")
         if job is not None:
             # GET /jobs/<id> reads this — never job.exc_info — so the error
             # surfaced to the caller is PII-free.

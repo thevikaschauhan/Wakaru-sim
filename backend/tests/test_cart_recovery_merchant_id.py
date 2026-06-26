@@ -14,6 +14,7 @@ import fakeredis
 from rq import Queue
 
 from app.extensions import _merchant_or_ip_key
+from app.services.cart_recovery_jobs import run_analysis_job
 from app.services.job_queue import ANALYZE_QUEUE_NAME
 from app.utils.paths import SENTINEL_MERCHANT_ID
 
@@ -178,6 +179,51 @@ def test_analyze_same_idem_key_different_merchants_run_separately(client, monkey
     r = client.post("/api/cart-recovery/analyze", json=VALID_PAYLOAD, headers={**key, "X-Merchant-Id": MERCHANT_A})
     assert len(calls) == 2  # same merchant + key → replay, pipeline did not re-run
     assert r.get_json().get("replayed") is True
+
+
+# --- CP2a: job->merchant binding — cross-tenant poll returns 404 --------------
+
+def test_cross_tenant_job_poll_returns_404(client, monkeypatch):
+    conn = fakeredis.FakeStrictRedis()
+    queue = Queue(ANALYZE_QUEUE_NAME, connection=conn)  # is_async: stays queued
+    _wire(monkeypatch, conn, queue)
+
+    r = client.post(
+        "/api/cart-recovery/jobs", json=VALID_PAYLOAD,
+        headers={"X-Merchant-Id": MERCHANT_A},
+    )
+    assert r.status_code == 202, r.get_data(as_text=True)
+    job_id = r.get_json()["job_id"]
+
+    # The owning merchant reads it.
+    r_a = client.get(f"/api/cart-recovery/jobs/{job_id}", headers={"X-Merchant-Id": MERCHANT_A})
+    assert r_a.status_code == 200, r_a.get_data(as_text=True)
+
+    # Another merchant gets the SAME 404 as a nonexistent job (no existence
+    # disclosure) — AC: 404, not 403.
+    r_b = client.get(f"/api/cart-recovery/jobs/{job_id}", headers={"X-Merchant-Id": MERCHANT_B})
+    assert r_b.status_code == 404
+    assert r_b.get_json()["error"] == "Job not found"
+
+    # A poll with no merchant header (sentinel) also cannot read merchant A's job.
+    r_none = client.get(f"/api/cart-recovery/jobs/{job_id}")
+    assert r_none.status_code == 404
+
+
+def test_pre_24_job_without_merchant_meta_is_sentinel_scoped(client, monkeypatch):
+    # A job enqueued before #24 has no merchant_id in meta; it is attributed to
+    # the sentinel, so only a sentinel poll (no header) reads it during the deploy
+    # transition — a real merchant cannot, so legacy jobs are not leaked to a tenant.
+    conn = fakeredis.FakeStrictRedis()
+    queue = Queue(ANALYZE_QUEUE_NAME, connection=conn)
+    _wire(monkeypatch, conn, queue)
+    job = queue.enqueue(run_analysis_job, dict(VALID_PAYLOAD), description="legacy (no merchant meta)")
+
+    r_sentinel = client.get(f"/api/cart-recovery/jobs/{job.id}")
+    assert r_sentinel.status_code == 200, r_sentinel.get_data(as_text=True)
+
+    r_a = client.get(f"/api/cart-recovery/jobs/{job.id}", headers={"X-Merchant-Id": MERCHANT_A})
+    assert r_a.status_code == 404
 
 
 # --- rate-limit key is per-merchant -------------------------------------------

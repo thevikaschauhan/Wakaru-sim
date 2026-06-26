@@ -43,6 +43,7 @@ from ..services.job_queue import (  # noqa: E402
 )
 from ..extensions import limiter  # noqa: E402
 from ..services.idempotency import claim_or_get, record, release  # noqa: E402
+from ..utils.paths import SENTINEL_MERCHANT_ID  # noqa: E402
 
 logger = logging.getLogger("mirofish.cart_recovery")
 
@@ -363,6 +364,12 @@ def enqueue_job():
             # (the cart dict — customer_id/name/email) into a string stored in
             # Redis and logged at dequeue. Pin an explicit PII-free description.
             description="cart-recovery analysis",
+            # Bind the job to the merchant that enqueued it (#24): GET /jobs/<id>
+            # uses this to 404 a cross-tenant poll, and the worker recovers it
+            # from job.meta to scope its log line (it has no Flask g). Set at
+            # enqueue so the binding exists before the worker runs; the worker's
+            # save_meta() calls mutate other keys and preserve this one.
+            meta={"merchant_id": g.merchant_id},
             job_timeout=analyze_job_timeout(),
             result_ttl=RESULT_TTL_SECONDS,
             failure_ttl=FAILURE_TTL_SECONDS,
@@ -409,6 +416,15 @@ def job_status(job_id):
     except RedisError:
         logger.error(f"[{request_id} m={g.merchant_id}] Job fetch failed (Redis unreachable)")
         return jsonify({"success": False, "error": "Job queue unavailable"}), 503
+
+    # Tenant isolation (#24): a job belongs to the merchant that enqueued it. A
+    # poll for another tenant's job gets the SAME 404 as a nonexistent job, so
+    # cross-tenant existence is not disclosed (AC: 404, not 403). A pre-#24 job
+    # (no merchant in meta) is attributed to the sentinel, so only a sentinel
+    # poll can read it during the deploy transition.
+    job_merchant = (job.meta or {}).get("merchant_id", SENTINEL_MERCHANT_ID)
+    if job_merchant != g.merchant_id:
+        return jsonify({"success": False, "error": "Job not found"}), 404
 
     status = job.get_status()
     payload = {
