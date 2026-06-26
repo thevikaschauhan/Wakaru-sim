@@ -23,21 +23,6 @@ docker build -f backend/Dockerfile -t mirofish-backend . && docker run -p 5001:5
 
 # Install Python deps
 pip install -r backend/requirements.txt
-
-# Install the Python client SDK
-pip install ./client
-
-# Run cart recovery example (requires backend running)
-python client/examples/cart_recovery_example.py
-
-# Run full generic pipeline example
-python client/examples/full_pipeline.py path/to/doc.txt "Your prediction question"
-
-# Run Go example (requires backend running + seed file at /tmp/cart_seed.txt)
-go run client/examples/example_go_client.go
-
-# Run TypeScript example
-npx ts-node client/examples/example_ts_client.ts
 ```
 
 **Required env vars** (root `.env` — loaded by `backend/app/config.py`):
@@ -91,10 +76,9 @@ OASIS_DEFAULT_MAX_ROUNDS   10  (default simulation rounds)
 
 | Blueprint | Prefix | Key Endpoints |
 |---|---|---|
-| `graph_bp` | `/graph` | `POST /ontology/generate`, `POST /graph/build/{id}`, `GET /graph/status/{task_id}`, `GET /project/{id}` |
-| `simulation_bp` | `/simulation` | `POST /create`, `POST /{id}/prepare`, `GET /{id}/prepare_status`, `POST /{id}/start`, `GET /{id}/run_status`, `POST /{id}/stop`, `GET /{id}/actions`, `GET /{id}/timeline` |
-| `report_bp` | `/report` | `POST /{id}/generate`, `GET /{id}/status`, `GET /{id}/full`, `POST /{id}/interview` |
 | `cart_recovery_bp` | `/cart-recovery` | `POST /analyze` (sync), `POST /jobs` + `GET /jobs/{id}` (async, #20) ← **Vakaru integration point** |
+
+`cart_recovery_bp` is the only blueprint; the OASIS `graph_bp`/`simulation_bp`/`report_bp` endpoints were removed (#62) once the pipeline ran in-process (#19). The pipeline stages are invoked directly as Python services (see Services Directory), not over HTTP.
 
 ### Services Directory
 
@@ -122,13 +106,13 @@ Vakaru integration point. Since issue #19 the handler runs the pipeline
 **in-process** via `backend/app/services/cart_recovery_workflow.py` →
 `run_cart_recovery(cart)`, which calls the backend services directly
 (ontology → graph → simulation → report). It does **not** self-HTTP back into
-this Flask process and never constructs `MiroFishClient`.
+this Flask process.
 
-The external Python SDK path remains unchanged for outside callers:
-`cart_recovery/engine.py` → `CartRecoveryEngine.analyze_abandonment(cart: ShopifyCartData)`:
-1. `ShopifyFormatter.format_as_seed_doc(cart)` → temp `.txt` file
-2. `MiroFishClient.run_full_pipeline(files, requirement)` → `Report`
-3. `EmailPromptBuilder.build(report.content, cart)` → `AbandonmentInsight`
+The in-process pipeline delegates to two helpers under `cart_recovery/`:
+`ShopifyFormatter` (`shopify_formatter.py`) formats the cart into seed text, and
+`EmailPromptBuilder` (`email_prompt_builder.py`) turns the report into the
+`AbandonmentInsight`. (The former external SDK — `cart_recovery/engine.py` and the
+`client/` package — was removed; the pipeline is in-process only.)
 
 ### `ShopifyCartData` — Input Schema
 
@@ -215,40 +199,6 @@ GET /api/cart-recovery/jobs/<job_id>
 
 ---
 
-## Python Client SDK (`client/`)
-
-Installable: `pip install ./client`
-
-```python
-from mirofish import MiroFishClient
-from cart_recovery import CartRecoveryEngine, ShopifyCartData
-
-# Low-level: full pipeline control
-client = MiroFishClient("http://localhost:5001")
-report = client.run_full_pipeline(files=["seed.txt"], requirement="...")
-
-# High-level: cart recovery
-engine = CartRecoveryEngine("http://localhost:5001")
-insight = engine.analyze_abandonment(cart)
-print(insight.email_prompt_context)  # → paste into GPT/Claude
-```
-
-**Client module layout:**
-```
-client/mirofish/
-├── client.py       MiroFishClient — all REST endpoints + blocking poll helpers
-├── models.py       Project, Simulation, RunStatus, AgentAction, Report (dataclasses)
-├── polling.py      poll_until_done(fetch_fn, is_done_fn, interval, timeout)
-└── exceptions.py   MiroFishError, APIError, TimeoutError, SimulationError
-
-cart_recovery/
-├── engine.py               CartRecoveryEngine (main Vakaru entry point)
-├── shopify_formatter.py    ShopifyCartData → seed document text
-└── email_prompt_builder.py Report → AbandonmentInsight + LLM prompt
-```
-
----
-
 ## Simulation Timing
 
 For cart recovery simulations (24 simulated hours, Twitter-only, ~5 agents):
@@ -277,7 +227,7 @@ CREATED → PREPARING → READY → RUNNING → COMPLETED
                                       → FAILED
 ```
 
-Poll `GET /api/simulation/{id}/prepare_status` (10s interval) and `GET /api/simulation/{id}/run_status` (30s interval). The `run_status` endpoint returns `runner_status` ∈ {running, completed, stopped, failed} and `progress_percent`.
+These states are tracked in-process by `SimulationManager`/`SimulationRunner` and advanced synchronously by `run_cart_recovery` — there is no HTTP polling (the old `/api/simulation/*` status endpoints were removed with the OASIS prune, #62). `runner_status` ∈ {running, completed, stopped, failed}; progress surfaces via the `on_progress` callback and the `/api/cart-recovery/jobs/<id>` progress block.
 
 ---
 
@@ -291,7 +241,7 @@ There is a small Next.js app inside `engine-main/web/` for monitoring simulation
 
 - **Zep Cloud** is a hard dependency for knowledge graphs. No fallback if Zep is down — analysis fails at graph build stage.
 - **Agent profiles are generated in parallel** (3 at a time, configurable). Scale this up for larger simulations.
-- **Simulation is stateless** — each cart-recovery run (the in-process `run_cart_recovery()`, or the SDK's `analyze_abandonment()`) creates an isolated project + simulation. No shared memory between cart events. This invariant still holds after issue #19 (the in-process path mints a fresh project + simulation per call).
+- **Simulation is stateless** — each cart-recovery run (the in-process `run_cart_recovery()`) creates an isolated project + simulation. No shared memory between cart events. This invariant still holds after issue #19 (the in-process path mints a fresh project + simulation per call).
 - **The GRU classifier** (`engine-main/classification/`) is a separate POC system. MiroFish does not use it. Do not confuse the two.
 - **Simulation seed document quality** directly drives output quality. The more rich, contextual data in the seed doc (shipping cost, payment method, browsing history, customer history), the better the personas and the more accurate the predicted abandonment reason.
 

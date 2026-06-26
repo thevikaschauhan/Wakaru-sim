@@ -200,30 +200,6 @@ class ProjectManager:
         return Project.from_dict(data)
     
     @classmethod
-    def list_projects(cls, limit: int = 50) -> List[Project]:
-        """
-        列出所有项目
-        
-        Args:
-            limit: 返回数量限制
-            
-        Returns:
-            项目列表，按创建时间倒序
-        """
-        cls._ensure_projects_dir()
-        
-        projects = []
-        for project_id in os.listdir(cls.PROJECTS_DIR):
-            project = cls.get_project(project_id)
-            if project:
-                projects.append(project)
-        
-        # 按创建时间倒序排序
-        projects.sort(key=lambda p: p.created_at, reverse=True)
-        
-        return projects[:limit]
-    
-    @classmethod
     def delete_project(cls, project_id: str) -> bool:
         """
         删除项目及其所有文件
@@ -243,56 +219,11 @@ class ProjectManager:
         return True
     
     @classmethod
-    def save_file_to_project(cls, project_id: str, file_storage, original_filename: str) -> Dict[str, str]:
-        """
-        保存上传的文件到项目目录
-        
-        Args:
-            project_id: 项目ID
-            file_storage: Flask的FileStorage对象
-            original_filename: 原始文件名
-            
-        Returns:
-            文件信息字典 {filename, path, size}
-        """
-        files_dir = cls._get_project_files_dir(project_id)
-        os.makedirs(files_dir, exist_ok=True)
-        
-        # 生成安全的文件名
-        ext = os.path.splitext(original_filename)[1].lower()
-        safe_filename = f"{uuid.uuid4().hex[:8]}{ext}"
-        file_path = os.path.join(files_dir, safe_filename)
-        
-        # 保存文件
-        file_storage.save(file_path)
-        
-        # 获取文件大小
-        file_size = os.path.getsize(file_path)
-        
-        return {
-            "original_filename": original_filename,
-            "saved_filename": safe_filename,
-            "path": file_path,
-            "size": file_size
-        }
-    
-    @classmethod
     def save_extracted_text(cls, project_id: str, text: str) -> None:
         """保存提取的文本"""
         text_path = cls._get_project_text_path(project_id)
         with open(text_path, 'w', encoding='utf-8') as f:
             f.write(text)
-    
-    @classmethod
-    def get_extracted_text(cls, project_id: str) -> Optional[str]:
-        """获取提取的文本"""
-        text_path = cls._get_project_text_path(project_id)
-        
-        if not os.path.exists(text_path):
-            return None
-        
-        with open(text_path, 'r', encoding='utf-8') as f:
-            return f.read()
     
     @classmethod
     def get_project_files(cls, project_id: str) -> List[str]:
