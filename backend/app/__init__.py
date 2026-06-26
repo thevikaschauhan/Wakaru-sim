@@ -224,7 +224,10 @@ def create_app(config_class=Config):
     # to a path-safe UUID here at the boundary — the issue-#13 hazard.
     @app.before_request
     def resolve_merchant_id():
-        if not request.path.startswith("/api/cart-recovery"):
+        # Trailing slash so this matches only the blueprint's routes
+        # (/api/cart-recovery/…), never a hypothetical sibling like
+        # /api/cart-recoveryX.
+        if not request.path.startswith("/api/cart-recovery/"):
             return None
         raw = request.headers.get("X-Merchant-Id")
         if not raw:

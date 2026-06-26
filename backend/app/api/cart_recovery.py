@@ -106,35 +106,41 @@ def verify_internal_hmac():
 
 
 def _paid_rate_limit():
-    """Per-IP limit for the paid POSTs (issue #12). Read at request time so the
-    ceiling is tunable via CART_RECOVERY_RATE_LIMIT_PER_MIN without a redeploy;
-    default 60/min is generous enough not to throttle legitimate cart bursts
-    while still capping a compromised key or a runaway loop."""
+    """Rate-limit ceiling for the paid POSTs (issue #12), bucketed per-merchant
+    (#24; see extensions._merchant_or_ip_key, with a per-IP fallback). Read at
+    request time so the ceiling is tunable via CART_RECOVERY_RATE_LIMIT_PER_MIN
+    without a redeploy; default 60/min is generous enough not to throttle
+    legitimate cart bursts while still capping a compromised key or a runaway loop."""
     return f"{os.environ.get('CART_RECOVERY_RATE_LIMIT_PER_MIN', '60')} per minute"
 
 
-def _record_idempotency_best_effort(conn, scope, idem_key, value, request_id):
+def _record_idempotency_best_effort(conn, scope, idem_key, value, request_id, merchant_id):
     """Persist the idempotency result without ever letting a cache-write failure
     discard already-completed PAID work (issue #12). The job/analysis has already
     succeeded by the time this is called, so the caller must still get its result.
     A Redis hiccup here only costs the replay-on-retry optimization: a same-key
-    retry will 409 on the lingering PENDING marker, or re-run after the 24h TTL."""
+    retry will 409 on the lingering PENDING marker, or re-run after the 24h TTL.
+
+    ``merchant_id`` is threaded in (#24) rather than read from ``g`` so this
+    module-level helper carries no hidden request-context dependency."""
     try:
         record(conn, scope, idem_key, value)
     except RedisError:
         logger.error(
-            f"[{request_id} m={g.merchant_id}] idempotency record failed for scope={scope} "
+            f"[{request_id} m={merchant_id}] idempotency record failed for scope={scope} "
             f"(paid work already succeeded; returning its result anyway)"
         )
 
 
-def _build_cart_from_body(request_id):
+def _build_cart_from_body(request_id, merchant_id):
     """Shared web-tier validation + ShopifyCartData construction.
 
     Used by both /analyze (sync) and /jobs (async) so the two paths reject the
     same malformed payloads with the same 400s. Returns ``(cart, None)`` on
     success or ``(None, (response, status))`` on a client error: non-JSON body,
-    missing required fields, or uncoercible numeric values.
+    missing required fields, or uncoercible numeric values. ``merchant_id`` is
+    passed in (#24) rather than read from ``g`` so this helper has no hidden
+    request-context dependency.
     """
     body = request.get_json(silent=True)
     if not body:
@@ -207,7 +213,7 @@ def _build_cart_from_body(request_id):
         # mistakenly put in a numeric slot (e.g. cart_total). The exception
         # type is enough for log triage; the full message is still returned
         # in the 400 response so the caller can fix their payload.
-        logger.warning(f"[{request_id} m={g.merchant_id}] Invalid cart data ({type(e).__name__})")
+        logger.warning(f"[{request_id} m={merchant_id}] Invalid cart data ({type(e).__name__})")
         return None, (jsonify({"success": False, "error": f"Invalid cart data: {str(e)}"}), 400)
 
     return cart, None
@@ -229,7 +235,7 @@ def analyze():
     # See issue #7; a proper request-id middleware will land with Phase 3.
     request_id = uuid.uuid4().hex[:8]
 
-    cart, error = _build_cart_from_body(request_id)
+    cart, error = _build_cart_from_body(request_id, g.merchant_id)
     if error is not None:
         return error
 
@@ -289,7 +295,7 @@ def analyze():
         "confidence_reasoning": insight.confidence_reasoning,
     }
     if idem_conn is not None:
-        _record_idempotency_best_effort(idem_conn, idem_scope, idem_key, json.dumps(data), request_id)
+        _record_idempotency_best_effort(idem_conn, idem_scope, idem_key, json.dumps(data), request_id, g.merchant_id)
     return jsonify({"success": True, "data": data}), 200
 
 
@@ -312,7 +318,7 @@ def enqueue_job():
     """
     request_id = uuid.uuid4().hex[:8]
 
-    cart, error = _build_cart_from_body(request_id)
+    cart, error = _build_cart_from_body(request_id, g.merchant_id)
     if error is not None:
         return error
 
@@ -369,7 +375,7 @@ def enqueue_job():
         return jsonify({"success": False, "error": "Job queue unavailable"}), 503
 
     if idem_conn is not None:
-        _record_idempotency_best_effort(idem_conn, idem_scope, idem_key, job.id, request_id)
+        _record_idempotency_best_effort(idem_conn, idem_scope, idem_key, job.id, request_id, g.merchant_id)
 
     return jsonify({
         "success": True,

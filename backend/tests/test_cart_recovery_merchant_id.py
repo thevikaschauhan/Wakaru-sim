@@ -82,6 +82,18 @@ def test_path_traversal_merchant_id_header_rejected_400(client):
     assert resp.get_json()["error"] == "invalid_merchant_id"
 
 
+def test_malformed_merchant_id_header_rejected_400_on_analyze(client):
+    # resolve_merchant_id fires for /analyze too (shared path guard) — confirm the
+    # legacy sync entry point also rejects a malformed header at the boundary.
+    resp = client.post(
+        "/api/cart-recovery/analyze",
+        json=VALID_PAYLOAD,
+        headers={"X-Merchant-Id": "not-a-uuid"},
+    )
+    assert resp.status_code == 400, resp.get_data(as_text=True)
+    assert resp.get_json()["error"] == "invalid_merchant_id"
+
+
 def test_valid_merchant_id_bound_to_log_prefix(client, monkeypatch, caplog):
     monkeypatch.setattr(
         "app.api.cart_recovery.run_cart_recovery", _fake_run_with_progress
@@ -142,6 +154,30 @@ def test_same_idem_key_different_merchants_do_not_collide(client, monkeypatch):
     assert r_a2.get_json()["job_id"] == r_a.get_json()["job_id"]
     assert r_a2.get_json().get("replayed") is True
     assert len(queue.job_ids) == 2  # a's replay added nothing
+
+
+def test_analyze_same_idem_key_different_merchants_run_separately(client, monkeypatch):
+    # /analyze has its own per-merchant idempotency scope (analyze:{mid}); the
+    # same key under two merchants must each run the paid pipeline, while a
+    # same-merchant + same-key repeat replays the cached result (runs once).
+    conn = fakeredis.FakeStrictRedis()
+    monkeypatch.setattr("app.api.cart_recovery.get_redis_connection", lambda: conn)
+    calls = []
+
+    def counting_run(cart, on_progress=None):
+        calls.append(1)
+        return _fake_insight()
+
+    monkeypatch.setattr("app.api.cart_recovery.run_cart_recovery", counting_run)
+    key = {"Idempotency-Key": "shared-analyze-key"}
+
+    client.post("/api/cart-recovery/analyze", json=VALID_PAYLOAD, headers={**key, "X-Merchant-Id": MERCHANT_A})
+    client.post("/api/cart-recovery/analyze", json=VALID_PAYLOAD, headers={**key, "X-Merchant-Id": MERCHANT_B})
+    assert len(calls) == 2  # different merchant → distinct scope → not a replay
+
+    r = client.post("/api/cart-recovery/analyze", json=VALID_PAYLOAD, headers={**key, "X-Merchant-Id": MERCHANT_A})
+    assert len(calls) == 2  # same merchant + key → replay, pipeline did not re-run
+    assert r.get_json().get("replayed") is True
 
 
 # --- rate-limit key is per-merchant -------------------------------------------
