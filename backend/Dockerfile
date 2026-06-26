@@ -3,13 +3,9 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # Install system dependencies
-# libmagic1: required by python-magic for upload content-type validation
-# (issue #9). `pip install python-magic` succeeds without it but `import
-# magic` raises OSError at runtime — the shared lib must be present.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     wget \
-    libmagic1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install Python deps first (layer cache)
