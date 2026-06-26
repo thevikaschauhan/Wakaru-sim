@@ -76,9 +76,9 @@ def test_cart_recovery_analyze_emits_no_pii(client, caplog):
         if r.levelno == logging.INFO and "stub progress message" in r.getMessage()
     ]
     assert progress_lines, "Expected an INFO progress log line to be captured"
-    assert re.match(r"\[[0-9a-f]{8}\] ", progress_lines[0]), (
-        f"Expected an 8-hex request_id prefix on the progress log, "
-        f"got: {progress_lines[0]!r}"
+    assert re.match(r"\[[0-9a-f]{8} m=[0-9a-f-]{36}\] ", progress_lines[0]), (
+        f"Expected an 8-hex request_id + merchant_id (#24) prefix on the "
+        f"progress log, got: {progress_lines[0]!r}"
     )
 
 
@@ -100,9 +100,9 @@ def test_cart_recovery_exception_path_emits_no_pii(client, caplog):
         and "Cart recovery analysis failed" in r.getMessage()
     ]
     assert error_lines, "Expected the ERROR log line to be captured"
-    assert re.match(r"\[[0-9a-f]{8}\] ", error_lines[0]), (
-        f"Expected an 8-hex request_id prefix on the error log, "
-        f"got: {error_lines[0]!r}"
+    assert re.match(r"\[[0-9a-f]{8} m=[0-9a-f-]{36}\] ", error_lines[0]), (
+        f"Expected an 8-hex request_id + merchant_id (#24) prefix on the "
+        f"error log, got: {error_lines[0]!r}"
     )
 
 

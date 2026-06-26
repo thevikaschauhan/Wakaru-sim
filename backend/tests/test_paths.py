@@ -15,8 +15,10 @@ from app.utils.paths import (
     ID_PARAM_PREFIXES,
     InvalidID,
     PathTraversal,
+    SENTINEL_MERCHANT_ID,
     safe_join,
     validate_id,
+    validate_merchant_id,
 )
 
 
@@ -84,6 +86,50 @@ def test_id_param_prefixes_cover_exactly_the_fs_bearing_params():
         "simulation_id": "sim",
         "report_id": "report",
     }
+
+
+# --- validate_merchant_id (#24) ----------------------------------------------
+
+def test_validate_merchant_id_accepts_canonical_uuid():
+    # Returns the value unchanged so the before_request can bind it inline.
+    value = "550e8400-e29b-41d4-a716-446655440000"
+    assert validate_merchant_id(value) == value
+
+
+def test_validate_merchant_id_accepts_sentinel():
+    # The nil-UUID sentinel (un-headered/legacy requests + pre-multi-tenancy
+    # data at rest) must pass the same validator so it flows through safe_join
+    # like a real merchant id.
+    assert validate_merchant_id(SENTINEL_MERCHANT_ID) == SENTINEL_MERCHANT_ID
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "",
+        "not-a-uuid",
+        "550e8400e29b41d4a716446655440000",        # no hyphens
+        "550e8400-e29b-41d4-a716-44665544000",     # 11 in last group — too short
+        "550e8400-e29b-41d4-a716-4466554400000",   # 13 in last group — too long
+        "550E8400-E29B-41D4-A716-446655440000",    # uppercase hex rejected (path determinism)
+        "550e8400-e29b-41d4-a716-44665544zzzz",    # non-hex chars
+        "../../../etc/passwd",
+        "550e8400-e29b-41d4-a716-446655440000/../x",   # path payload after a valid uuid
+        "../550e8400-e29b-41d4-a716-446655440000",     # traversal prefix
+        "550e8400-e29b-41d4-a716-446655440000\n",      # trailing newline ($ would accept; \Z rejects)
+        "550e8400-e29b-41d4-a716-446655440000\nx",     # embedded newline
+    ],
+)
+def test_validate_merchant_id_rejects_malformed(value):
+    with pytest.raises(InvalidID):
+        validate_merchant_id(value)
+
+
+def test_validate_merchant_id_rejects_non_string():
+    with pytest.raises(InvalidID):
+        validate_merchant_id(None)
+    with pytest.raises(InvalidID):
+        validate_merchant_id(12345)
 
 
 # --- safe_join ----------------------------------------------------------------

@@ -44,6 +44,11 @@ def run_analysis_job(cart_dict: dict) -> dict:
     job = get_current_job()
     # The RQ job id is the durable correlation key (replaces /analyze's per-request uuid).
     request_id = job.id[:8] if job is not None else "nojob"
+    # NOTE (#24): the worker runs outside the Flask request context, so
+    # g.merchant_id is unavailable — this log line carries request_id only, not
+    # the web tier's m=<merchant> prefix. merchant_id is threaded into the job
+    # (job->merchant binding) in CP2; the "merchant_id on every cart-recovery log
+    # line" AC is completed there.
 
     cart = ShopifyCartData(**cart_dict)
 
