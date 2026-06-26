@@ -20,7 +20,13 @@ from werkzeug.exceptions import HTTPException
 from .config import Config
 from .extensions import limiter
 from .utils.logger import setup_logger, get_logger
-from .utils.paths import ID_PARAM_PREFIXES, InvalidID, validate_id
+from .utils.paths import (
+    ID_PARAM_PREFIXES,
+    InvalidID,
+    SENTINEL_MERCHANT_ID,
+    validate_id,
+    validate_merchant_id,
+)
 
 
 # PII field names that must never leave the server (see issues #7, #17).
@@ -201,6 +207,36 @@ def create_app(config_class=Config):
                 validate_id(value, prefix)
             except InvalidID:
                 return jsonify({"error": "invalid_id"}), 400
+        return None
+
+    # Issue #24: bind the engine-supplied merchant to the request so storage,
+    # rate limit, idempotency, and logs can be scoped per tenant. Registered
+    # AFTER require_api_key (a key holder is authenticated first) and BEFORE
+    # limiter.init_app below, so g.merchant_id is already set when the limiter's
+    # per-merchant key_func runs. Scoped to /api/cart-recovery/* — the only live
+    # multi-tenant surface (the engine is the sole server→server caller). A
+    # request with no X-Merchant-Id (the legacy /analyze caller, or the engine
+    # before it sends the header) is bucketed under the nil-UUID sentinel rather
+    # than rejected, so this can deploy before the engine starts sending it; a
+    # present-but-malformed id fails loud with 400, since the engine controls the
+    # value so a bad one is a bug/attack, not a legacy caller. The id becomes a
+    # filesystem path component (storage namespacing, #24 CP2), so it is validated
+    # to a path-safe UUID here at the boundary — the issue-#13 hazard.
+    @app.before_request
+    def resolve_merchant_id():
+        if not request.path.startswith("/api/cart-recovery"):
+            return None
+        raw = request.headers.get("X-Merchant-Id")
+        if not raw:
+            g.merchant_id = SENTINEL_MERCHANT_ID
+        else:
+            try:
+                g.merchant_id = validate_merchant_id(raw)
+            except InvalidID:
+                return jsonify({"error": "invalid_merchant_id"}), 400
+        # merchant_id is a tenant UUID, not PII (it is absent from _PII_FIELDS),
+        # so tagging Sentry with it is safe and lets errors be filtered per tenant.
+        sentry_sdk.set_tag("merchant_id", g.merchant_id)
         return None
 
     # Issue #12: rate limit the paid cart-recovery POSTs. Init AFTER the auth

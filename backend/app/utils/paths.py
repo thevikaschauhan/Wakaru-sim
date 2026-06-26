@@ -11,6 +11,11 @@ converter accepts `..` and `/`, so a raw id can carry a traversal payload):
   (via ``..``, an absolute-path component, or a symlink). Defense-in-depth so
   a site that forgets ``validate_id`` still cannot read or write outside its
   base directory.
+
+``validate_merchant_id(value)`` (issue #24) is the same fail-fast layer for the
+``X-Merchant-Id`` header: merchant_id becomes the top-level storage namespace
+(``uploads/{merchant_id}/...``), so it is path-bearing untrusted input too and
+must be validated to a path-safe UUID before any join.
 """
 import os
 import re
@@ -44,6 +49,24 @@ ID_PARAM_PREFIXES = {
 # fails loudly in the round-trip tests rather than silently widening the surface.
 _ID_RE = re.compile(r"\A(?:proj|sim|report)_[a-f0-9]{12}\Z")
 
+# Multi-tenancy (#24): merchant_id arrives in the X-Merchant-Id header as the
+# engine's merchant UUID (uuid.UUID rendered as its canonical lowercase string)
+# and becomes a filesystem path component (uploads/{merchant_id}/...), so — like
+# the ids above — it is untrusted input crossing into a path join (the #13
+# hazard). A canonical UUID is hex + hyphen only, so a valid merchant_id can
+# never carry '.', '/', or a '..' traversal payload. \A/\Z (not ^/$) so a
+# trailing newline cannot slip through.
+_MERCHANT_ID_RE = re.compile(
+    r"\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\Z"
+)
+
+# The nil UUID, used as the merchant_id when a request carries no X-Merchant-Id
+# (the legacy /analyze caller, or the engine before it sends the header) and as
+# the migration sentinel for pre-multi-tenancy data at rest. It satisfies
+# validate_merchant_id, so the sentinel flows through the same path-safe machinery
+# as a real merchant id.
+SENTINEL_MERCHANT_ID = "00000000-0000-0000-0000-000000000000"
+
 
 def validate_id(value, prefix):
     """Return ``value`` if it is a well-formed id of ``prefix``, else raise.
@@ -58,6 +81,20 @@ def validate_id(value, prefix):
         or not _ID_RE.match(value)
     ):
         raise InvalidID(f"invalid {prefix} id")
+    return value
+
+
+def validate_merchant_id(value):
+    """Return ``value`` if it is a canonical lowercase UUID, else raise.
+
+    merchant_id is path-bearing untrusted input (it becomes the top-level
+    storage namespace, ``uploads/{merchant_id}/...``), so it is validated at the
+    request boundary exactly like the route ids — a non-UUID is rejected before
+    it can reach a filesystem join. Raises :class:`InvalidID` so the route can
+    reuse the issue-#13 fail-fast 400 path.
+    """
+    if not isinstance(value, str) or not _MERCHANT_ID_RE.match(value):
+        raise InvalidID("invalid merchant id")
     return value
 
 

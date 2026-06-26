@@ -17,7 +17,7 @@ import traceback
 import uuid
 from dataclasses import asdict
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 import sentry_sdk
 from redis.exceptions import RedisError
 from rq.exceptions import NoSuchJobError
@@ -67,10 +67,14 @@ def verify_internal_hmac():
     we verify the signature and the replay window. See docs/integration.md.
 
     POST-only: the poll GET has no body to bind (X-API-Key suffices). Runs
-    after the app-level hooks (request-id #14 → X-API-Key #10 → rate limit #12)
-    because blueprint-level before_request handlers run last — an
-    unauthenticated request 401s at the key guard before any HMAC work.
-    merchant_id binding is deferred to multi-tenancy (#24).
+    after the app-level hooks (request-id #14 → X-API-Key #10 → merchant-id #24
+    → rate limit #12) because blueprint-level before_request handlers run last —
+    an unauthenticated request 401s at the key guard before any HMAC work.
+
+    merchant_id is bound by the app-level resolve_merchant_id hook (#24) from the
+    X-Merchant-Id header. The signature covers the request body, not that header,
+    so at v1 merchant_id is trusted via the shared X-API-Key (the engine is the
+    sole server→server caller), not via this HMAC.
     """
     if request.method != "POST":
         return None
@@ -119,7 +123,7 @@ def _record_idempotency_best_effort(conn, scope, idem_key, value, request_id):
         record(conn, scope, idem_key, value)
     except RedisError:
         logger.error(
-            f"[{request_id}] idempotency record failed for scope={scope} "
+            f"[{request_id} m={g.merchant_id}] idempotency record failed for scope={scope} "
             f"(paid work already succeeded; returning its result anyway)"
         )
 
@@ -203,7 +207,7 @@ def _build_cart_from_body(request_id):
         # mistakenly put in a numeric slot (e.g. cart_total). The exception
         # type is enough for log triage; the full message is still returned
         # in the 400 response so the caller can fix their payload.
-        logger.warning(f"[{request_id}] Invalid cart data ({type(e).__name__})")
+        logger.warning(f"[{request_id} m={g.merchant_id}] Invalid cart data ({type(e).__name__})")
         return None, (jsonify({"success": False, "error": f"Invalid cart data: {str(e)}"}), 400)
 
     return cart, None
@@ -231,11 +235,13 @@ def analyze():
 
     # Idempotency (issue #12): a repeated POST with the same Idempotency-Key must
     # not run a second paid pipeline. Replay the cached result; reject a request
-    # that arrives while the first is still running.
+    # that arrives while the first is still running. The scope is namespaced by
+    # merchant (#24) so the same key cannot collide across tenants.
     idem_key = request.headers.get("Idempotency-Key")
+    idem_scope = f"analyze:{g.merchant_id}"
     idem_conn = get_redis_connection() if idem_key else None
     if idem_conn is not None:
-        state, existing = claim_or_get(idem_conn, "analyze", idem_key)
+        state, existing = claim_or_get(idem_conn, idem_scope, idem_key)
         if state == "replay":
             return jsonify({"success": True, "data": json.loads(existing), "replayed": True}), 200
         if state == "pending":
@@ -246,7 +252,7 @@ def analyze():
 
     # Progress logging callback
     def on_progress(stage: str, state: object):
-        logger.info(f"[{request_id}] {stage}: {state}")
+        logger.info(f"[{request_id} m={g.merchant_id}] {stage}: {state}")
 
     # Run analysis
     try:
@@ -256,7 +262,7 @@ def analyze():
         # can retry (there is no cached result to replay). This is a positive
         # failure, not an ambiguous outcome, so releasing is safe.
         if idem_conn is not None:
-            release(idem_conn, "analyze", idem_key)
+            release(idem_conn, idem_scope, idem_key)
         # Don't send the exception object to Sentry: its .args (and frame
         # locals via the traceback) can carry PII from cart data into the
         # event payload, which _scrub_pii does not cover. Send a sanitized
@@ -265,7 +271,7 @@ def analyze():
             f"Cart recovery analysis failed ({type(e).__name__})",
             level="error",
         )
-        logger.error(f"[{request_id}] Cart recovery analysis failed ({type(e).__name__})")
+        logger.error(f"[{request_id} m={g.merchant_id}] Cart recovery analysis failed ({type(e).__name__})")
         logger.debug(traceback.format_exc())
         return jsonify({
             "success": False,
@@ -283,7 +289,7 @@ def analyze():
         "confidence_reasoning": insight.confidence_reasoning,
     }
     if idem_conn is not None:
-        _record_idempotency_best_effort(idem_conn, "analyze", idem_key, json.dumps(data), request_id)
+        _record_idempotency_best_effort(idem_conn, idem_scope, idem_key, json.dumps(data), request_id)
     return jsonify({"success": True, "data": data}), 200
 
 
@@ -314,9 +320,10 @@ def enqueue_job():
     # its id; if one is mid-enqueue, reject. Otherwise we hold the slot and must
     # record the job id (on success) or release it (if no job was created).
     idem_key = request.headers.get("Idempotency-Key")
+    idem_scope = f"jobs:{g.merchant_id}"
     idem_conn = get_redis_connection() if idem_key else None
     if idem_conn is not None:
-        state, existing = claim_or_get(idem_conn, "jobs", idem_key)
+        state, existing = claim_or_get(idem_conn, idem_scope, idem_key)
         if state == "replay":
             return jsonify({
                 "success": True,
@@ -335,8 +342,8 @@ def enqueue_job():
         # REDIS_URL unset: the async path is unavailable, but /analyze is not.
         # No job was created — free the idempotency slot so a retry can proceed.
         if idem_conn is not None:
-            release(idem_conn, "jobs", idem_key)
-        logger.error(f"[{request_id}] Job queue unavailable (REDIS_URL not configured)")
+            release(idem_conn, idem_scope, idem_key)
+        logger.error(f"[{request_id} m={g.merchant_id}] Job queue unavailable (REDIS_URL not configured)")
         return jsonify({"success": False, "error": "Job queue unavailable"}), 503
 
     try:
@@ -357,12 +364,12 @@ def enqueue_job():
     except RedisError:
         # Enqueue failed → no job was created → free the slot for a retry.
         if idem_conn is not None:
-            release(idem_conn, "jobs", idem_key)
-        logger.error(f"[{request_id}] Job enqueue failed (Redis unreachable)")
+            release(idem_conn, idem_scope, idem_key)
+        logger.error(f"[{request_id} m={g.merchant_id}] Job enqueue failed (Redis unreachable)")
         return jsonify({"success": False, "error": "Job queue unavailable"}), 503
 
     if idem_conn is not None:
-        _record_idempotency_best_effort(idem_conn, "jobs", idem_key, job.id, request_id)
+        _record_idempotency_best_effort(idem_conn, idem_scope, idem_key, job.id, request_id)
 
     return jsonify({
         "success": True,
@@ -386,7 +393,7 @@ def job_status(job_id):
 
     connection = get_redis_connection()
     if connection is None:
-        logger.error(f"[{request_id}] Job queue unavailable (REDIS_URL not configured)")
+        logger.error(f"[{request_id} m={g.merchant_id}] Job queue unavailable (REDIS_URL not configured)")
         return jsonify({"success": False, "error": "Job queue unavailable"}), 503
 
     try:
@@ -394,7 +401,7 @@ def job_status(job_id):
     except NoSuchJobError:
         return jsonify({"success": False, "error": "Job not found"}), 404
     except RedisError:
-        logger.error(f"[{request_id}] Job fetch failed (Redis unreachable)")
+        logger.error(f"[{request_id} m={g.merchant_id}] Job fetch failed (Redis unreachable)")
         return jsonify({"success": False, "error": "Job queue unavailable"}), 503
 
     status = job.get_status()
