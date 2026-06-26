@@ -146,7 +146,22 @@ class SimulationManager:
         if create:
             os.makedirs(sim_dir, exist_ok=True)
         return sim_dir
-    
+
+    @classmethod
+    def delete_simulation(cls, simulation_id: str) -> bool:
+        """Remove the simulation's data directory (#24 CP2b scratch cleanup).
+
+        state.json, the generated config, actions.jsonl, the OASIS db outputs and
+        the run-state all live under one uploads/simulations/<id> tree
+        (SIMULATION_DATA_DIR, Config.OASIS_SIMULATION_DATA_DIR and
+        SimulationRunner.RUN_STATE_DIR all resolve there), so a single rmtree
+        removes the whole per-analysis simulation. Returns False if it is absent."""
+        sim_dir = safe_join(cls.SIMULATION_DATA_DIR, simulation_id)
+        if not os.path.exists(sim_dir):
+            return False
+        shutil.rmtree(sim_dir)
+        return True
+
     def _save_simulation_state(self, state: SimulationState):
         """保存模拟状态到文件"""
         sim_dir = self._get_simulation_dir(state.simulation_id, create=True)
