@@ -346,10 +346,17 @@ class SimulationRunner:
         )
         try:
             with os.fdopen(fd, 'w', encoding='utf-8') as f:
+                fd = -1  # fdopen owns the descriptor now; the `with` closes it.
                 json.dump(data, f, ensure_ascii=False, indent=2)
             os.replace(tmp_path, state_file)
         except BaseException:
-            # Leave any prior valid run_state.json intact; drop the scratch file.
+            # Leave any prior valid run_state.json intact. Close the fd if
+            # fdopen never took ownership, then drop the scratch file.
+            if fd != -1:
+                try:
+                    os.close(fd)
+                except OSError:
+                    pass
             try:
                 os.unlink(tmp_path)
             except OSError:
@@ -371,6 +378,8 @@ class SimulationRunner:
             state.current_round,
             state.twitter_current_round,
             state.reddit_current_round,
+            state.twitter_simulated_hours,
+            state.reddit_simulated_hours,
             state.twitter_running,
             state.reddit_running,
             state.twitter_completed,

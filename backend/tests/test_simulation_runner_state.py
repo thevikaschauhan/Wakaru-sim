@@ -176,6 +176,6 @@ def test_monitor_loop_skips_noop_tick_writes(state_dir, monkeypatch):
     finally:
         SimulationRunner._processes.pop(sim_id, None)
 
-    # Zero per-tick RUNNING rewrites; exactly the terminal COMPLETED save.
+    # Zero per-tick RUNNING rewrites; exactly the one terminal COMPLETED save.
     assert RunnerStatus.RUNNING not in saved_statuses
-    assert saved_statuses[-1] == RunnerStatus.COMPLETED
+    assert saved_statuses == [RunnerStatus.COMPLETED]
