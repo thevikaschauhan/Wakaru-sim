@@ -8,6 +8,7 @@ import sys
 import json
 import time
 import asyncio
+import tempfile
 import threading
 import subprocess
 import signal
@@ -16,7 +17,6 @@ from typing import Dict, Any, List, Optional, Union
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from queue import Queue
 
 from ..config import Config
 from ..utils.logger import get_logger
@@ -26,7 +26,16 @@ from .simulation_ipc import SimulationIPCClient, CommandType, IPCResponse
 
 logger = get_logger('mirofish.simulation_runner')
 
-# 标记是否已注册清理函数
+# Guards the run-state object against the one cross-thread window (issue #21,
+# AC#6): the monitor thread mutates `recent_actions` (via add_action) while the
+# main job thread may serialize the same state in `_save_run_state` on the
+# timeout/stop path (cart_recovery_workflow._safe_stop). Without it, the
+# serializer's iteration over a concurrently-mutated list raises
+# "list changed size during iteration". Single process only — the run executes
+# inside one forking rq.Worker job, so this is intra-process, not cross-worker.
+_STATE_LOCK = threading.Lock()
+
+# Tracks whether the atexit cleanup function has been registered.
 _cleanup_registered = False
 
 # 平台检测
@@ -145,17 +154,22 @@ class SimulationRunState:
     process_pid: Optional[int] = None
     
     def add_action(self, action: AgentAction):
-        """添加动作到最近动作列表"""
-        self.recent_actions.insert(0, action)
-        if len(self.recent_actions) > self.max_recent_actions:
-            self.recent_actions = self.recent_actions[:self.max_recent_actions]
-        
-        if action.platform == "twitter":
-            self.twitter_actions_count += 1
-        else:
-            self.reddit_actions_count += 1
-        
-        self.updated_at = datetime.now().isoformat()
+        """Prepend an action to the recent-actions list (newest first).
+
+        Holds _STATE_LOCK so this mutation can't interleave with a concurrent
+        serialization of the same state in SimulationRunner._save_run_state
+        (issue #21, AC#6 — see the lock's definition for the race)."""
+        with _STATE_LOCK:
+            self.recent_actions.insert(0, action)
+            if len(self.recent_actions) > self.max_recent_actions:
+                self.recent_actions = self.recent_actions[:self.max_recent_actions]
+
+            if action.platform == "twitter":
+                self.twitter_actions_count += 1
+            else:
+                self.reddit_actions_count += 1
+
+            self.updated_at = datetime.now().isoformat()
     
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -216,16 +230,13 @@ class SimulationRunner:
         '../../scripts'
     )
     
-    # 内存中的运行状态
+    # In-memory run state (lives only inside the current rq.Worker job fork).
     _run_states: Dict[str, SimulationRunState] = {}
     _processes: Dict[str, subprocess.Popen] = {}
-    _action_queues: Dict[str, Queue] = {}
-    _monitor_threads: Dict[str, threading.Thread] = {}
-    _stdout_files: Dict[str, Any] = {}  # 存储 stdout 文件句柄
-    _stderr_files: Dict[str, Any] = {}  # 存储 stderr 文件句柄
-    
-    # 图谱记忆更新配置
-    _graph_memory_enabled: Dict[str, bool] = {}  # simulation_id -> enabled
+    _stdout_files: Dict[str, Any] = {}  # combined stdout/stderr log handle
+
+    # Graph-memory update toggle: simulation_id -> enabled
+    _graph_memory_enabled: Dict[str, bool] = {}
 
     @classmethod
     def _run_state_dir(cls, simulation_id: str) -> str:
@@ -250,11 +261,16 @@ class SimulationRunner:
     
     @classmethod
     def _load_run_state(cls, simulation_id: str) -> Optional[SimulationRunState]:
-        """从文件加载运行状态"""
+        """Load run state from disk.
+
+        Missing file -> None (no state recorded yet). A file that EXISTS but is
+        corrupt (truncated/invalid JSON) -> a FAILED state, not a silent None
+        (issue #21, AC#5): a half-written state must surface as a failure the
+        caller can act on, never be mistaken for "no simulation"."""
         state_file = os.path.join(cls._run_state_dir(simulation_id), "run_state.json")
         if not os.path.exists(state_file):
             return None
-        
+
         try:
             with open(state_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
@@ -301,22 +317,65 @@ class SimulationRunner:
             
             return state
         except Exception as e:
-            logger.error(f"加载运行状态失败: {str(e)}")
-            return None
-    
+            # File exists but couldn't be parsed -> surface as FAILED, not None.
+            logger.error(f"run_state.json corrupt for {simulation_id}: {e} — marking FAILED")
+            return SimulationRunState(
+                simulation_id=simulation_id,
+                runner_status=RunnerStatus.FAILED,
+                error=f"corrupt run_state.json: {e}",
+            )
+
     @classmethod
     def _save_run_state(cls, state: SimulationRunState):
-        """保存运行状态到文件"""
+        """Persist run state to disk atomically.
+
+        Writes to a temp file in the same dir then os.replace()s it over the
+        target (atomic on POSIX), so a crash mid-write can never leave a partial
+        run_state.json that _load_run_state would then read as corrupt
+        (issue #21). The to_detail_dict() snapshot is taken under _STATE_LOCK so
+        it can't iterate recent_actions while the monitor thread mutates it."""
         sim_dir = cls._run_state_dir(state.simulation_id)
         os.makedirs(sim_dir, exist_ok=True)
         state_file = os.path.join(sim_dir, "run_state.json")
-        
-        data = state.to_detail_dict()
-        
-        with open(state_file, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        
+
+        with _STATE_LOCK:
+            data = state.to_detail_dict()
+
+        fd, tmp_path = tempfile.mkstemp(
+            prefix=".run_state.", suffix=".tmp", dir=sim_dir
+        )
+        try:
+            with os.fdopen(fd, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            os.replace(tmp_path, state_file)
+        except BaseException:
+            # Leave any prior valid run_state.json intact; drop the scratch file.
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            raise
+
         cls._run_states[state.simulation_id] = state
+
+    @staticmethod
+    def _progress_signature(state: SimulationRunState):
+        """The fields whose change is worth a fresh run_state.json write.
+
+        Excludes per-tick churn (action counts, updated_at) so the 2s monitor
+        loop coalesces no-op ticks instead of rewriting the full file ~240-510
+        times per analysis (issue #21). The in-memory _run_states stays fresh
+        every tick regardless; only the FILE write is gated."""
+        return (
+            state.runner_status,
+            state.current_round,
+            state.twitter_current_round,
+            state.reddit_current_round,
+            state.twitter_running,
+            state.reddit_running,
+            state.twitter_completed,
+            state.reddit_completed,
+        )
     
     @classmethod
     def start_simulation(
@@ -410,10 +469,6 @@ class SimulationRunner:
         if not os.path.exists(script_path):
             raise ValueError(f"脚本不存在: {script_path}")
         
-        # 创建动作队列
-        action_queue = Queue()
-        cls._action_queues[simulation_id] = action_queue
-        
         # 启动模拟进程
         try:
             # 构建运行命令，使用完整路径
@@ -467,23 +522,22 @@ class SimulationRunner:
                 start_new_session=True,  # 创建新进程组，确保服务器关闭时能终止所有相关进程
             )
             
-            # 保存文件句柄以便后续关闭
+            # Keep the combined stdout/stderr log handle so it can be closed later.
             cls._stdout_files[simulation_id] = main_log_file
-            cls._stderr_files[simulation_id] = None  # 不再需要单独的 stderr
-            
+
             state.process_pid = process.pid
             state.runner_status = RunnerStatus.RUNNING
             cls._processes[simulation_id] = process
             cls._save_run_state(state)
-            
-            # 启动监控线程
+
+            # Start the monitor thread (daemon; never joined, so its handle is
+            # not retained — the rq.Worker fork is discarded after the job).
             monitor_thread = threading.Thread(
                 target=cls._monitor_simulation,
                 args=(simulation_id,),
                 daemon=True
             )
             monitor_thread.start()
-            cls._monitor_threads[simulation_id] = monitor_thread
             
             logger.info(f"模拟启动成功: {simulation_id}, pid={process.pid}, platform={platform}")
             
@@ -512,26 +566,33 @@ class SimulationRunner:
         
         twitter_position = 0
         reddit_position = 0
-        
+
+        # Persist the FILE only when progress actually advances; the in-memory
+        # _run_states stays current every tick via _read_action_log. Without
+        # this gate the loop rewrote the full run_state.json every 2s (~240-510
+        # times per analysis) on the hot paid path (issue #21).
+        last_signature = cls._progress_signature(state)
+
         try:
-            while process.poll() is None:  # 进程仍在运行
-                # 读取 Twitter 动作日志
+            while process.poll() is None:  # process still running
+                # Read the per-platform action logs.
                 if os.path.exists(twitter_actions_log):
                     twitter_position = cls._read_action_log(
                         twitter_actions_log, twitter_position, state, "twitter"
                     )
-                
-                # 读取 Reddit 动作日志
+
                 if os.path.exists(reddit_actions_log):
                     reddit_position = cls._read_action_log(
                         reddit_actions_log, reddit_position, state, "reddit"
                     )
-                
-                # 更新状态
-                cls._save_run_state(state)
+
+                signature = cls._progress_signature(state)
+                if signature != last_signature:
+                    cls._save_run_state(state)
+                    last_signature = signature
                 time.sleep(2)
-            
-            # 进程结束后，最后读取一次日志
+
+            # Read the logs one last time after the process exits.
             if os.path.exists(twitter_actions_log):
                 cls._read_action_log(twitter_actions_log, twitter_position, state, "twitter")
             if os.path.exists(reddit_actions_log):
@@ -578,23 +639,16 @@ class SimulationRunner:
                     logger.error(f"停止图谱记忆更新器失败: {e}")
                 cls._graph_memory_enabled.pop(simulation_id, None)
             
-            # 清理进程资源
+            # Release process resources.
             cls._processes.pop(simulation_id, None)
-            cls._action_queues.pop(simulation_id, None)
-            
-            # 关闭日志文件句柄
+
+            # Close the combined stdout/stderr log handle.
             if simulation_id in cls._stdout_files:
                 try:
                     cls._stdout_files[simulation_id].close()
                 except Exception:
                     pass
                 cls._stdout_files.pop(simulation_id, None)
-            if simulation_id in cls._stderr_files and cls._stderr_files[simulation_id]:
-                try:
-                    cls._stderr_files[simulation_id].close()
-                except Exception:
-                    pass
-                cls._stderr_files.pop(simulation_id, None)
     
     @classmethod
     def _read_action_log(
@@ -1278,7 +1332,7 @@ class SimulationRunner:
             except Exception as e:
                 logger.error(f"清理进程失败: {simulation_id}, error={e}")
         
-        # 清理文件句柄
+        # Close log file handles.
         for simulation_id, file_handle in list(cls._stdout_files.items()):
             try:
                 if file_handle:
@@ -1286,20 +1340,11 @@ class SimulationRunner:
             except Exception:
                 pass
         cls._stdout_files.clear()
-        
-        for simulation_id, file_handle in list(cls._stderr_files.items()):
-            try:
-                if file_handle:
-                    file_handle.close()
-            except Exception:
-                pass
-        cls._stderr_files.clear()
-        
-        # 清理内存中的状态
+
+        # Clear in-memory state.
         cls._processes.clear()
-        cls._action_queues.clear()
-        
-        logger.info("模拟进程清理完成")
+
+        logger.info("Simulation process cleanup complete")
     
     @classmethod
     def register_cleanup(cls):

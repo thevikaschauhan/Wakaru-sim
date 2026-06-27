@@ -31,11 +31,8 @@ from app.services.simulation_runner import SimulationRunner
 _SIM_CACHES = (
     "_run_states",
     "_processes",
-    "_monitor_threads",
     "_stdout_files",
-    "_stderr_files",
     "_graph_memory_enabled",
-    "_action_queues",
 )
 
 
