@@ -28,6 +28,7 @@ from cart_recovery.shopify_formatter import ShopifyCartData, ShopifyFormatter
 
 from ..config import Config
 from ..models.project import ProjectManager, ProjectStatus
+from ..utils.llm_client import LLMClient
 from .graph_builder import GraphBuilderService
 from .ontology_generator import OntologyGenerator
 from .report_agent import ReportAgent, ReportManager, ReportStatus
@@ -214,8 +215,25 @@ def _run_analysis(
     )
 
     # --- tail: confidence + insight (mirrors analyze_abandonment) ---
+    # Inject the structured-insight extractor (#47): build() makes one JSON LLM
+    # call for the fragile prose fields, falling back to the regex heuristics on
+    # any failure so a provider blip never loses the paid analysis (Fork D).
+    # Construct the client here, outside build()'s fail-safe, and degrade to
+    # heuristics (chat_json=None) if even construction fails — so a credentials
+    # hiccup at the tail of an 8-17 min run still returns a result, not a raise.
     confidence, confidence_reasoning = assess_confidence_heuristic(cart)
-    insight = prompt_builder.build(report_content, cart, confidence=confidence)
+    try:
+        insight_extractor = LLMClient().chat_json
+    except Exception as exc:  # noqa: BLE001 - degrade, never fail the paid analysis
+        logger.warning(
+            "LLM client unavailable (%s); insight extraction will use heuristics",
+            type(exc).__name__,
+        )
+        insight_extractor = None
+    insight = prompt_builder.build(
+        report_content, cart, confidence=confidence,
+        chat_json=insight_extractor,
+    )
     insight.confidence_reasoning = confidence_reasoning
     return insight
 

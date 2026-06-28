@@ -146,6 +146,26 @@ def harness(monkeypatch):
             calls.append("report_gen")
             return SimpleNamespace(status=state.report_status, markdown_content="# Report", error="report boom")
 
+    class FakeLLMClient:
+        """Stub the structured-insight extractor (#47). chat_json returns a valid
+        extraction dict so the real EmailPromptBuilder runs its LLM path without
+        a network call; the messages it receives are recorded for assertions.
+
+        Defined inside this function-scoped fixture, so the class-level ``calls``
+        list (mirroring FakeRunner.stop_calls above) is fresh for each test."""
+        calls = []
+
+        def __init__(self, *a, **kw):
+            pass
+
+        def chat_json(self, messages, *a, **kw):
+            FakeLLMClient.calls.append(messages)
+            return {
+                "predicted_reason": "stubbed reason",
+                "emotional_state": "indecisive",
+                "key_objections": ["stub objection"],
+            }
+
     monkeypatch.setattr(wf, "ProjectManager", FakeProjectManager)
     monkeypatch.setattr(wf, "OntologyGenerator", FakeOntologyGenerator)
     monkeypatch.setattr(wf, "GraphBuilderService", FakeBuilder)
@@ -153,8 +173,9 @@ def harness(monkeypatch):
     monkeypatch.setattr(wf, "SimulationRunner", FakeRunner)
     monkeypatch.setattr(wf, "ReportManager", FakeReportManager)
     monkeypatch.setattr(wf, "ReportAgent", FakeReportAgent)
+    monkeypatch.setattr(wf, "LLMClient", FakeLLMClient)
     monkeypatch.setattr(wf, "_RUN_POLL_INTERVAL_SECONDS", 0)
-    return SimpleNamespace(calls=calls, state=state, runner=FakeRunner)
+    return SimpleNamespace(calls=calls, state=state, runner=FakeRunner, llm=FakeLLMClient)
 
 
 def test_returns_insight_and_fires_five_stages(harness):
@@ -172,6 +193,14 @@ def test_returns_insight_and_fires_five_stages(harness):
         "ontology_generated", "graph_completed",
         "simulation_ready", "simulation_completed", "generating_report",
     ]
+
+
+def test_llm_extractor_is_passed_to_builder(harness):
+    """#47: the workflow injects a chat_json extractor into EmailPromptBuilder,
+    so the structured-insight LLM path runs (not the regex heuristics)."""
+    insight = wf.run_cart_recovery(_make_cart())
+    assert harness.llm.calls, "expected the injected chat_json extractor to be invoked"
+    assert insight.predicted_reason == "stubbed reason"
 
 
 def test_pipeline_call_order(harness):
@@ -392,11 +421,18 @@ def test_concurrent_runs_isolated(monkeypatch):
         def generate_report(self, **kw):
             return SimpleNamespace(status=ReportStatus.COMPLETED, markdown_content=f"# {self.sid}", error=None)
 
+    class FakeLLM:
+        def __init__(self, *a, **kw):
+            pass
+
+        def chat_json(self, messages, *a, **kw):
+            return {"predicted_reason": "r", "emotional_state": "indecisive", "key_objections": []}
+
     for name, obj in [
         ("ProjectManager", FakePM), ("OntologyGenerator", FakeOnto),
         ("GraphBuilderService", FakeBuilder), ("SimulationManager", FakeMgr),
         ("SimulationRunner", FakeRunner), ("ReportManager", FakeRM),
-        ("ReportAgent", FakeRA),
+        ("ReportAgent", FakeRA), ("LLMClient", FakeLLM),
     ]:
         monkeypatch.setattr(wf, name, obj)
     monkeypatch.setattr(wf, "_RUN_POLL_INTERVAL_SECONDS", 0)
