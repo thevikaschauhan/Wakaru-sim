@@ -136,19 +136,23 @@ Output the JSON object only, with no commentary or markdown."""
                 reason, emotional_state, objections = self._extract_insight_llm(
                     report_content, cart, chat_json
                 )
-            except Exception:  # noqa: BLE001 - degrade, never fail the paid analysis
+            except Exception as exc:  # noqa: BLE001 - degrade, never fail the paid analysis
+                # Log the exception TYPE only — the message can echo raw LLM
+                # output (report-derived, potentially PII), so keep it off logs.
                 logger.warning(
-                    "structured insight extraction failed; "
+                    "structured insight extraction failed (%s); "
                     "falling back to heuristics",
-                    exc_info=True,
+                    type(exc).__name__,
                 )
         if reason is None:
             # No extractor injected, or extraction failed: heuristic fallback.
             reason = self._extract_reason(report_content)
             emotional_state = self._extract_emotion(report_content)
             objections = self._extract_objections(report_content)
-        # All three are now non-None (LLM success or heuristic fallback).
-        assert emotional_state is not None and objections is not None
+        # Invariant: both branches above always set these (fail loud if not —
+        # a bare assert would be stripped under python -O).
+        if emotional_state is None or objections is None:
+            raise RuntimeError("BUG: insight fallback left fields unset")
 
         # reason_category stays the deterministic classifier (#47 Fork C / #3) —
         # always one of the 7 REASON_CATEGORIES, never a raw LLM string — and the
@@ -202,12 +206,16 @@ Output the JSON object only, with no commentary or markdown."""
             f" x {item.get('quantity', 1)}"
             for item in cart.cart_items
         )
+        # Whitespace-collapse the merchant/Shopify-controlled step field too, for
+        # the same prompt-injection reason as the product names above.
+        abandoned_at = " ".join(
+            str(cart.abandoned_at_step or cart.exit_page or "unknown step").split()
+        )
         user_message = (
             f"SIMULATION REPORT:\n{report_excerpt}\n\n"
             f"ABANDONED CART:\n{items_text}\n"
             f"Total: {cart.currency} {cart.cart_total:.2f}\n"
-            f"Abandoned at: "
-            f"{cart.abandoned_at_step or cart.exit_page or 'unknown step'}"
+            f"Abandoned at: {abandoned_at}"
         )
         messages = [
             {"role": "system", "content": self.INSIGHT_EXTRACTION_SYSTEM_PROMPT},
@@ -453,6 +461,11 @@ Output the JSON object only, with no commentary or markdown."""
         # Trim report to avoid context overflow (keep first 1000 chars)
         report_excerpt = report[:1000].strip() + ("..." if len(report) > 1000 else "")
 
+        # Whitespace-collapse the step field (matching _extract_insight_llm).
+        abandoned_at = " ".join(
+            str(cart.abandoned_at_step or cart.exit_page or "unknown step").split()
+        )
+
         angle_instructions = {
             "discount-or-value": "Offer a small discount or highlight the value/savings. Make them feel it's a smart buy.",
             "trust-and-social-proof": "Emphasise reviews, guarantees, return policy, and brand reliability.",
@@ -476,7 +489,7 @@ CUSTOMER CONTEXT:
 ABANDONED CART:
 {items_text}
 Total: {cart.currency} {cart.cart_total:,.2f}
-Abandoned at: {cart.abandoned_at_step or cart.exit_page or "unknown step"}
+Abandoned at: {abandoned_at}
 
 PSYCHOLOGY SIMULATION FINDINGS:
 Predicted abandonment reason: {reason}

@@ -224,10 +224,10 @@ def _run_analysis(
     confidence, confidence_reasoning = assess_confidence_heuristic(cart)
     try:
         insight_extractor = LLMClient().chat_json
-    except Exception:  # noqa: BLE001 - degrade, never fail the paid analysis
+    except Exception as exc:  # noqa: BLE001 - degrade, never fail the paid analysis
         logger.warning(
-            "LLM client unavailable; insight extraction will use heuristics",
-            exc_info=True,
+            "LLM client unavailable (%s); insight extraction will use heuristics",
+            type(exc).__name__,
         )
         insight_extractor = None
     insight = prompt_builder.build(
