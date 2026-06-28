@@ -1,9 +1,18 @@
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass, field
+from typing import Any, Callable
 
 from .shopify_formatter import ShopifyCartData
+
+logger = logging.getLogger("mirofish.email_prompt_builder")
+
+# A chat_json-style callable — takes an OpenAI-style messages list and returns a
+# parsed JSON dict (the signature of LLMClient.chat_json). Injected into build()
+# so cart_recovery/ stays free of backend.app (LLMClient) imports (#47 Fork B1).
+ChatJSONFn = Callable[[list[dict[str, str]]], dict[str, Any]]
 
 
 # Canonical reason_category enum (Inkwell M2 contract, issue Wakaru#3). Exactly
@@ -19,6 +28,19 @@ REASON_CATEGORIES = (
     "just_browsing",
     "out_of_stock_concern",
     "unknown",
+)
+
+# Canonical emotional_state vocabulary. The heuristic _extract_emotion only ever
+# emits these 6 (its emotion_keywords dict keys must stay in sync); the LLM
+# extraction path coerces any out-of-vocabulary value back into this set so a
+# novel model output cannot drift past the AbandonmentInsight contract.
+EMOTIONAL_STATES = (
+    "anxious",
+    "price-sensitive",
+    "indecisive",
+    "distracted",
+    "comparison-shopping",
+    "trust-lacking",
 )
 
 
@@ -54,11 +76,38 @@ back to complete their purchase. Do NOT be pushy or generic.
 Use the customer context below to craft a message that speaks directly to their
 situation and the specific insight from the psychology simulation."""
 
+    # Structured-insight extraction prompt (#47 Fork A1). Replaces regex prose-
+    # scraping with one JSON LLM call for the fragile fields. English + Vakaru
+    # cart-recovery framing; emotional_state is steered to the known vocabulary.
+    INSIGHT_EXTRACTION_SYSTEM_PROMPT = """\
+You extract a structured cart-abandonment summary for a Shopify cart-recovery
+system. You are given the finished psychology-simulation report for one
+abandoned cart plus the cart contents. Identify WHY the shopper abandoned.
+
+Return ONLY a JSON object with exactly these keys:
+- "predicted_reason": one concise sentence naming the single most likely
+  abandonment reason (e.g. "Shipping cost shock at checkout").
+- "emotional_state": the shopper's dominant emotional state, chosen from:
+  anxious, price-sensitive, indecisive, distracted, comparison-shopping,
+  trust-lacking.
+- "key_objections": a JSON array of 0-5 short, clean objection phrases the
+  shopper likely had (e.g. "$18.99 shipping on a $45 order"). Each entry must be
+  a standalone phrase — never a report heading or a sentence fragment.
+
+Output the JSON object only, with no commentary or markdown."""
+
+    # Cap the report text sent to the extractor. ReportAgent markdown is a few KB;
+    # 12000 chars (~3K tokens at ~4 chars/token) is a generous guard against a
+    # runaway report overflowing the model context.
+    _MAX_REPORT_CHARS_FOR_EXTRACTION = 12000
+
     def build(
         self,
         report_content: str,
         cart: ShopifyCartData,
         confidence: float = 0.5,
+        *,
+        chat_json: ChatJSONFn | None = None,
     ) -> AbandonmentInsight:
         """
         Parse the MiroFish report and produce an AbandonmentInsight.
@@ -67,16 +116,44 @@ situation and the specific insight from the psychology simulation."""
             report_content: Full markdown text from MiroFish ReportAgent.
             cart: The original ShopifyCartData for personalization.
             confidence: Analysis confidence score (0.0-1.0) from the engine.
+            chat_json: Optional chat_json-style callable (#47 Fork A1/B1). When
+                provided, the fragile prose fields (predicted_reason,
+                emotional_state, key_objections) are extracted via one JSON LLM
+                call; on ANY extraction failure build() falls back to the regex
+                heuristics so the paid analysis is never lost (Fork D). When None
+                (the default), the pre-#47 heuristic path is used unchanged.
 
         Returns:
             AbandonmentInsight with all fields populated.
         """
         self._confidence = confidence
 
-        reason = self._extract_reason(report_content)
-        emotional_state = self._extract_emotion(report_content)
+        reason: str | None = None
+        emotional_state: str | None = None
+        objections: list[str] | None = None
+        if chat_json is not None:
+            try:
+                reason, emotional_state, objections = self._extract_insight_llm(
+                    report_content, cart, chat_json
+                )
+            except Exception:  # noqa: BLE001 - degrade, never fail the paid analysis
+                logger.warning(
+                    "structured insight extraction failed; "
+                    "falling back to heuristics",
+                    exc_info=True,
+                )
+        if reason is None:
+            # No extractor injected, or extraction failed: heuristic fallback.
+            reason = self._extract_reason(report_content)
+            emotional_state = self._extract_emotion(report_content)
+            objections = self._extract_objections(report_content)
+        # All three are now non-None (LLM success or heuristic fallback).
+        assert emotional_state is not None and objections is not None
+
+        # reason_category stays the deterministic classifier (#47 Fork C / #3) —
+        # always one of the 7 REASON_CATEGORIES, never a raw LLM string — and the
+        # angle keeps its recovery-history rotation + merchant-preference logic.
         angle = self._choose_angle(report_content, cart)
-        objections = self._extract_objections(report_content)
         reason_category = self._classify_reason_category(report_content, reason)
         prompt_context = self._build_prompt_context(
             report_content, cart, reason, emotional_state, angle, objections
@@ -94,7 +171,91 @@ situation and the specific insight from the psychology simulation."""
         return insight
 
     # ------------------------------------------------------------------
-    # Extraction helpers
+    # Structured (LLM) extraction — #47 Fork A1
+    # ------------------------------------------------------------------
+
+    def _extract_insight_llm(
+        self,
+        report: str,
+        cart: ShopifyCartData,
+        chat_json: ChatJSONFn,
+    ) -> tuple[str, str, list[str]]:
+        """Extract the fragile prose fields via one structured JSON LLM call.
+
+        Returns ``(predicted_reason, emotional_state, key_objections)``. Raises
+        on a missing/empty gating field (predicted_reason or emotional_state) or
+        a non-dict result, so build()'s fail-safe degrades to the heuristics.
+        emotional_state is coerced into EMOTIONAL_STATES.
+
+        Direct cart PII (customer_name/email/location) is deliberately omitted —
+        it does not help identify WHY the cart was abandoned, keeping this call
+        off the PII surface (#7). The report excerpt is the same already-LLM-
+        generated report already sent to the email-generation prompt, so it adds
+        no new data exposure. Merchant-controlled text (product names, the
+        report) is user-influenced; product names are whitespace-collapsed as a
+        basic prompt-injection guard, while the report is trusted as
+        already-generated content.
+        """
+        report_excerpt = report[: self._MAX_REPORT_CHARS_FOR_EXTRACTION]
+        items_text = "\n".join(
+            f"  - {' '.join(str(item.get('product', 'item')).split())}"
+            f" x {item.get('quantity', 1)}"
+            for item in cart.cart_items
+        )
+        user_message = (
+            f"SIMULATION REPORT:\n{report_excerpt}\n\n"
+            f"ABANDONED CART:\n{items_text}\n"
+            f"Total: {cart.currency} {cart.cart_total:.2f}\n"
+            f"Abandoned at: "
+            f"{cart.abandoned_at_step or cart.exit_page or 'unknown step'}"
+        )
+        messages = [
+            {"role": "system", "content": self.INSIGHT_EXTRACTION_SYSTEM_PROMPT},
+            {"role": "user", "content": user_message},
+        ]
+
+        result = chat_json(messages)
+        if not isinstance(result, dict):
+            raise ValueError("extraction result is not a JSON object")
+
+        reason = result.get("predicted_reason")
+        emotional_state = result.get("emotional_state")
+        if not isinstance(reason, str) or not reason.strip():
+            raise ValueError("extraction missing predicted_reason")
+        if not isinstance(emotional_state, str) or not emotional_state.strip():
+            raise ValueError("extraction missing emotional_state")
+
+        # Coerce emotional_state into the known vocabulary (the heuristic path
+        # only ever emits these 6); a novel LLM value falls back to the neutral
+        # "indecisive" default rather than drifting past the contract.
+        emotion = emotional_state.strip().lower()
+        if emotion not in EMOTIONAL_STATES:
+            emotion = "indecisive"
+
+        # key_objections is best-effort: a malformed/absent value yields [] (the
+        # clean "none identified" representation) rather than reintroducing the
+        # regex fragments that #47 is about.
+        objections = self._clean_objections(result.get("key_objections"))
+        return reason.strip(), emotion, objections
+
+    @staticmethod
+    def _clean_objections(raw: object) -> list[str]:
+        """Normalise extracted objections: keep string phrases only, trim, drop
+        empties, de-duplicate (order-preserving), cap at 5 (matching the
+        heuristic extractor's cap). A non-list value yields []."""
+        if not isinstance(raw, list):
+            return []
+        cleaned: list[str] = []
+        for item in raw:
+            if not isinstance(item, str):
+                continue
+            text = item.strip()
+            if text and text not in cleaned:
+                cleaned.append(text)
+        return cleaned[:5]
+
+    # ------------------------------------------------------------------
+    # Heuristic extraction helpers (the #47 fail-safe fallback)
     # ------------------------------------------------------------------
 
     def _extract_reason(self, report: str) -> str:
@@ -112,6 +273,7 @@ situation and the specific insight from the psychology simulation."""
         return sentences[0][:200] if sentences else "Unable to determine from simulation"
 
     def _extract_emotion(self, report: str) -> str:
+        # Keys must stay in sync with EMOTIONAL_STATES (the LLM path's vocabulary).
         emotion_keywords = {
             "anxious": ["anxious", "anxiety", "worried", "nervous", "uncertain"],
             "price-sensitive": ["price", "expensive", "cost", "afford", "budget", "cheap"],
@@ -273,8 +435,12 @@ situation and the specific insight from the psychology simulation."""
         angle: str,
         objections: list[str],
     ) -> str:
+        # Collapse whitespace in the merchant-controlled product name (matching
+        # _extract_insight_llm) so a crafted name can't inject newlines into the
+        # downstream email-generation prompt.
         items_text = "\n".join(
-            f"  - {item.get('product', 'item')} × {item.get('quantity', 1)} "
+            f"  - {' '.join(str(item.get('product', 'item')).split())} "
+            f"× {item.get('quantity', 1)} "
             f"({cart.currency} {item.get('price', 0):.2f})"
             for item in cart.cart_items
         )
