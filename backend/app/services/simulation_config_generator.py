@@ -18,11 +18,9 @@ from typing import Dict, Any, List, Optional, Callable
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
 
-from openai import OpenAI
-
 from ..config import Config
 from ..utils.logger import get_logger
-from ..utils.llm_client import create_chat_completion
+from ..utils.llm_client import create_chat_completion, LLMClient
 from .zep_entity_reader import EntityNode, ZepEntityReader
 
 logger = get_logger('mirofish.simulation_config')
@@ -229,18 +227,24 @@ class SimulationConfigGenerator:
         self,
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
-        model_name: Optional[str] = None
+        model_name: Optional[str] = None,
+        llm_client: Optional[LLMClient] = None
     ):
         self.api_key = api_key or Config.LLM_API_KEY
         self.base_url = base_url or Config.LLM_BASE_URL
         self.model_name = model_name or Config.LLM_MODEL_NAME
-        
-        if not self.api_key:
-            raise ValueError("LLM_API_KEY is not configured")
-        
-        self.client = OpenAI(
+
+        # All LLM access goes through the shared, timeout'd LLMClient (#22) so the
+        # client's timeout and SDK-retry settings live in exactly one place. The
+        # JSON-repair retry loop in _call_llm_with_retry is intentionally kept: it
+        # repairs truncated JSON and decays temperature (more than a plain network
+        # retry), and it calls create_chat_completion(self.llm.client, ...) directly
+        # rather than self.llm.chat(), so it is not double-retried by chat()'s
+        # decorator. (LLMClient enforces the LLM_API_KEY check.)
+        self.llm = llm_client or LLMClient(
             api_key=self.api_key,
-            base_url=self.base_url
+            base_url=self.base_url,
+            model=self.model_name,
         )
     
     def generate_config(
@@ -444,7 +448,7 @@ class SimulationConfigGenerator:
         for attempt in range(max_attempts):
             try:
                 response = create_chat_completion(
-                    self.client,
+                    self.llm.client,
                     model=self.model_name,
                     messages=[
                         {"role": "system", "content": system_prompt},
