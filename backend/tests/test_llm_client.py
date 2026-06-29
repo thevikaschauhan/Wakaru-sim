@@ -7,11 +7,16 @@ Some OpenAI-compatible providers (notably DeepSeek) reject
 whole cart-recovery pipeline degrades gracefully instead of failing fast.
 """
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
-from openai import BadRequestError
+from openai import (
+    APIConnectionError,
+    APITimeoutError,
+    BadRequestError,
+    RateLimitError,
+)
 
 from app.utils.llm_client import LLMClient, create_chat_completion
 
@@ -100,3 +105,143 @@ def test_chat_json_recovers_after_response_format_dropped():
 
     assert result == {"reason": "shipping"}
     assert llm.client.chat.completions.create.call_count == 2
+
+
+# --- #22: client timeout, centralized retry/backoff, DI wiring -----------------
+
+def _request():
+    return httpx.Request("POST", "https://api.example.com/v1/chat/completions")
+
+
+def _rate_limit(msg="rate limited"):
+    return RateLimitError(msg, response=httpx.Response(429, request=_request()), body=None)
+
+
+def _timeout():
+    return APITimeoutError(request=_request())
+
+
+def _connection():
+    return APIConnectionError(message="connection reset", request=_request())
+
+
+def test_llmclient_configures_timeout_and_disables_sdk_retries():
+    # AC#2 (unit form): the shared client is built with a bounded timeout and the
+    # SDK's built-in retries disabled (retry is owned once at the chat layer), so
+    # a hung call fails in ~120s rather than hanging the worker indefinitely.
+    with patch("app.utils.llm_client.OpenAI") as mock_openai:
+        LLMClient(api_key="test")
+
+    assert mock_openai.call_count == 1
+    kwargs = mock_openai.call_args.kwargs
+    assert kwargs["max_retries"] == 0
+    timeout = kwargs["timeout"]
+    assert (timeout.connect, timeout.read, timeout.write, timeout.pool) == (5, 120, 30, 5)
+
+
+def test_chat_retries_on_rate_limit_then_succeeds():
+    llm = LLMClient(api_key="test")
+    llm.client = MagicMock()
+    llm.client.chat.completions.create.side_effect = [
+        _rate_limit(),
+        _rate_limit(),
+        _completion("ok"),
+    ]
+
+    with patch("app.utils.retry.time.sleep"):
+        out = llm.chat([{"role": "user", "content": "hi"}])
+
+    assert out == "ok"
+    assert llm.client.chat.completions.create.call_count == 3
+
+
+def test_chat_retries_on_timeout_then_succeeds():
+    llm = LLMClient(api_key="test")
+    llm.client = MagicMock()
+    llm.client.chat.completions.create.side_effect = [_timeout(), _completion("done")]
+
+    with patch("app.utils.retry.time.sleep"):
+        out = llm.chat([{"role": "user", "content": "hi"}])
+
+    assert out == "done"
+    assert llm.client.chat.completions.create.call_count == 2
+
+
+def test_chat_retries_on_connection_error_then_succeeds():
+    llm = LLMClient(api_key="test")
+    llm.client = MagicMock()
+    llm.client.chat.completions.create.side_effect = [_connection(), _completion("ok")]
+
+    with patch("app.utils.retry.time.sleep"):
+        out = llm.chat([{"role": "user", "content": "hi"}])
+
+    assert out == "ok"
+    assert llm.client.chat.completions.create.call_count == 2
+
+
+def test_chat_raises_after_retries_exhausted():
+    # max_retries=3 → 1 initial attempt + 3 retries = 4 calls, then re-raise.
+    llm = LLMClient(api_key="test")
+    llm.client = MagicMock()
+    llm.client.chat.completions.create.side_effect = _rate_limit()
+
+    with patch("app.utils.retry.time.sleep"):
+        with pytest.raises(RateLimitError):
+            llm.chat([{"role": "user", "content": "hi"}])
+
+    assert llm.client.chat.completions.create.call_count == 4
+
+
+def test_chat_does_not_retry_bad_request():
+    # A non-response_format BadRequestError is a client error, not transient.
+    # create_chat_completion re-raises it and it is not in the retry set.
+    llm = LLMClient(api_key="test")
+    llm.client = MagicMock()
+    llm.client.chat.completions.create.side_effect = _bad_request("invalid messages")
+
+    with patch("app.utils.retry.time.sleep"):
+        with pytest.raises(BadRequestError):
+            llm.chat([{"role": "user", "content": "hi"}])
+
+    assert llm.client.chat.completions.create.call_count == 1
+
+
+def test_chat_json_does_not_retry_on_bad_json():
+    # Malformed JSON raises ValueError in chat_json (after a successful network
+    # call). ValueError is not a retryable network error, so there is no retry.
+    llm = LLMClient(api_key="test")
+    llm.client = MagicMock()
+    llm.client.chat.completions.create.return_value = _completion("not json at all")
+
+    with patch("app.utils.retry.time.sleep"):
+        with pytest.raises(ValueError):
+            llm.chat_json([{"role": "user", "content": "x"}])
+
+    assert llm.client.chat.completions.create.call_count == 1
+
+
+def test_config_generator_routes_through_injected_client():
+    # Fork A2: the generator takes an injected LLMClient and issues its LLM call
+    # through that client (no bare OpenAI of its own).
+    from app.services.simulation_config_generator import SimulationConfigGenerator
+
+    fake_llm = SimpleNamespace(client=MagicMock())
+    fake_llm.client.chat.completions.create.return_value = _completion('{"ok": true}')
+
+    gen = SimulationConfigGenerator(llm_client=fake_llm)
+    out = gen._call_llm_with_retry("prompt", "system")
+
+    assert gen.llm is fake_llm
+    assert out == {"ok": True}
+    assert fake_llm.client.chat.completions.create.called
+
+
+def test_oasis_generator_accepts_injected_client():
+    # Fork A2: the generator stores the injected LLMClient instead of building
+    # its own OpenAI client.
+    from app.services.oasis_profile_generator import OasisProfileGenerator
+
+    fake_llm = SimpleNamespace(client=MagicMock())
+    gen = OasisProfileGenerator(llm_client=fake_llm)
+
+    assert gen.llm is fake_llm

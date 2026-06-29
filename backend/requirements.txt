@@ -13,6 +13,9 @@ sentry-sdk[flask]>=2.0.0
 # ============= LLM 相关 =============
 # OpenAI SDK（统一使用 OpenAI 格式调用 LLM）
 openai>=1.0.0
+# httpx is the OpenAI SDK's HTTP transport; pinned explicitly because
+# llm_client.py imports it directly for httpx.Timeout (issue #22).
+httpx>=0.27,<1
 
 # ============= Zep Cloud =============
 zep-cloud==3.13.0
