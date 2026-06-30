@@ -36,6 +36,13 @@ TEST_WAKARU_API_KEY = "test-wakaru-api-key"
 # SigningFlaskClient must agree on it.
 TEST_WAKARU_INTERNAL_SECRET = "test-wakaru-internal-secret"
 
+# Default X-Merchant-Id (issue #24) injected by the `client` fixture so the broad
+# cart-recovery suite exercises the real merchant-scoped path — the engine always
+# sends this header in prod (vakaru-engine #125), so post-#24-close-out a request
+# without it 400s at resolve_merchant_id. Tests that exercise the missing-header
+# 400 use `client_no_merchant`. A canonical lowercase UUID (validate_merchant_id).
+TEST_MERCHANT_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+
 
 class SigningFlaskClient(FlaskClient):
     """Test client that HMAC-signs POSTs to /api/cart-recovery/* (issue #11).
@@ -118,8 +125,24 @@ def app():
 @pytest.fixture
 def client(app):
     c = app.test_client()
-    # Authenticate every request by default (issue #10) so existing /api/* tests
-    # need no changes. Tests that want an unauthenticated request build their own
-    # client from the `app` fixture.
+    # Authenticate (issue #10) and merchant-scope (issue #24) every request by
+    # default so existing /api/* tests need no changes — the engine always sends
+    # both in prod. Tests that want an unauthenticated request, or that exercise
+    # the missing-X-Merchant-Id 400, build their own client from the `app` fixture
+    # (see client_no_merchant).
+    c.environ_base["HTTP_X_API_KEY"] = TEST_WAKARU_API_KEY
+    c.environ_base["HTTP_X_MERCHANT_ID"] = TEST_MERCHANT_ID
+    return c
+
+
+@pytest.fixture
+def client_no_merchant(app):
+    # Like `client` but WITHOUT the default X-Merchant-Id, for the tests that
+    # exercise the missing-header 400 at the resolve_merchant_id boundary (#24).
+    # It still carries the #10 API key and still HMAC-signs POSTs (inherits
+    # SigningFlaskClient from the `app` fixture); neither matters for the 400 under
+    # test, since resolve_merchant_id runs after the #10 key guard but before the
+    # blueprint-level #11 HMAC gate.
+    c = app.test_client()
     c.environ_base["HTTP_X_API_KEY"] = TEST_WAKARU_API_KEY
     return c

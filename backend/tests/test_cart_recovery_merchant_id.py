@@ -1,11 +1,12 @@
 """Issue #24 (CP1) — merchant_id binding on the live cart-recovery path.
 
 resolve_merchant_id (app factory) binds g.merchant_id from the X-Merchant-Id
-header the engine sends, validated to a path-safe UUID. A request with no header
-is bucketed under the nil-UUID sentinel (so Wakaru can deploy before the engine
-starts sending it); a present-but-malformed id fails loud with 400. The bound
-merchant_id then namespaces the idempotency scope (no cross-tenant replay), the
-rate-limit bucket, and the cart-recovery log prefix. Synthetic UUIDs only.
+header the engine sends, validated to a path-safe UUID. Post-#24 close-out a
+request with no header — like a present-but-malformed one — fails loud with 400
+(the engine now always sends it in prod; the nil-UUID sentinel is no longer the
+absent-header fallback). The bound merchant_id then namespaces the idempotency
+scope (no cross-tenant replay), the rate-limit bucket, and the cart-recovery log
+prefix. Synthetic UUIDs only.
 """
 import logging
 from types import SimpleNamespace
@@ -17,7 +18,6 @@ from rq import Queue
 from app.extensions import _merchant_or_ip_key
 from app.services.cart_recovery_jobs import run_analysis_job
 from app.services.job_queue import ANALYZE_QUEUE_NAME
-from app.utils.paths import SENTINEL_MERCHANT_ID
 
 MERCHANT_A = "11111111-1111-4111-8111-111111111111"
 MERCHANT_B = "22222222-2222-4222-8222-222222222222"
@@ -112,18 +112,15 @@ def test_valid_merchant_id_bound_to_log_prefix(client, monkeypatch, caplog):
     assert f"m={MERCHANT_A}" in progress[0], progress[0]
 
 
-def test_missing_merchant_id_falls_back_to_sentinel(client, monkeypatch, caplog):
-    # No X-Merchant-Id (legacy /analyze caller, or pre-deploy engine) must not
-    # 400 — it is bucketed under the nil-UUID sentinel so the route still runs.
-    monkeypatch.setattr(
-        "app.api.cart_recovery.run_cart_recovery", _fake_run_with_progress
-    )
-    with caplog.at_level(logging.INFO, logger="mirofish.cart_recovery"):
-        resp = client.post("/api/cart-recovery/analyze", json=VALID_PAYLOAD)
-    assert resp.status_code == 200, resp.get_data(as_text=True)
-    progress = [r.getMessage() for r in caplog.records if "stub progress" in r.getMessage()]
-    assert progress, "expected a progress log line"
-    assert f"m={SENTINEL_MERCHANT_ID}" in progress[0], progress[0]
+def test_missing_merchant_id_rejected_400(client_no_merchant):
+    # #24 close-out: the engine now always sends X-Merchant-Id in prod (vakaru-engine
+    # #125), so a header-less request is a misconfigured/unauthorized caller, not a
+    # legacy one — fail loud at the boundary, same as a malformed id (it is no longer
+    # bucketed under the nil-UUID sentinel). The 400 fires in resolve_merchant_id
+    # (before_request), so the route handler never runs — no run_cart_recovery stub.
+    resp = client_no_merchant.post("/api/cart-recovery/analyze", json=VALID_PAYLOAD)
+    assert resp.status_code == 400, resp.get_data(as_text=True)
+    assert resp.get_json()["error"] == "missing_merchant_id"
 
 
 # --- idempotency scope is namespaced by merchant (no cross-tenant replay) ------
@@ -184,7 +181,7 @@ def test_analyze_same_idem_key_different_merchants_run_separately(client, monkey
 
 # --- CP2a: job->merchant binding — cross-tenant poll returns 404 --------------
 
-def test_cross_tenant_job_poll_returns_404(client, monkeypatch):
+def test_cross_tenant_job_poll_returns_404(client, client_no_merchant, monkeypatch):
     conn = fakeredis.FakeStrictRedis()
     queue = Queue(ANALYZE_QUEUE_NAME, connection=conn)  # is_async: stays queued
     _wire(monkeypatch, conn, queue)
@@ -206,24 +203,23 @@ def test_cross_tenant_job_poll_returns_404(client, monkeypatch):
     assert r_b.status_code == 404
     assert r_b.get_json()["error"] == "Job not found"
 
-    # A poll with no merchant header (sentinel) also cannot read merchant A's job.
-    r_none = client.get(f"/api/cart-recovery/jobs/{job_id}")
-    assert r_none.status_code == 404
+    # A header-less poll is now rejected at the boundary (#24 close-out) before the
+    # job-ownership check, so it cannot reach merchant A's job either.
+    r_none = client_no_merchant.get(f"/api/cart-recovery/jobs/{job_id}")
+    assert r_none.status_code == 400
+    assert r_none.get_json()["error"] == "missing_merchant_id"
 
 
-def test_pre_24_job_without_merchant_meta_is_sentinel_scoped(client, monkeypatch):
-    # A job enqueued before #24 has no merchant_id in meta; it is attributed to
-    # the sentinel, so only a sentinel poll (no header) reads it during the deploy
-    # transition — a real merchant cannot, so legacy jobs are not leaked to a tenant.
+def test_pre_24_meta_less_job_unreadable_by_merchant(client, monkeypatch):
+    # A job enqueued before #24 has no merchant_id in meta, so job_status attributes
+    # it to the nil-UUID sentinel (cart_recovery.py). A real merchant therefore
+    # cannot read it — it 404s as cross-tenant (no existence disclosure). Post-#24
+    # close-out a header-less poll 400s at the boundary (covered above), so no live
+    # caller reaches these legacy jobs; RQ result TTL has long since expired them.
     conn = fakeredis.FakeStrictRedis()
     queue = Queue(ANALYZE_QUEUE_NAME, connection=conn)
     _wire(monkeypatch, conn, queue)
     job = queue.enqueue(run_analysis_job, dict(VALID_PAYLOAD), description="legacy (no merchant meta)")
-
-    r_sentinel = client.get(f"/api/cart-recovery/jobs/{job.id}")
-    assert r_sentinel.status_code == 200, r_sentinel.get_data(as_text=True)
-    assert r_sentinel.get_json()["success"] is True
-    assert r_sentinel.get_json()["job_id"] == job.id
 
     r_a = client.get(f"/api/cart-recovery/jobs/{job.id}", headers={"X-Merchant-Id": MERCHANT_A})
     assert r_a.status_code == 404

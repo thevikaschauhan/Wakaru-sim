@@ -22,7 +22,6 @@ from .extensions import limiter
 from .utils.logger import setup_logger, get_logger
 from .utils.paths import (
     InvalidID,
-    SENTINEL_MERCHANT_ID,
     validate_merchant_id,
 )
 
@@ -192,14 +191,15 @@ def create_app(config_class=Config):
     # AFTER require_api_key (a key holder is authenticated first) and BEFORE
     # limiter.init_app below, so g.merchant_id is already set when the limiter's
     # per-merchant key_func runs. Scoped to /api/cart-recovery/* — the only live
-    # multi-tenant surface (the engine is the sole server→server caller). A
-    # request with no X-Merchant-Id (the legacy /analyze caller, or the engine
-    # before it sends the header) is bucketed under the nil-UUID sentinel rather
-    # than rejected, so this can deploy before the engine starts sending it; a
-    # present-but-malformed id fails loud with 400, since the engine controls the
-    # value so a bad one is a bug/attack, not a legacy caller. The id becomes a
-    # filesystem path component (storage namespacing, #24 CP2), so it is validated
-    # to a path-safe UUID here at the boundary — the issue-#13 hazard.
+    # multi-tenant surface (the engine is the sole server→server caller). The
+    # engine now always sends X-Merchant-Id on the live /jobs+poll path in prod
+    # (vakaru-engine #125), so a request with no header — like a present-but-
+    # malformed one — is a misconfigured/unauthorized caller, not a legacy one:
+    # both fail loud with 400 (#24 close-out). The id becomes a filesystem path
+    # component (storage namespacing, #24 CP2), so a present id is validated to a
+    # path-safe UUID here at the boundary — the issue-#13 hazard. The nil-UUID
+    # SENTINEL_MERCHANT_ID is no longer assigned here; it survives only as the
+    # at-rest default for meta-less (pre-#24) jobs in job_status (cart_recovery.py).
     @app.before_request
     def resolve_merchant_id():
         # Trailing slash so this matches only the blueprint's routes
@@ -209,12 +209,11 @@ def create_app(config_class=Config):
             return None
         raw = request.headers.get("X-Merchant-Id")
         if not raw:
-            g.merchant_id = SENTINEL_MERCHANT_ID
-        else:
-            try:
-                g.merchant_id = validate_merchant_id(raw)
-            except InvalidID:
-                return jsonify({"error": "invalid_merchant_id"}), 400
+            return jsonify({"error": "missing_merchant_id"}), 400
+        try:
+            g.merchant_id = validate_merchant_id(raw)
+        except InvalidID:
+            return jsonify({"error": "invalid_merchant_id"}), 400
         # merchant_id is a tenant UUID, not PII (it is absent from _PII_FIELDS),
         # so tagging Sentry with it is safe and lets errors be filtered per tenant.
         sentry_sdk.set_tag("merchant_id", g.merchant_id)
