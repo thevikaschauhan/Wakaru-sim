@@ -45,6 +45,7 @@ def run_analysis_job(cart_dict: dict) -> dict:
     job = get_current_job()
     # The RQ job id is the durable correlation key (replaces /analyze's per-request uuid).
     request_id = job.id[:8] if job is not None else "nojob"
+    job_id = job.id if job is not None else "nojob"
     # merchant_id is bound into the job's meta at enqueue (#24, job->merchant
     # binding); recover it here so the worker's log line carries the same
     # m=<merchant> prefix the web tier uses (the worker has no Flask g).
@@ -70,7 +71,10 @@ def run_analysis_job(cart_dict: dict) -> dict:
             f"Cart recovery analysis failed ({type(e).__name__})",
             level="error",
         )
-        logger.error(f"[{request_id} m={merchant_id}] Cart recovery analysis failed ({type(e).__name__})")
+        logger.error(
+            f"[{request_id} m={merchant_id}] Cart recovery analysis failed ({type(e).__name__})",
+            extra={"job_id": job_id, "merchant_id": merchant_id},
+        )
         if job is not None:
             # GET /jobs/<id> reads this — never job.exc_info — so the error
             # surfaced to the caller is PII-free.
