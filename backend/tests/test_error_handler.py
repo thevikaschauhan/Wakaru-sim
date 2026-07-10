@@ -18,7 +18,7 @@ import pytest
 import sentry_sdk as sentry_sdk_module
 
 from app import create_app
-from tests.conftest import TEST_WAKARU_API_KEY, SigningFlaskClient
+from tests.conftest import TEST_MERCHANT_ID, TEST_WAKARU_API_KEY, SigningFlaskClient
 
 # The raising view embeds a recognisable string + a fake internal path so the
 # leak tests can assert that neither str(e) nor a path reaches the response.
@@ -117,6 +117,7 @@ def test_rate_limit_429_passes_through_with_retry_after(monkeypatch):
     app.test_client_class = SigningFlaskClient  # pass #11 HMAC (body-signed POSTs)
     client = app.test_client()
     client.environ_base["HTTP_X_API_KEY"] = TEST_WAKARU_API_KEY
+    client.environ_base["HTTP_X_MERCHANT_ID"] = TEST_MERCHANT_ID  # pass #24 merchant gate
 
     statuses = [
         client.post("/api/cart-recovery/jobs", json=VALID_PAYLOAD).status_code

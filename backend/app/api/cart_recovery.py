@@ -419,9 +419,10 @@ def job_status(job_id):
 
     # Tenant isolation (#24): a job belongs to the merchant that enqueued it. A
     # poll for another tenant's job gets the SAME 404 as a nonexistent job, so
-    # cross-tenant existence is not disclosed (AC: 404, not 403). A pre-#24 job
-    # (no merchant in meta) is attributed to the sentinel, so only a sentinel
-    # poll can read it during the deploy transition.
+    # cross-tenant existence is not disclosed (AC: 404, not 403). A meta-less
+    # (pre-#24) job defaults to the sentinel here, so a real merchant's id never
+    # matches it → 404; post-#24 close-out a header-less poll no longer reaches
+    # this check at all (resolve_merchant_id 400s it at the boundary).
     job_merchant = (job.meta or {}).get("merchant_id", SENTINEL_MERCHANT_ID)
     if job_merchant != g.merchant_id:
         return jsonify({"success": False, "error": "Job not found"}), 404

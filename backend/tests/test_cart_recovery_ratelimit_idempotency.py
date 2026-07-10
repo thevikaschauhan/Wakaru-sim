@@ -18,7 +18,7 @@ from rq import Queue
 
 from app import create_app
 from app.services.job_queue import ANALYZE_QUEUE_NAME
-from tests.conftest import TEST_WAKARU_API_KEY, SigningFlaskClient
+from tests.conftest import TEST_MERCHANT_ID, TEST_WAKARU_API_KEY, SigningFlaskClient
 
 VALID_PAYLOAD = {
     "customer_id": "cust_test",
@@ -62,6 +62,7 @@ def test_rate_limit_429_after_threshold(monkeypatch):
     app.test_client_class = SigningFlaskClient  # pass #11 HMAC (body-signed POSTs)
     client = app.test_client()
     client.environ_base["HTTP_X_API_KEY"] = TEST_WAKARU_API_KEY  # pass #10 auth
+    client.environ_base["HTTP_X_MERCHANT_ID"] = TEST_MERCHANT_ID  # pass #24 merchant gate
 
     # The limiter checks before the view, so even a 503 (queue unavailable) counts.
     statuses = [
@@ -84,6 +85,7 @@ def test_poll_get_is_not_rate_limited(monkeypatch):
     monkeypatch.setattr("app.api.cart_recovery.get_redis_connection", lambda: conn)
     client = app.test_client()
     client.environ_base["HTTP_X_API_KEY"] = TEST_WAKARU_API_KEY
+    client.environ_base["HTTP_X_MERCHANT_ID"] = TEST_MERCHANT_ID  # pass #24 merchant gate
     statuses = [
         client.get("/api/cart-recovery/jobs/none").status_code for _ in range(5)
     ]

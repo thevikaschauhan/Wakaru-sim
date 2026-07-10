@@ -41,11 +41,11 @@ _MERCHANT_ID_RE = re.compile(
     r"\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\Z"
 )
 
-# The nil UUID, used as the merchant_id when a request carries no X-Merchant-Id
-# (the legacy /analyze caller, or the engine before it sends the header) and as
-# the migration sentinel for pre-multi-tenancy data at rest. It satisfies
-# validate_merchant_id, so the sentinel flows through the same path-safe machinery
-# as a real merchant id.
+# The nil UUID. Since the #24 close-out it is no longer assigned to a header-less
+# request (resolve_merchant_id now 400s those); it survives as the migration
+# sentinel for pre-multi-tenancy data at rest and as job_status's default merchant
+# for meta-less (pre-#24) jobs. It satisfies validate_merchant_id, so the sentinel
+# flows through the same path-safe machinery as a real merchant id.
 SENTINEL_MERCHANT_ID = "00000000-0000-0000-0000-000000000000"
 
 

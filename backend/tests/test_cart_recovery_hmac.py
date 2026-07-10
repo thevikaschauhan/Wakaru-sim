@@ -20,7 +20,11 @@ import pytest
 
 from app import create_app
 from app.config import BANNED_WAKARU_INTERNAL_SECRET_DEFAULT
-from tests.conftest import TEST_WAKARU_API_KEY, TEST_WAKARU_INTERNAL_SECRET
+from tests.conftest import (
+    TEST_MERCHANT_ID,
+    TEST_WAKARU_API_KEY,
+    TEST_WAKARU_INTERNAL_SECRET,
+)
 
 VALID_PAYLOAD = {
     "customer_id": "cust_test",
@@ -50,6 +54,10 @@ def plain_client():
     app.config["RATELIMIT_ENABLED"] = False
     c = app.test_client()
     c.environ_base["HTTP_X_API_KEY"] = TEST_WAKARU_API_KEY
+    # Merchant-scope by default (issue #24): resolve_merchant_id runs BEFORE the
+    # blueprint #11 HMAC gate, so without this header these requests 400 at the
+    # merchant boundary instead of reaching the signature check under test.
+    c.environ_base["HTTP_X_MERCHANT_ID"] = TEST_MERCHANT_ID
     return c
 
 
