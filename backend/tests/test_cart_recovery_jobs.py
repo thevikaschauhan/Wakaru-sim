@@ -235,6 +235,36 @@ def test_failed_job_is_pii_safe(client, sync_queue, monkeypatch):
     _assert_no_pii(job.exc_info or "")
 
 
+def test_failed_job_log_record_carries_request_id_job_id_merchant_id(
+    client, sync_queue, monkeypatch, caplog
+):
+    """Issue #26: the worker has no Flask g, so request_id/job_id/merchant_id
+    must reach the log record via `extra=` (JsonFormatter's own docstring
+    promise) — otherwise the one log line an operator would query after an
+    async analysis failure carries none of them as structured fields.
+
+    Asserts on the LogRecord's extra attributes directly via caplog, not on
+    rendered stdout text: setup_logger() caches each named logger's handler
+    for the lifetime of the process (first-configured-wins), so a shared
+    logger like mirofish.cart_recovery can end up bound to a stdout
+    reference from a different test's capsys context — caplog sidesteps this
+    entirely by capturing LogRecord objects via propagation."""
+
+    def boom(cart, on_progress=None):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr("app.services.cart_recovery_jobs.run_cart_recovery", boom)
+    with caplog.at_level(logging.ERROR, logger="mirofish.cart_recovery"):
+        job_id = client.post("/api/cart-recovery/jobs", json=VALID_PAYLOAD).get_json()["job_id"]
+
+    records = [r for r in caplog.records if r.name == "mirofish.cart_recovery"]
+    assert records, "expected a mirofish.cart_recovery log record"
+    record = records[-1]
+    assert record.job_id == job_id
+    assert record.request_id == job_id[:8]
+    assert hasattr(record, "merchant_id")
+
+
 def test_job_meta_progress_is_pii_free(client, sync_queue, monkeypatch):
     monkeypatch.setattr(
         "app.services.cart_recovery_jobs.run_cart_recovery", _stub_success

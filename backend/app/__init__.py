@@ -5,6 +5,7 @@ MiroFish Backend - Flask应用工厂
 import hmac
 import os
 import re
+import traceback
 import uuid
 import warnings
 import sentry_sdk
@@ -131,6 +132,18 @@ def create_app(config_class=Config):
             before_send=_scrub_pii,
             before_breadcrumb=_scrub_breadcrumb,
         )
+        # Issue #26: full tracebacks are logged (for JSON-log-viewer triage, see
+        # handle_unexpected_error) on a DEDICATED logger name that is fully
+        # excluded from Sentry's LoggingIntegration — as both an event AND a
+        # breadcrumb. This is load-bearing, not defensive: _scrub_breadcrumb
+        # above only redacts dict-shaped crumb["data"]; a log message's raw
+        # text lands in crumb["message"], which is never scrubbed, so ANY
+        # traceback-bearing log call at/above breadcrumb_level (INFO, the
+        # SDK default) would otherwise attach an unredacted, PII-bearing
+        # breadcrumb to whatever Sentry event fires next in the same scope
+        # (verified empirically against sentry-sdk 2.61.0 while fixing this).
+        from sentry_sdk.integrations.logging import ignore_logger
+        ignore_logger("mirofish.traceback")
 
     app = Flask(__name__)
     app.config.from_object(config_class)
@@ -169,13 +182,18 @@ def create_app(config_class=Config):
     #
     # Issue #26: honor an inbound X-Request-ID (e.g. from vakaru-engine) so a
     # single request can be correlated across services, instead of always
-    # minting a fresh one. The inbound value is validated (bounded-length hex
-    # only) before use — an unvalidated header gets embedded verbatim into
-    # non-JSON-escaped bracketed log prefixes elsewhere (e.g.
-    # cart_recovery_jobs.py's `[{request_id} m={merchant_id}]`) and into the
-    # Sentry tag below, so a malformed/oversized/newline-bearing header would
-    # otherwise be a log-injection/tag-pollution vector. Self-generated ids stay
-    # 8 hex chars (test_cart_recovery_pii.py asserts this shape).
+    # minting a fresh one. This g.request_id reaches: the Sentry tag below,
+    # the X-Request-ID response echo (see echo_request_id_header), and
+    # handle_unexpected_error's bracketed log line. NOTE — it does NOT
+    # (yet) reach the cart-recovery blueprint's own handlers or the RQ
+    # worker (cart_recovery.py / cart_recovery_jobs.py mint their own
+    # independent per-request/per-job ids, predating this issue); closing
+    # that gap is a separate follow-up, not done here.
+    # The inbound value is validated (bounded-length hex only) before use as
+    # defense in depth — an unvalidated header would otherwise flow verbatim
+    # into the Sentry tag (pollution/format confusion) and into
+    # handle_unexpected_error's bracketed message text. Self-generated ids
+    # stay 8 hex chars (test_cart_recovery_pii.py asserts this shape).
     @app.before_request
     def assign_request_id():
         raw = request.headers.get("X-Request-ID", "")
@@ -300,9 +318,16 @@ def create_app(config_class=Config):
     # Issue #14: global catch-all so an unhandled exception returns an opaque
     # 500 instead of a stack trace — a stack trace leaks container paths, library
     # versions, and internal module layout. The full traceback is still written
-    # to the server log (as a structured `exc_info` field on this ERROR line, so
-    # it survives on the single stdout handler post-#26 — there is no longer a
-    # separate DEBUG-level file handler to catch it).
+    # to the server log, on the dedicated `mirofish.traceback` logger (see the
+    # `ignore_logger` call above) — NOT via `exc_info=True` on this ERROR call.
+    # exc_info=True would make Sentry's LoggingIntegration call
+    # event_from_exception(), which puts the raw exception message AND every
+    # frame's local variables (include_local_variables defaults to True) into
+    # the captured event; _scrub_pii only redacts event["request"], never
+    # event["exception"] — issues #7/#17 exist specifically to prevent this
+    # class of leak, and exc_info=True silently reintroduced it once (verified
+    # empirically while fixing this: a fake customer email + API key round-
+    # tripped straight into a captured Sentry event via this exact path).
     @app.errorhandler(Exception)
     def handle_unexpected_error(error):
         # HTTPExceptions are deliberate control flow — the #10 auth 401, the #12
@@ -312,16 +337,15 @@ def create_app(config_class=Config):
         if isinstance(error, HTTPException):
             return error
         request_id = getattr(g, "request_id", "unknown")
-        # Sanitized ERROR message only — the type name, never str(e). The
-        # mirofish logger reaches Sentry via LoggingIntegration, and an
-        # exception's .args / frame locals can carry PII (issues #7/#17), so the
-        # message itself stays sanitized; exc_info=True attaches the traceback as
-        # a separate structured field for log-viewer triage, still below
-        # Sentry's captured message text above.
-        logger.error(
-            f"[{request_id}] Unhandled exception ({type(error).__name__})",
-            exc_info=True,
-        )
+        # Sanitized ERROR message only — the type name, never str(e) or
+        # exc_info. The mirofish logger reaches Sentry via LoggingIntegration,
+        # and an exception's .args / frame locals can carry PII (issues
+        # #7/#17), so this message must stay sanitized.
+        logger.error(f"[{request_id}] Unhandled exception ({type(error).__name__})")
+        # Full traceback, ignored-logger-only (never reaches Sentry as an event
+        # or a breadcrumb — see the ignore_logger call above), for JSON-log-
+        # viewer triage.
+        get_logger("mirofish.traceback").error(traceback.format_exc())
         sentry_sdk.capture_message(
             f"Unhandled exception ({type(error).__name__})", level="error"
         )
@@ -351,7 +375,15 @@ def create_app(config_class=Config):
     # service instead of just failing individual /analyze requests. Exception
     # details are never returned in the body (matches handle_unexpected_error's
     # opaque-error convention above) — only logged server-side.
+    #
+    # Rate-limited (unlike /health): this route makes two live, blocking
+    # upstream calls with real credentials, and this service runs on a small,
+    # fixed gunicorn worker pool (Dockerfile). Unauthenticated + unbounded, a
+    # handful of concurrent hits could saturate every worker and take down the
+    # paid cart-recovery traffic — a materially different risk than /health's
+    # in-process, instant response.
     @app.route('/readiness')
+    @limiter.limit("10 per minute")
     def readiness():
         checks = {}
         try:
@@ -363,11 +395,12 @@ def create_app(config_class=Config):
             logger.error(f"Readiness check failed for zep: {type(exc).__name__}")
             checks['zep'] = 'unreachable'
         try:
-            OpenAI(
+            with OpenAI(
                 api_key=Config.LLM_API_KEY,
                 base_url=Config.LLM_BASE_URL,
                 max_retries=0,
-            ).models.list(timeout=2)
+            ) as llm_client:
+                llm_client.models.list(timeout=2)
             checks['llm'] = 'ok'
         except Exception as exc:
             logger.error(f"Readiness check failed for llm: {type(exc).__name__}")

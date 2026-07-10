@@ -73,7 +73,9 @@ def test_readiness_endpoint_open_without_key(app):
     # the check itself is exercised in test_readiness.py.
     with patch("app.Zep") as MockZep, patch("app.OpenAI") as MockOpenAI:
         MockZep.return_value.project.get.return_value = MagicMock()
-        MockOpenAI.return_value.models.list.return_value = MagicMock()
+        # OpenAI is used as a context manager in production code, so the
+        # mocked call goes through __enter__.return_value (see test_readiness.py).
+        MockOpenAI.return_value.__enter__.return_value.models.list.return_value = MagicMock()
         resp = app.test_client().get("/readiness")
     assert resp.status_code == 200
 
