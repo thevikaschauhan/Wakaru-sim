@@ -15,6 +15,8 @@ injects it as a default header, so tests that want an *un*authenticated request
 build their own client from the `app` fixture. Synthetic identifiers use
 RFC 2606 (example.com).
 """
+from unittest.mock import MagicMock, patch
+
 import pytest
 
 from app import create_app
@@ -62,6 +64,20 @@ def test_health_endpoint_open_without_key(app):
     resp = app.test_client().get("/health")
     assert resp.status_code == 200
     assert resp.get_json()["status"] == "ok"
+
+
+def test_readiness_endpoint_open_without_key(app):
+    # /readiness (issue #26) is a sibling of /health — same no-auth placement
+    # outside /api/*, for the same reason (Railway's prober can't supply
+    # X-API-Key). Zep/LLM mocked so this test doesn't depend on network access;
+    # the check itself is exercised in test_readiness.py.
+    with patch("app.Zep") as MockZep, patch("app.OpenAI") as MockOpenAI:
+        MockZep.return_value.project.get.return_value = MagicMock()
+        # OpenAI is used as a context manager in production code, so the
+        # mocked call goes through __enter__.return_value (see test_readiness.py).
+        MockOpenAI.return_value.__enter__.return_value.models.list.return_value = MagicMock()
+        resp = app.test_client().get("/readiness")
+    assert resp.status_code == 200
 
 
 def test_options_preflight_not_blocked_by_auth(app):
