@@ -4,6 +4,17 @@
 **Companion docs:** [PRD](./PRD.md), [SCHEMA](./SCHEMA.md)
 **Verified against:** `origin/main` @ `a3d7a1a`; `zep-cloud==3.13.0` SDK source at tag `v3.13.0`; `rq>=1.16,<2`
 
+> **Revision 2 (2026-07-21), after external design review:** the scheduler no
+> longer reuses a deterministic job id for self-rescheduling (on pinned RQ,
+> re-enqueueing the id of a *running* job overwrites its record, and
+> `result_ttl=0` cleanup can then delete the newly scheduled job — silently
+> ending the chain). Replaced with unique occurrence ids + an atomic singleton
+> lock + a chain-liveness marker (§3.4), proven against real Redis and the
+> pinned RQ version. Deletion eligibility is now fail-closed on unknown age
+> (§3.2). The orphan-age metric derives from the Zep scan (§3.2). Per-run
+> deletion is capped. The dry-run parser has one rule. Queue-interference
+> bounds are stated honestly (§3.4).
+
 ## 1. Verified API surface this design depends on
 
 From `zep-cloud` 3.13.0 (`src/zep_cloud/graph/client.py`,
@@ -13,7 +24,7 @@ From `zep-cloud` 3.13.0 (`src/zep_cloud/graph/client.py`,
   — pagination starts at page **1**; response fields `graphs: list[Graph] | None`,
   `row_count: int | None`, `total_count: int | None`.
 - `Graph.graph_id: str | None`, `Graph.created_at: str | None` (string timestamp;
-  format defensively parsed, see §4.3 and V-3).
+  format defensively parsed, see §3.2 and V-3).
 - `client.graph.delete(graph_id: str) -> SuccessResponse`.
 - `client.graph.get(graph_id: str) -> Graph`.
 
@@ -33,27 +44,35 @@ From the repo:
   **not** receive it today.
 - No SQL database exists; Redis backs idempotency (`idempotency.py`) and RQ.
 
+RQ semantics this design must respect (the revision-2 driver): a worker
+executes **one job at a time**; enqueueing with the job id of a currently
+executing job **overwrites** that job's Redis hash; with `result_ttl=0`, the
+finishing worker's cleanup deletes the job key even if a scheduled entry still
+references it. Therefore a running job must never schedule its own id.
+
 ## 2. Architecture
 
 ```
                        ┌──────────────────────────────────────────────┐
- analysis run          │  Zep Cloud (source of truth for orphans)     │
- ──────────────        │                                              │
+ analysis run          │  Zep Cloud (source of truth for orphans      │
+ ──────────────        │  AND for the orphan-age metric)              │
  create graph ────────▶│  mirofish_ab12…  (created_at)                │
  …pipeline…            │                                              │
  finally:              │                                              │
    inline delete ─────▶│  DELETE (fast path, best-effort)             │
                        │                                              │
- worker (RQ scheduler) │                                              │
+ worker (maintenance)  │                                              │
    sweep every 60m ───▶│  list_all → filter ^mirofish_[0-9a-f]{16}$   │
-                       │  AND age > TTL → DELETE (guarantee path)     │
+                       │  AND proven age > TTL → DELETE (≤ cap/run)   │
                        └──────────────────────────────────────────────┘
- Redis: lifecycle ledger (observability + offboarding index only)
+ Redis: scratch registry (corroboration + offboarding index + diagnostics)
+        sweep singleton lock + chain-liveness marker (scheduling only)
 ```
 
 Two independent deletion paths; the sweeper needs no memory of what the inline
 path did, because Zep's own listing is the work queue. There is no state whose
-loss can orphan a graph past one TTL window.
+loss can orphan a graph past one TTL window — and no state whose loss can
+*delete* a live graph, because eligibility is fail-closed (§3.2).
 
 ## 3. Code changes, file by file
 
@@ -107,69 +126,123 @@ the last graph reader), so the fast path can never race its own run.
 ```python
 SWEEPABLE_RE = re.compile(r"^mirofish_[0-9a-f]{16}$")
 
-def sweep_orphan_graphs(*, dry_run: bool, ttl_hours: int, page_size: int) -> SweepStats:
+def sweep_orphan_graphs(*, dry_run: bool, ttl_hours: int, page_size: int,
+                        max_deletes: int) -> SweepStats:
 ```
 
-Algorithm (single pass, bounded memory):
+Algorithm (single pass, bounded memory, bounded work):
 
 1. `page = 1`; loop `client.graph.list_all(page_number=page, page_size=page_size)`
    until `graphs` is empty/None. **Collect matching candidates first, delete
    after listing completes** — deleting while paginating shifts pages and
    skips entries.
-2. Candidate = `SWEEPABLE_RE.fullmatch(graph_id)` **and**
-   `age(created_at) > ttl_hours`. `created_at` parse: ISO-8601 via
-   `datetime.fromisoformat` after `Z → +00:00` normalization; an absent or
-   unparseable `created_at` on a `mirofish_`-matching graph counts as
-   **older than TTL** (delete) and increments `unparseable_created_at` in
-   stats — rationale: the prefix is exclusively produced by this service's
-   throwaway path, and indefinite retention is the harm this issue fixes.
-   (V-3 confirms the format in staging before prod enablement.)
-3. For each candidate: if `dry_run`, log intent; else `client.graph.delete`,
+2. For every `SWEEPABLE_RE.fullmatch(graph_id)` graph, establish **proven
+   age**:
+   - Parse vendor `created_at` (ISO-8601 via `datetime.fromisoformat` after
+     `Z → +00:00` normalization). Parseable ⇒ that is the age.
+   - Unparseable/absent ⇒ consult the ledger's `created_at` for the id
+     (SCHEMA §2.1). Present ⇒ corroborated age.
+   - Neither ⇒ **unknown age: skip, increment `skipped_unknown_age`, log the
+     id at WARNING**. Never deleted automatically (revision 2, fail-closed —
+     a vendor timestamp-format regression must not become a mass deletion of
+     in-flight graphs; disposal of persistent unknown-age orphans is the §8
+     runbook's operator-approved path).
+3. Candidates = matched graphs with proven age > `ttl_hours`, oldest first,
+   truncated to `max_deletes` (default 200; remainder drains next cycle —
+   `truncated_backlog` counted in stats so a large backlog is visible, per
+   the no-silent-caps rule).
+4. For each candidate: if `dry_run`, log intent; else `client.graph.delete`,
    `record_deleted(graph_id, source="sweep")`. Per-graph try/except: one
    failure never aborts the sweep; failures counted and logged by id.
-4. Emit one summary log line (`zep_sweep scanned=… matched=… deleted=…
-   failed=… skipped_dry_run=… unparseable_created_at=… oldest_active_age_s=…
-   total_count=…`) and `sentry_sdk.capture_message` on: sweep-level exception,
-   any per-graph failure count > 0, or `oldest_active_age_s > 2 × ttl_hours`.
+5. **Metrics from this scan, not Redis:** `oldest_scratch_age_seconds` = age
+   of the oldest *matched* graph still present after deletions (recomputed
+   from the collected listing). Reconcile the Redis registry against the
+   listing (remove entries whose graphs no longer exist; flag ledger drift).
+6. Emit one summary log line (`zep_sweep scanned=… matched=… deleted=…
+   failed=… skipped_dry_run=… skipped_unknown_age=… truncated_backlog=…
+   oldest_scratch_age_s=… total_count=…`) and `sentry_sdk.capture_message`
+   on: sweep-level exception, per-graph failure count > 0,
+   `skipped_unknown_age > 0`, or `oldest_scratch_age_s > 2 × ttl_hours`.
 
 Config (module-level, read live from `os.environ` per the `Config.validate`
-convention): `ZEP_GRAPH_TTL_HOURS` (default 24, **floor 6** — below-floor
-values fall back to default with a warning, mirroring
-`job_queue.analyze_job_timeout`'s footgun guard), `ZEP_SWEEP_INTERVAL_MINUTES`
-(default 60, floor 5), `ZEP_SWEEP_DRY_RUN` (default `false`; only the literal
-`"false"` disables it — any other value stays dry, fail-safe),
-`ZEP_SWEEP_PAGE_SIZE` (default 100).
+convention):
+
+- `ZEP_GRAPH_TTL_HOURS` — default 24, **floor 6** (below-floor values fall
+  back to default with a warning, mirroring `job_queue.analyze_job_timeout`'s
+  footgun guard).
+- `ZEP_SWEEP_INTERVAL_MINUTES` — default 60, floor 5.
+- `ZEP_SWEEP_DRY_RUN` — **one parser rule (revision 2): deletion is enabled
+  only when the value, after `.strip().lower()`, equals `"false"`. Absent,
+  empty, or anything else ⇒ dry run.** (The rollout in §8 relies on
+  ships-unset ⇒ dry.)
+- `ZEP_SWEEP_PAGE_SIZE` — default 100.
+- `ZEP_SWEEP_MAX_DELETES` — default 200, floor 1.
 
 ### 3.3 `backend/app/services/graph_lifecycle.py` (new)
 
-Thin Redis writer/reader for the ledger keys in SCHEMA.md:
-`record_created(graph_id, merchant_id)`, `record_deleted(graph_id, source)`,
-`oldest_active_age_seconds()`, `graphs_for_merchant(merchant_id)`.
-Every function takes the connection from `job_queue.get_redis_connection()`
-and **no-ops with a warning when Redis is unavailable** — the ledger is
-observability, never correctness (PRD FR-4).
+Thin Redis writer/reader for the **scratch registry** in SCHEMA.md:
+`record_created(graph_id, merchant_id)` (stamps `graph_kind=scratch` and
+asserts the id matches `SWEEPABLE_RE` — store graphs are structurally
+rejected, revision 2), `record_deleted(graph_id, source)`,
+`created_at_for(graph_id)` (the §3.2 corroboration read),
+`graphs_for_merchant(merchant_id)`. Every function takes the connection from
+`job_queue.get_redis_connection()` and **no-ops with a warning when Redis is
+unavailable** — the ledger corroborates and enumerates; it never gates
+correctness (PRD FR-4).
 
-### 3.4 `backend/app/services/maintenance_queue.py` (new) + `backend/worker.py`
+### 3.4 Scheduling: `backend/app/services/maintenance_queue.py` (new) + `backend/worker.py`
 
-- New queue name `maintenance`, **separate from `analyze`**: a sweep enqueued
-  on `analyze` would sit behind 8-17-minute analysis jobs and, worse, an
-  analysis behind a sweep would add latency to a paid path.
-- `worker.py` changes:
-  - `Worker([ANALYZE_QUEUE_NAME, MAINTENANCE_QUEUE_NAME], ...)`
-  - `.work(with_scheduler=True)` — RQ ≥ 1.2 built-in scheduler; in-range for
-    the pinned `rq>=1.16,<2`. No new package, no new Railway service.
-  - Boot reconciler `ensure_sweep_scheduled(connection)`: with deterministic
-    `job_id="zep-graph-sweep"`, if the job id is in neither the maintenance
-    queue, its `ScheduledJobRegistry`, nor `StartedJobRegistry`, enqueue it
-    immediately. Combined with self-rescheduling (below), this heals a broken
-    chain on every worker (re)start — the same boot-reconciler pattern engine
-    #156 uses.
-- The sweep job body runs `sweep_orphan_graphs(...)` and **re-schedules itself
-  in a `finally`** via `queue.enqueue_in(timedelta(minutes=interval), ...,
-  job_id="zep-graph-sweep")`, so one failed sweep never ends the cycle. The
-  deterministic job id makes double-scheduling collapse to one entry.
-- Job timeout for sweeps: 600 s (a full page-through + deletes is minutes, not
-  hours), `result_ttl=0` (stats live in logs, not RQ results).
+**Queue.** New queue name `maintenance`, drained by the existing worker:
+`Worker([ANALYZE_QUEUE_NAME, MAINTENANCE_QUEUE_NAME], ...)` with
+`.work(with_scheduler=True)` (RQ ≥ 1.2 built-in scheduler; in-range for the
+pinned `rq>=1.16,<2`).
+
+**Interference bound, stated honestly (revision 2):** an RQ worker executes
+one job at a time, so queues do not isolate workloads — they set priority.
+With `analyze` listed first, a queued analysis always dequeues ahead of a
+queued sweep; the worst case for a paid analysis is waiting out one
+**in-flight** sweep, bounded by the sweep `job_timeout` of **300 s**. The
+worst case for the sweep is starvation under sustained back-to-back analyses;
+that state is self-signaling because the Zep-derived orphan-age alert (§3.2)
+fires at 2 × TTL. This trade (≤ 5 min added tail latency on an 8-17 min job,
+vs a new operator-provisioned Railway service) is deliberate; a dedicated
+maintenance worker service remains the documented scale-out path if either
+bound is hit in practice.
+
+**Occurrence scheduling (revision 2 — replaces same-id self-reschedule):**
+
+- Every sweep occurrence is enqueued with a **unique** job id
+  (`zep-graph-sweep-<uuid4hex>`), `job_timeout=300`, `result_ttl=0`,
+  `failure_ttl=86400`. No id is ever reused, so no running job's record can
+  be overwritten and `result_ttl=0` cleanup can only ever delete the
+  *finished* occurrence's own record.
+- **Chain-liveness marker:** `zep:sweep:next` (SCHEMA §2.4) is set to the
+  scheduled occurrence's id with `EX = 3 × interval` every time an occurrence
+  is scheduled. Its absence means the chain is dead.
+- **Singleton execution lock:** the job body's first action is
+  `SET zep:sweep:lock <occurrence_id> NX EX 360` (lease > job_timeout). If
+  the lock is held by another occurrence, this occurrence exits immediately
+  **without sweeping and without rescheduling** — it is a duplicate chain,
+  and declining to reschedule is what collapses duplicate chains back to one.
+  The winner deletes the lock in a `finally` (only if it still owns it —
+  compare-and-delete via a small Lua script or `GET`+`DELETE` guarded by the
+  occurrence id).
+- **Self-perpetuation:** the lock-holding occurrence schedules the next
+  occurrence in the same `finally` (after lock release logic, before exit):
+  `maintenance_queue.enqueue_in(timedelta(minutes=interval), sweep_job,
+  job_id=new_unique_id)` + refresh `zep:sweep:next`. A crash *before* the
+  `finally` leaves the marker to expire, which the reconciler heals.
+- **Boot reconciler:** on worker start, if `zep:sweep:next` is absent,
+  enqueue an immediate occurrence (with `SET NX` on the marker as the claim,
+  so simultaneously booting replicas enqueue once; a lost race simply skips).
+  This is the same boot-reconciler pattern engine #156 uses.
+
+**Proof obligation (revision 2):** these mechanics are covered by
+integration tests running against **real Redis and the pinned RQ version**
+(§6, tests 10-12) — not asserted from documentation. The failure of the
+revision-1 design (same-id reschedule) is itself pinned as a regression test:
+scheduling a unique-id occurrence while another runs must never mutate the
+running job's record.
 
 ### 3.5 Not changed
 
@@ -185,11 +258,14 @@ observability, never correctness (PRD FR-4).
 |---|---|---|
 | Inline delete fails (Zep 5xx, network) | Warning logged; run result unaffected | Sweeper deletes at ≤ TTL + interval |
 | Worker killed mid-run (SIGKILL, deploy) | No inline delete happens | Same — graph is listed, aged, swept |
-| Redis flushed / unavailable | Ledger writes no-op with warning; scheduler entry lost | Boot reconciler re-schedules on worker start; sweep correctness unaffected (reads Zep) |
-| Zep outage during sweep | Sweep fails, Sentry message; self-reschedule still runs (finally) | Next cycle retries; orphan-age alert fires at 2×TTL if prolonged |
-| Sweep job crashes before self-reschedule | Chain broken | Boot reconciler restores it at next worker restart; Sentry captured the crash |
+| Vendor `created_at` format changes | Ages unparseable ⇒ ledger corroboration; if both unavailable, graphs are **retained** and `skipped_unknown_age` alerts | Operator runbook; no mass deletion (revision 2) |
+| Redis flushed / unavailable | Ledger writes no-op with warning; marker + lock lost | Boot reconciler restores the chain on worker start; sweep correctness and the orphan-age metric are Zep-derived and unaffected |
+| Sweep occurrence crashes before scheduling next | Chain broken; marker expires | Boot reconciler re-seeds; Sentry captured the crash; worst-case gap = time to next worker restart, alerted at 2 × TTL |
+| Duplicate chains (replica race, manual enqueue) | Loser fails the singleton lock, exits without rescheduling | Chains collapse to one within one interval |
+| Zep outage during sweep | Sweep fails, Sentry message; `finally` still schedules next occurrence | Next cycle retries |
+| Backlog larger than per-run cap | Oldest-first deletion, `truncated_backlog` logged | Drains across cycles; visible, not silent |
 | Operator sets TTL below in-flight run length | Floor of 6 h refuses the value, warns, uses default | — |
-| #61 later adds `merchant_*` graphs | Regex cannot match them | Structural, tested |
+| #61 later adds `merchant_*` graphs | Regex cannot match them; `record_created` asserts scratch ids only | Structural, tested |
 
 ## 5. Security and PII
 
@@ -207,21 +283,41 @@ Unit (pytest, `backend/tests/`, fake Zep client per existing patterns in
    graph_id flows to `delete_graph` in both outcomes; assert the analysis
    result/exception is preserved when delete raises.
 2. `test_cleanup_without_graph` — failure before graph creation ⇒ no delete call.
-3. `test_sweeper_filters` — table-driven: `mirofish_<16hex>` old ⇒ deleted;
-   young ⇒ kept; `merchant_abc…` old ⇒ untouched; `mirofish_SHOUTING` ⇒
-   untouched; missing `created_at` ⇒ deleted + counted.
-4. `test_sweeper_dry_run` — zero delete calls, correct counts.
-5. `test_sweeper_pagination` — multi-page fake listing; delete-after-list
+3. `test_sweeper_filters` — table-driven: `mirofish_<16hex>` proven-old ⇒
+   deleted; young ⇒ kept; `merchant_abc…` old ⇒ untouched;
+   `mirofish_SHOUTING` ⇒ untouched.
+4. `test_sweeper_fail_closed_unknown_age` — unparseable vendor `created_at`
+   with no ledger entry ⇒ **kept** + counted + would-alert; with a ledger
+   entry older than TTL ⇒ deleted (corroboration path). (Revision 2.)
+5. `test_sweeper_dry_run_parser` — matrix: absent, `""`, `true`, `TRUE`,
+   `false`, `False`, ` false `, `0`, `no`, garbage ⇒ only the `false`
+   variants delete. (Revision 2.)
+6. `test_sweeper_pagination` — multi-page fake listing; delete-after-list
    ordering asserted.
-6. `test_sweeper_partial_failure` — one delete raises; sweep continues;
+7. `test_sweeper_partial_failure` — one delete raises; sweep continues;
    failure counted.
-7. `test_ensure_sweep_scheduled_idempotent` — two boots, one scheduled job
-   (fakeredis or the repo's existing Redis test approach).
-8. `test_ttl_floor` / `test_dry_run_default_safe` — config guards.
-9. Regression: existing `test_cart_recovery_cleanup.py` suite stays green
-   (signature change is defaulted).
+8. `test_sweeper_delete_cap` — backlog > cap ⇒ oldest-first, cap respected,
+   `truncated_backlog` counted. (Revision 2.)
+9. `test_metrics_from_scan` — oldest age computed from the fake listing, not
+   Redis; registry reconciliation removes stale entries. (Revision 2.)
+10. `test_ttl_floor` — config guard.
 
-Staging verification (pre-prod flip): V-1..V-3 in §7.
+Integration (real Redis + pinned RQ; new `tests/test_sweep_scheduling.py`,
+env-gated on a Redis URL like the repo's other gated tests — revision 2's
+proof obligation):
+
+11. `test_unique_occurrence_ids_never_touch_running_job` — start occurrence A
+    (long-running stub), schedule occurrence B; assert A's job hash is
+    unmodified and A completes + cleans only its own record.
+12. `test_chain_heals_after_kill` — kill an occurrence before its `finally`;
+    marker expires; boot reconciler re-seeds exactly one occurrence
+    (two reconcilers racing seed exactly one — `SET NX` claim).
+13. `test_duplicate_chains_collapse` — two live occurrences; loser exits
+    without sweeping or rescheduling; exactly one chain remains after one
+    interval.
+
+Regression: existing `test_cart_recovery_cleanup.py` suite stays green
+(signature change is defaulted).
 
 ## 7. Open items verified-in-staging (explicitly not assumed)
 
@@ -230,20 +326,28 @@ Staging verification (pre-prod flip): V-1..V-3 in §7.
   inspects status).
 - **V-2**: `list_all` behavior at exactly `total_count % page_size == 0`
   (empty last page vs absent `graphs`) — loop handles both, staging confirms.
-- **V-3**: `Graph.created_at` wire format (assumed ISO-8601; parser is
-  defensive either way).
+- **V-3**: `Graph.created_at` wire format (assumed ISO-8601). Revision 2 note:
+  this is no longer a deletion-safety dependency — an unexpected format
+  degrades to fail-closed retention + alert, not deletion.
 
 ## 8. Rollout + historical-orphan runbook (maps to #72 AC-3)
 
 1. Merge + deploy web and worker (same image). Sweeper ships with
-   `ZEP_SWEEP_DRY_RUN` unset ⇒ **dry**.
+   `ZEP_SWEEP_DRY_RUN` unset ⇒ **dry** (single parser rule, §3.2).
 2. First dry sweep logs the full inventory: `total_count`, matched count,
-   oldest age. Operator reviews the summary line (this is the "inventory"
-   artifact; paste it into #72).
+   oldest age, and the **unknown-age list** (expected: pre-ledger orphans
+   whose vendor timestamps parse fine will show proven ages; the unknown-age
+   list should be empty or tiny). Operator reviews the summary (this is the
+   "inventory" artifact; paste it into #72).
 3. Operator sets `ZEP_SWEEP_DRY_RUN=false` on the **worker** service, restarts.
-4. Next sweep deletes the backlog; #72 AC-3 closes with the before/after
-   `total_count` pasted into the issue.
-5. Confirm steady state over 48 h: `oldest_active_age_s < TTL`, no Sentry
-   sweep alerts.
-6. Operator documentation task: record Zep DPA / deletion-SLA reference in the
+4. Next sweeps drain the backlog (≤ `ZEP_SWEEP_MAX_DELETES` per cycle);
+   #72 AC-3 closes with the before/after `total_count` pasted into the issue.
+5. **Unknown-age disposal (operator-approved path):** if any unknown-age
+   graphs persist, the operator reviews the logged ids and disposes of them
+   explicitly — `ZEP_SWEEP_FORCE_DELETE_IDS` (comma-separated exact ids,
+   consumed by the next sweep, logged loudly, then unset). Automatic deletion
+   of unknown-age graphs is never enabled.
+6. Confirm steady state over 48 h: `oldest_scratch_age_s < TTL`,
+   `skipped_unknown_age = 0`, no Sentry sweep alerts.
+7. Operator documentation task: record Zep DPA / deletion-SLA reference in the
    repo's `docs/integration.md` (PRD §5).
