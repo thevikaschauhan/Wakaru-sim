@@ -12,6 +12,16 @@
 > separated from #61's store-graph registry; dry-run has one unambiguous
 > parser rule; the offboarding acceptance criterion is narrowed for pre-ledger
 > orphans; the scheduler contract is redesigned (see TDD §3.4).
+>
+> **Revision 3 (2026-07-21), after review-round 2:** chain liveness no longer
+> depends on the chain itself — every sweep occurrence checks in with a
+> **Sentry Cron Monitor**, whose missed-check-in alert fires from Sentry's
+> infrastructure regardless of whether the cause is a dead chain, starvation,
+> or a wedged worker (TDD §3.4); an RQ failure callback re-seeds the chain
+> when a work horse dies. Lock release is atomic-only (Lua compare-and-delete).
+> The sweep uses a bounded candidate heap with streamed metrics. The
+> shared-worker latency trade is now an explicit, signed-off product
+> acceptance (§3) instead of a contradiction with the non-goals.
 
 ## 1. Problem
 
@@ -53,7 +63,15 @@ Consequences, in priority order:
 
 - Per-store persistent memory (Model B). That is #61; this spec deliberately
   keeps the throwaway-graph model and only fixes its hygiene.
-- Any change to the analysis pipeline's inputs, outputs, or timing.
+- Any change to the analysis pipeline's inputs or outputs. **Timing carve-out
+  (revision 3, explicit product acceptance):** the maintenance queue shares
+  the RQ worker, so a queued paid analysis can wait out one in-flight sweep —
+  bounded by the sweep's 300 s job timeout (TDD §3.4). This ≤ 5-minute
+  worst-case addition to an 8-17-minute job is accepted in exchange for not
+  provisioning a dedicated worker service; the dedicated worker is the
+  documented scale-out if the bound is hit in practice. Sweep starvation
+  under sustained load is alerted externally (FR-5's heartbeat), not assumed
+  away.
 - Introducing a SQL database. Wakaru's stack is Flask + Redis/RQ + local
   scratch (verified: no SQL dependency in `backend/requirements.txt`); this
   spec stays inside that stack. See SCHEMA.md §1 for the rationale and the
@@ -125,7 +143,7 @@ scratch registry — structurally (distinct writer functions asserting
 `graph_kind`), not by convention — so a healthy store graph can never trip the
 orphan alert.
 
-### FR-5 — Orphan-age metric and alert
+### FR-5 — Orphan-age metric, alert, and liveness heartbeat
 Each sweep emits `zep_sweep` structured log lines (scanned, matched, deleted,
 skipped_dry_run, skipped_unknown_age, failed, oldest_scratch_age_seconds) and
 reports to Sentry when (a) the sweep itself fails, (b) any per-graph deletion
@@ -134,6 +152,14 @@ failed, (c) `skipped_unknown_age > 0`, or (d) `oldest_scratch_age_seconds >
 the same pass** (minimum parseable `created_at` among matched graphs), so the
 alert survives Redis loss; the Redis registry is a secondary diagnostic the
 sweeper reconciles.
+
+**Liveness (revision 3):** the alerts above are emitted *by* the sweep, so
+they cannot signal the sweep's own death. Every occurrence therefore checks
+in with a **Sentry Cron Monitor** (schedule = the sweep interval + grace);
+a missed check-in alert fires from Sentry's infrastructure — independent of
+the worker, the chain, and Redis — covering dead chains, starvation, and
+wedged workers with one signal. No sweep property is allowed to be attested
+only by the sweep itself.
 
 ## 5. Retention policy (G5 documentation requirement)
 

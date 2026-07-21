@@ -12,6 +12,19 @@
 > endpoint binds tenant identity into the signed body and its idempotency
 > horizon is raised; engine prerequisites are filed issues
 > (vakaru-engine#192, #193).
+>
+> **Revision 3 (2026-07-21), after review-round 2.** Lifecycle mutations are
+> one signed **command contract** (§7): engine-driven `rebuild` /
+> `redact_customer` / `offboard` POSTs with operation ids and verified
+> completion — the r2 DELETE endpoint is gone (the HMAC middleware is
+> POST-only; a DELETE cannot bind tenant into signed bytes). The replay feed
+> is normative (engine#192-E). Customer redaction gains a per-shopper
+> **watermark** enforced on every write and replay page. The current
+> generation is **envelope-authoritative** (engine ledger → `memory_generation`
+> on every analyze request); the r2 generation-0 Redis fallback is removed as
+> unsafe. ReportAgent no longer holds a store-graph id at all — it receives
+> one materialized, capped working set (§5). Idempotency keys standardize on
+> `attempt_id`.
 
 ## 1. Verified facts this design uses
 
@@ -49,11 +62,14 @@ Wakaru:
   `get_all_edges` (`:679`); `get_all_*` has ~8 further call sites in
   `zep_tools.py`. The previous revision's claim that ReportAgent reads are
   "query-scoped already" was **wrong**.
-- Auth stack for the new endpoint: X-API-Key (#10) + HMAC body signature
+- Auth stack for the new endpoints: X-API-Key (#10) + HMAC body signature
   (#11) + `X-Merchant-Id` binding (#24). The HMAC covers
   `"<ts>.<rawbody>"` only — the header is **outside** the signature, which
   is why revision 2 puts `merchant_id` inside the body (§4.2; converges with
-  issue #73).
+  issue #73) — and `verify_internal_hmac` is **POST-only** (`if
+  request.method != "POST": return None`, `cart_recovery.py`), which is why
+  revision 3 models every lifecycle mutation as a signed POST command (§7)
+  and no DELETE endpoint exists in this design.
 
 Engine (@ `1bb1d95`):
 
@@ -74,11 +90,22 @@ Engine (@ `1bb1d95`):
 - `graph_id = "merchant_" + merchant_id.replace("-", "") + suffix` where
   `suffix` is empty for generation 0 and `_r<N>` for rebuild generations —
   deterministic, charset `[a-z0-9_]` (same alphabet as the proven
-  `mirofish_*` ids). The **current** generation is resolved via the ledger
-  (`zep:store:<merchant_id>.graph_id`, SCHEMA §3) with the deterministic
-  generation-0 name as the fallback; all generations are enumerable from Zep
-  itself by prefix `merchant_<hex32>` (Redis is reconstructible, never
-  load-bearing for privacy operations).
+  `mirofish_*` ids).
+- **Current-generation resolution (revision 3 — the r2 generation-0 Redis
+  fallback is removed: after a rebuild, generation 0 is deleted or contains
+  exactly the expired/redacted data the rebuild removed, so falling back to
+  it on Redis loss was unsafe).** The durable pointer lives in the **engine
+  operations ledger** (#192-E) and arrives on **every analyze request** as
+  the envelope's `memory_generation` field; lifecycle commands (§7) carry it
+  too. Wakaru's `zep:store:<merchant_id>` hash is a **cache**: on mismatch,
+  the envelope/command value wins, the cache is reconciled, and drift is
+  alerted. If neither an envelope value nor a cache entry is available
+  (fresh merchant), generation 0 applies; if the cache is lost *and* the
+  request predates #192's envelope, the treated run **falls back to the
+  throwaway path** (fail closed) rather than guessing a generation. All
+  generations remain enumerable from Zep by prefix `merchant_<hex32>` —
+  used for offboarding enumeration and the stale-generation check (§7),
+  which prove existence; *currency* is always the ledger's claim.
 - Provisioning with a **readiness barrier** (revision 2 — closes the
   loser-before-ontology race):
 
@@ -143,7 +170,13 @@ allowlisted and the envelope carries `schema_version >= 1`:
 - `ensure_store_graph(...)`, then `graph.add(graph_id=store_graph,
   type="json", data=cart_episode_json, created_at=<envelope occurred_at>)` —
   one structured episode per analysis (SCHEMA §4.1), keyed by the envelope's
-  `event_id`.
+  `event_id`, into the envelope-named generation (§2).
+- **Watermark enforcement (revision 3):** before any episode write, the
+  shopper's redaction watermark (delivered via commands/envelope, cached per
+  SCHEMA §3) is checked — an episode for a watermarked `anonymous_id` with
+  `occurred_at < cutoff` is **dropped and counted**, never written. This is
+  defense in depth on top of engine-side filtering, and it closes the
+  in-flight-analysis race that could re-write erased data after a rebuild.
 - Failure is guarded: a store-memory write error logs a warning and never
   fails the paid analysis (same contract as ledger writes in #72). A
   tombstone hit is treated the same way (skip + warn), not an error.
@@ -162,13 +195,17 @@ New blueprint `backend/app/api/store_memory.py`:
   change. When issue #73 lands its stronger signature (method/path/ts/
   merchant/body-hash), this endpoint adopts it as-is; the body field is the
   forward-compatible half.
-- Idempotency: `Idempotency-Key` header required (= the attempt's
-  `event_id`), scope `outcomes:<merchant_id>`, reusing `idempotency.py` with
-  a **14-day TTL for this scope** (revision 2 — must exceed the engine
-  outbox's backoff ceiling so a slow retry can never replay past the
-  window; 24 h did not). The durable at-most-once layer remains the engine
-  outbox's `UNIQUE (shopify_store_id, episode_key)` + terminal states
-  (SCHEMA §5.3); the Redis TTL only has to cover one delivery sequence.
+- Idempotency: `Idempotency-Key` header required — **= `attempt_id`**
+  (revision 3: r2 left `event_id` here while SCHEMA said `attempt_id`; the
+  attempt is the correct granularity because one cart may legitimately
+  receive multiple recovery attempts, and all three sources — this TDD, the
+  SCHEMA, and engine#192-D — now agree). Scope `outcomes:<merchant_id>`,
+  reusing `idempotency.py` with a **14-day TTL for this scope** (revision 2
+  — must exceed the engine outbox's backoff ceiling so a slow retry can
+  never replay past the window; 24 h did not). The durable at-most-once
+  layer remains the engine outbox's `UNIQUE (shopify_store_id, attempt_id)`
+  + terminal states (SCHEMA §5.5); the Redis TTL only has to cover one
+  delivery sequence.
   Duplicates that somehow pass both layers land in the graph as
   duplicate-keyed episodes — tolerable because **no exact value is computed
   from the graph** (PRD invariant); the engine ledger, where exactness
@@ -182,24 +219,37 @@ New blueprint `backend/app/api/store_memory.py`:
 ## 5. Read path (Phase 3) — the D3 bounded adapter
 
 **`StoreGraphReader`** (new, `backend/app/services/store_graph_reader.py`) is
-the **only** module allowed to read a `merchant_*` graph:
+the **only** module allowed to read a `merchant_*` graph, and **the graph id
+never leaves it** (revision 3 — the r2 text let ReportAgent keep
+"query-scoped search," which meant it held the raw graph id and bypassed the
+declared single read boundary; that contradiction is removed):
 
-- Exposes exactly: `search_working_set(cart_anchors, limit, min_score)` —
-  N × `graph.search` calls (one per anchor string: product titles,
-  collection, price band), union, dedupe, hard caps
-  (≤ 30 entities, ≤ 60 edges, `STORE_MEMORY_WORKING_SET_MAX`).
-- Does **not** expose any list-all operation. Enforcement is structural and
-  tested (revision 2, closing the ReportAgent hole):
+- Exposes exactly one operation:
+  `build_working_set(store_graph_id, cart_anchors) -> WorkingSet` — called
+  **once per treated run**, before simulation. Hard caps at every level
+  (revision 3 — all were previously uncapped except entities/edges):
+  anchors ≤ 8 (deterministic priority: product titles, then collection,
+  then price band; excess dropped and logged), exactly one `graph.search`
+  call per anchor (call budget = anchor count), per-call `limit` 10,
+  union/dedupe to ≤ 30 entities / ≤ 60 edges
+  (`STORE_MEMORY_WORKING_SET_MAX`), serialized size ≤ 8 KB (truncated
+  oldest-first, truncation logged).
+- The returned `WorkingSet` is a **plain materialized object** (entities,
+  edges, provenance timestamps). Persona generation and ReportAgent consume
+  this object; **neither receives a store-graph id, ever** — for treated
+  runs, ReportAgent is constructed with `graph_id=None`, its Zep-reading
+  tools (`panorama_search` and the query tools) removed from the tool schema
+  and dispatch map, and two context inputs instead: the `WorkingSet` and the
+  envelope's `StorePriors`. There is no store-graph read a treated-run
+  ReportAgent can express, capped or otherwise.
+- Defense in depth, enforced and tested:
   - `zep_tools.py` `get_all_nodes` / `get_all_edges` / `panorama_search`
-    gain a guard that raises `StoreGraphScanBlocked` when
-    `graph_id.startswith("merchant_")` — defense in depth even if a future
-    caller bypasses the adapter.
-  - For treated runs, ReportAgent is constructed with a **restricted
-    toolset**: `panorama_search` removed from the tool schema and the
-    dispatch map; its remaining tools operate on the bounded working set and
-    query-scoped search only.
-  - Tests fail the suite if any store-graph code path issues a list-all SDK
-    call (fake client records call types; see §9).
+    (and `zep_entity_reader.fetch_all_*` callers) gain a guard that raises
+    `StoreGraphScanBlocked` when `graph_id.startswith("merchant_")` — even
+    if a future caller bypasses the adapter.
+  - Tests fail the suite if any store-graph code path issues **any** Zep
+    read outside `StoreGraphReader` (fake client records call types and
+    graph ids; see §9).
 
 **Priors come from the envelope, not the graph** (revision 2): the engine
 ships `StorePriors` (recovery rate by actually-sent angle, discount
@@ -211,10 +261,10 @@ supplies only qualitative episodes for the working set.
 Injection points (unchanged seams, new inputs):
 
 - Persona generation: `simulation_manager.py:419` seam gains an optional
-  `entities_override` = working-set entities; the cart's own entities always
-  dominate (anchor set), historical entities enrich.
-- Report agent: receives the working set + `StorePriors` as context;
-  restricted toolset as above.
+  `entities_override` = the `WorkingSet`'s entities; the cart's own entities
+  always dominate (anchor set), historical entities enrich.
+- Report agent: receives the `WorkingSet` + `StorePriors` as context;
+  `graph_id=None`, Zep tools removed (revision 3, as above).
 - Treated runs skip the throwaway graph entirely; the run's seed episodes go
   to the store graph with a bounded processed-wait on just that run's episode
   uuids (existing `_wait_for_episodes`, `graph_builder.py:278`, takes
@@ -231,56 +281,77 @@ throwaway path again. No data migration in either direction.
   batches interleave safely (order is by stamped `created_at`). Same-run
   ordering ("this run's episodes processed before this run's search") is
   enforced by the uuid-scoped `_wait_for_episodes`.
-- Rebuild vs analysis race: rebuild builds the **new** generation to
-  completion, then flips the ledger pointer atomically; an in-flight
-  analysis keeps reading the old generation for the rest of its run
-  (graph ids are immutable per run — resolved once at run start). The old
-  generation is deleted after a grace period ≥ the max run wall clock
-  (2 h), so no run's reads can dangle.
-- Redaction vs analysis race: tombstone check at `ensure_store_graph` +
-  offboarding runs delete-and-verify with a re-list; a graph recreated by a
-  straggler run started before the tombstone is caught by the verify pass
-  (engine#193 re-drives until verified-empty).
+- Rebuild vs analysis race: the rebuild operation builds the **new**
+  generation to completion, verifies it, reports it in its terminal status
+  (the engine ledger then names it in subsequent envelopes), and deletes the
+  old generation only after a grace period ≥ the max run wall clock (2 h) —
+  an in-flight analysis keeps reading the generation it resolved at run
+  start (graph ids are immutable per run), so no run's reads can dangle.
+- Redaction vs analysis race (revision 3 — two independent guards):
+  merchant tombstone at `ensure_store_graph` blocks recreation after
+  `offboard`; the **per-shopper watermark** (§4.1) blocks re-writes of
+  erased episodes by in-flight runs after `redact_customer`. Both flows end
+  with a verify pass (re-enumeration / generation check) and the engine
+  re-drives until the evidence holds (engine#193).
 
 ## 7. Retention, erasure, offboarding (D4, PRD §4)
 
-**Primary mechanism: rebuild from the engine event ledger** (revision 2 —
-replaces episode-delete paging, which the `lastn`-only reader cannot support
-and whose derived-artifact semantics are unproven):
+**Primary mechanism: engine-driven rebuild from the engine event ledger**
+(revision 2 replaced episode-delete paging, which the `lastn`-only reader
+cannot support; revision 3 makes the feed a **normative contract** —
+engine#192-E — instead of a hand-wave, with the engine as the driver so the
+data flows in the direction the topology already supports):
 
-- A scheduled maintenance job (on #72's `maintenance` queue, unique
-  occurrence ids + singleton lock per #72 TDD §3.4, `job_id` prefix
-  `store-memory-rebuild-`) processes each store graph on a rolling cadence
-  (each graph rebuilt at least every 30 days, jittered):
-  1. Request the merchant's retained events (≤ 180 d, minus redacted
-     shoppers) from the engine (#192's event ledger is the source of truth;
-     the replay feed is part of that contract).
-  2. Create generation `_r<N+1>` via the §2 provisioning path (ontology
-     applied, ledger `provisioning`).
-  3. Replay episodes (`graph.add_batch`, stamped `created_at`), wait
-     processed, spot-verify counts.
-  4. Atomically flip `zep:store:<mid>.graph_id` to the new generation
-     (`ready`); delete the old generation after the 2 h grace (§6).
+- The **engine** schedules rebuilds (rolling cadence: every merchant at
+  least every `STORE_MEMORY_REBUILD_EVERY_DAYS`, jittered; plus immediately
+  on `redact_customer` and on ontology-version migrations) and drives each
+  one through the command contract (SCHEMA §5.2-5.4):
+  1. `rebuild` command → Wakaru: `{operation_id, snapshot_id,
+     memory_generation_next, expected_event_count, redaction watermarks,
+     retention cutoff}`. Wakaru provisions generation `_r<N+1>` via the §2
+     path (ontology applied, `provisioning`).
+  2. Engine pushes **replay pages** referencing the `operation_id`: stable
+     `occurred_at`-ascending order, `page_no`/`page_count`, per-page count +
+     checksum, bounded page size, resume-from-page on retry. Wakaru applies
+     each page with `graph.add_batch` (stamped `created_at`), enforcing
+     watermarks per episode (§4.1), idempotent per `(operation_id, page_no)`.
+  3. On the final page: wait processed, verify episode count against
+     `expected_event_count`, report terminal status **`verified_current`**
+     (or `failed` with the discrepancy). The engine ledger records the new
+     generation and starts naming it in envelopes (§2).
+  4. Wakaru deletes prior generations after the 2 h grace (§6) and the
+     terminal status includes the post-delete re-enumeration, so completion
+     evidence covers stale-generation absence — the engine re-drives on
+     `failed` and does not mark retention/redaction complete otherwise.
 - **This machinery is also the erasure mechanism** (customers/redact ⇒
-  immediate rebuild excluding the shopper) and the ontology-migration
-  mechanism (renames/removals ⇒ rebuild on the new version). One code path,
-  exercised routinely — not a quarterly afterthought, and expiry is
-  **proven** ("oldest episode age" metric from the rebuild's own replay
-  window) rather than inferred.
+  immediate rebuild excluding the watermarked shopper) and the
+  ontology-migration mechanism (renames/removals ⇒ rebuild on the new
+  version). One code path, exercised routinely, and expiry is **proven** by
+  the replay window + count verification rather than inferred.
+- **Stale-generation reaper (revision 3):** a Wakaru maintenance occurrence
+  (same scheduling fabric as #72 TDD §3.4, own Sentry cron monitor)
+  enumerates `merchant_*` graphs by prefix and **alerts** on any graph that
+  is neither a ledger-known current generation nor inside a live operation
+  — it never auto-deletes (deletion authority stays with verified
+  operations); the alert routes to a re-driven cleanup operation.
 - Opportunistic episode-delete (age > 180 d via `lastn`-windowed reads) may
   run between rebuilds **only after** V-1 verifies deletion semantics; it is
   an optimization, never the correctness mechanism.
 - Per-graph cap: 20,000 episodes enforced at rebuild (excess oldest dropped,
   logged).
 
-**Offboarding:** `DELETE /api/store-memory/<merchant_id>` (same internal auth
-chain; path merchant must equal the bound `X-Merchant-Id` **and** the
-body-bound merchant per §4.2). Writes the tombstone first, then deletes all
-generations **enumerated from Zep by prefix** `merchant_<hex32>` (never from
-Redis), then ledger cleanup; responds 202 with a redaction-status payload the
-engine's state machine (#193) polls/re-drives until verified-empty.
-Idempotent (repeat ⇒ re-verify ⇒ same terminal state; Zep 404s treated as
-success — same V-class check as #72's V-1).
+**Offboarding (revision 3 — the r2 `DELETE /api/store-memory/<merchant_id>`
+is removed: `verify_internal_hmac` is POST-only and signs only
+`timestamp.body`, so a bodyless DELETE cannot bind the tenant into signed
+bytes; the r2 text's "body-bound merchant" was inapplicable to it).**
+Offboarding is the `offboard` command on the same signed POST contract:
+tombstone first, delete **all** generations enumerated from Zep by prefix
+`merchant_<hex32>` (never from Redis), ledger cleanup, then terminal status
+`verified_empty` only after a re-enumeration returns none — a
+straggler-recreated graph fails the verify and the engine re-drives
+(engine#193). Idempotent per `operation_id` (repeat ⇒ re-verify ⇒ same
+terminal state; Zep 404s treated as success — same V-class check as #72's
+V-1).
 
 ## 8. Config
 
@@ -290,8 +361,8 @@ success — same V-class check as #72's V-1).
 | `STORE_MEMORY_MERCHANT_ALLOWLIST` | empty | Comma-separated merchant UUIDs; empty = no one (Phase 1-3 gate) |
 | `STORE_MEMORY_RETENTION_DAYS` | `180` | Floor 30 |
 | `STORE_MEMORY_MAX_EPISODES` | `20000` | Per graph, enforced at rebuild |
-| `STORE_MEMORY_REBUILD_EVERY_DAYS` | `30` | Rolling rebuild cadence, jittered |
-| `STORE_MEMORY_WORKING_SET_MAX` | `30` | Entity cap (D3) |
+| `STORE_MEMORY_REBUILD_EVERY_DAYS` | `30` | Rolling rebuild cadence (engine-side scheduling input, #192-E), jittered |
+| `STORE_MEMORY_WORKING_SET_MAX` | `30` | Entity cap (D3); edges 2×, anchors ≤ 8, one search call per anchor, per-call limit 10, serialized ≤ 8 KB (§5, revision 3) |
 | `STORE_MEMORY_OUTCOME_IDEM_TTL_DAYS` | `14` | Outcomes idempotency scope TTL (§4.2) |
 | `ATTRIBUTION_WINDOW_DAYS` | `7` | Engine-side, in the #192 contract |
 
@@ -306,23 +377,36 @@ Unit (fake Zep client that **records call types**, existing patterns):
 3. Tombstone: `ensure_store_graph` raises; write path skips + warns; a
    post-tombstone provisioning attempt cannot recreate.
 4. Dual-write guard: store-memory write failure does not fail the analysis.
-5. **Scan ban (revision 2):** any `get_all_nodes`/`get_all_edges`/
-   `panorama_search` against a `merchant_*` graph id raises
-   `StoreGraphScanBlocked`; ReportAgent's treated-run toolset excludes
-   `panorama_search`; the fake client asserts zero list-all calls across a
-   full treated-run pipeline test.
-6. Working set: caps enforced; cart anchors always present; empty store
-   graph ⇒ degenerates to cart-only.
+5. **Read-boundary ban (revision 3, was scan ban):** any
+   `get_all_nodes`/`get_all_edges`/`panorama_search` against a `merchant_*`
+   graph id raises `StoreGraphScanBlocked`; a treated-run ReportAgent is
+   constructed with `graph_id=None` and no Zep tools in its schema/dispatch;
+   the fake client asserts **zero Zep reads of any kind outside
+   `StoreGraphReader`** across a full treated-run pipeline test.
+6. Working set: all caps enforced (anchors dropped beyond 8 with logging,
+   one call per anchor, per-call limit, entity/edge caps, serialized-size
+   truncation); cart anchors always present; empty store graph ⇒ degenerates
+   to cart-only.
 7. Outcomes endpoint: auth chain (reuse `test_api_auth` /
    `test_cart_recovery_hmac` fixtures); **body-merchant vs header mismatch ⇒
-   403** (revision 2); idempotent replay within TTL; 503 releases the slot,
-   post-add ambiguity does not; malformed-body 400 with no PII in logs.
-8. Rebuild: pointer flip atomicity; old-generation grace; shopper-exclusion
-   (customer erasure) drops exactly that `anonymous_id`'s episodes; cap
-   enforcement; "oldest episode age" metric emitted.
-9. Offboarding: prefix-enumeration covers stale generations; verify pass
-   catches a straggler-recreated graph; idempotency.
-10. #72 interlock: sweeper regex + registry `graph_kind` assertions reject
+   403** (revision 2); `Idempotency-Key = attempt_id` replay within TTL;
+   503 releases the slot, post-add ambiguity does not; malformed-body 400
+   with no PII in logs.
+8. Commands endpoint (revision 3): same auth chain; unknown `kind` ⇒ 400;
+   `operation_id` idempotent replay returns the same operation; watermark
+   write-barrier drops pre-cutoff episodes for the watermarked shopper on
+   both the write path and replay pages (counted, logged).
+9. Rebuild operation: page ordering/`page_no` idempotency; count-vs-manifest
+   verification failure ⇒ `failed` terminal (no flip); old-generation grace;
+   shopper-exclusion drops exactly the watermarked `anonymous_id`'s
+   pre-cutoff episodes; cap enforcement; envelope `memory_generation`
+   mismatch with cache ⇒ envelope wins + drift alert.
+10. Offboard operation: tombstone-first ordering; prefix enumeration covers
+    stale generations; `verified_empty` only on empty re-list (straggler
+    recreation ⇒ `failed`, engine re-drives); idempotency per
+    `operation_id`.
+11. Stale-generation reaper: alerts on unknown generations, never deletes.
+12. #72 interlock: sweeper regex + registry `graph_kind` assertions reject
     `merchant_*` ids (asserted in both specs' suites).
 
 Integration (staging, env-gated like the repo's other gated tests): one real

@@ -17,6 +17,20 @@
 > Redaction (shop **and** customer level) is a durable state machine with
 > tombstones. The pilot evaluation is randomized/exposure-attributed. Engine
 > prerequisites are now explicit filed issues (#192, #193).
+>
+> **Revision 3 (2026-07-21), after review-round 2.** All lifecycle mutations
+> (rebuild, customer redaction, offboarding) are now **signed POST commands
+> from the engine** with operation ids, cutoff watermarks, status polling,
+> and verified completion — one design move that closes four of the round's
+> five blockers: the customer-redaction race gets a per-shopper watermark
+> enforced on every write and replay; the rebuild/replay feed becomes a
+> normative engine#192-E contract (engine-driven, matching the existing
+> call topology); the unprotectable DELETE endpoint is gone (Wakaru's HMAC
+> middleware is POST-only and signs only timestamp+body — verified); and the
+> current-generation pointer moves to the engine ledger, delivered on every
+> analyze request in the envelope, demoting Redis to a reconcilable cache.
+> The idempotency key is standardized on `attempt_id` across all documents
+> and engine#192.
 
 ## 1. Product thesis
 
@@ -101,27 +115,36 @@ the engine's `shop/redact` and `customers/redact` handlers are **stubs**
 graph could be silently recreated by a concurrent analysis, and customer-level
 erasure was unaddressed.
 
-Adopted policy:
+Adopted policy (revision 3 — every flow below is a **signed POST command**
+from the engine's state machine to Wakaru's single command endpoint, with an
+`operation_id`, idempotent replay, status polling, and completion only on
+verified evidence; contract in SCHEMA §5.2-5.4, engine side in #193's
+amendment):
 
 - **Active merchant:** rolling 180-day episode retention, enforced by
-  rebuild (D4).
-- **Uninstalled merchant (shop/redact):** the engine's durable redaction
-  state machine (vakaru-engine#193) calls Wakaru's offboarding API; Wakaru
-  deletes **all generations** of the store graph (enumerated from Zep by
-  prefix, not from Redis), the ledger entries, and writes a **merchant
-  tombstone** that `ensure_store_graph` checks — an in-flight analysis
-  cannot recreate the graph after deletion. Deletion is verified (re-listed)
-  and reported back; incomplete redaction past deadline alerts.
-- **Customer-level erasure (customers/redact):** the engine maps the request
-  to the tenant-scoped `anonymous_id`(s) and erases its ledger rows
-  (vakaru-engine#193); Wakaru excludes that shopper's episodes from the next
-  scheduled rebuild and triggers an immediate rebuild for that merchant —
-  **rebuild is the erasure mechanism**, so customer deletion does not depend
-  on unverified episode-delete semantics.
-- Both flows are idempotent under Shopify webhook redelivery and survive
-  retries, races, and Redis loss (state machine and tombstone live on the
-  engine side; Wakaru's tombstone check reads a key reconstructible from the
-  engine on drift).
+  engine-driven rebuild (D4; replay feed = engine#192-E).
+- **Uninstalled merchant (shop/redact ⇒ `offboard` command):** Wakaru writes
+  the **merchant tombstone first** (checked by `ensure_store_graph` — an
+  in-flight analysis cannot recreate the graph), then deletes **all
+  generations** enumerated from Zep by prefix (never from Redis), then
+  reports terminal status `verified_empty` only after a re-enumeration
+  returns none — a straggler-recreated graph fails the verify and the
+  engine re-drives. Incomplete redaction past deadline alerts engine-side.
+- **Customer-level erasure (customers/redact ⇒ watermark + `redact_customer`
+  command):** the engine persists a **redaction watermark**
+  `(merchant_id, anonymous_id, cutoff)` in its ledger (#193), erases its own
+  rows, and commands an immediate rebuild that excludes the shopper —
+  **rebuild is the erasure mechanism**, so customer deletion depends on
+  neither unverified episode-delete semantics nor luck. The watermark rides
+  every subsequent rebuild command and analyze envelope, and Wakaru enforces
+  it on **every episode write and every replay page** (revision 3 — closes
+  the race where an in-flight analysis carrying pre-redaction data re-writes
+  erased episodes after the rebuild). Completion evidence: only the new
+  generation exists and the watermark is active.
+- All flows are idempotent under Shopify webhook redelivery (`operation_id`)
+  and survive retries, races, and Redis loss: the state machine, tombstones,
+  watermarks, and generation pointer live in the **engine ledger**; Wakaru's
+  Redis copies are reconcilable caches refreshed by commands and envelopes.
 
 ## 5. Non-goals
 
@@ -143,9 +166,9 @@ review's recommended sequence (contract → #72 → foundation → pilot → sca
 |---|---|---|---|
 | 0a | #72 live (revised scheduler proven on real Redis + pinned RQ) | No | #72 steady state clean for 1 week |
 | 0b | Fixed `cr-v1` ontology replaces per-event LLM ontology on the **throwaway** path | No | Insight-confidence distribution non-inferior over 1 week (shadow comparison, not the causal test) |
-| **CG** | **Contract gate:** engine#192-A/B (versioned envelope + SQL priors) merged and deployed; envelope validated end-to-end in staging | No | Envelope fields present on real traffic |
+| **CG** | **Contract gate:** engine#192-A/B (versioned envelope incl. `memory_generation` + SQL priors) merged and deployed; envelope validated end-to-end in staging | No | Envelope fields present on real traffic |
 | 1 | Dual-write: pilot merchants' cart episodes (from envelope fields) also written to their `merchant_*` graph. Analysis still reads only the throwaway graph | No | V-2 exception classes pinned; readiness barrier race-tested; episodes visible via `get_by_graph_id` |
-| 2 | Outcome ingestion: engine#192-C/D (attempts + outbox) live → outcome episodes land in store graphs | No | Idempotent replay proven; outcome lag metric < 24 h |
+| 2 | Outcome ingestion (engine#192-C/D: attempts + outbox) **and lifecycle commands + rebuild feed (engine#192-E, #193)** live → outcomes land in store graphs; one full rebuild-and-verify and one redaction exercised in staging | No | Idempotent replay proven; outcome lag < 24 h; rebuild `verified_current` and redaction completion evidence observed |
 | 3 | Read integration for pilot merchants: bounded working set (graph) + SQL priors (envelope) feed personas + report; throwaway graph no longer created for treated runs | **Yes** | Per-merchant instant rollback verified; latency delta < +10% |
 | 4 | Decision gate on §7 → default-on for all merchants, or kill (graphs deleted, issue closed with data) | — | §7 criteria |
 

@@ -9,6 +9,14 @@
 > bounded arrays); `merchant_id` moved into the signed outcome body; the
 > engine-side contract is the filed issue vakaru-engine#192; redaction hooks
 > reference vakaru-engine#193.
+>
+> **Revision 3 (2026-07-21):** lifecycle mutations become the signed
+> **command contract** (§5.2-5.4: `rebuild` / `redact_customer` / `offboard`
+> commands + replay pages + operation status) — the DELETE endpoint is
+> removed (the HMAC middleware is POST-only). The envelope gains
+> `memory_generation` (engine-ledger-authoritative generation pointer;
+> Redis demoted to cache). Redaction watermarks added. Idempotency
+> standardized on `attempt_id`.
 
 Four schema surfaces: the Zep ontology (§2), the Redis ledger (§3), the
 episode payloads (§4), and the internal API + engine outbox contract (§5).
@@ -67,18 +75,23 @@ lazy re-apply; rename/remove ⇒ rebuild generation (TDD §3, §7).
 
 | Key | Type | Fields / members | Written |
 |---|---|---|---|
-| `zep:store:<merchant_id>` | Hash | `graph_id` (current generation), `status` (`provisioning\|ready`), `ontology_version`, `created_at` (epoch s), `last_rebuilt_at`, `episode_count_estimate` | `ensure_store_graph` (readiness barrier, TDD §2), rebuild flip (TDD §7) |
-| `zep:store:<merchant_id>:tombstone` | String, no TTL | Redaction timestamp; presence blocks `ensure_store_graph` (PRD §4) | Offboarding (engine#193-driven) |
-| `zep:stores` | Set | merchant_ids with a live store graph | Provisioning, offboarding; rebuild job's iteration source |
+| `zep:store:<merchant_id>` | Hash | `graph_id` (current generation — **cache**; the envelope's `memory_generation` is authoritative and wins on mismatch, with a drift alert; TDD §2), `status` (`provisioning\|ready`), `ontology_version`, `created_at` (epoch s), `last_rebuilt_at`, `episode_count_estimate` | `ensure_store_graph` (readiness barrier, TDD §2), rebuild terminal status (TDD §7), envelope reconcile |
+| `zep:store:<merchant_id>:tombstone` | String, no TTL | Redaction timestamp; presence blocks `ensure_store_graph` (PRD §4) | `offboard` command (engine#193-driven) |
+| `zep:store:<merchant_id>:watermarks` | Hash | `anonymous_id → cutoff_ts` (RFC 3339); enforced on every episode write and replay page (TDD §4.1) — **cache**; durable source = engine ledger, refreshed by every `rebuild`/`redact_customer` command | `redact_customer` command, rebuild commands |
+| `zep:store:op:<operation_id>` | Hash, `EX 30d` | `kind`, `merchant_id`, `status` (`running\|verified_current\|verified_empty\|failed`), `detail`, `updated_at` — backs the §5.4 status GET and `operation_id` idempotency | Commands endpoint, operation progress |
+| `zep:stores` | Set | merchant_ids with a live store graph | Provisioning, offboarding; reaper's iteration hint |
 | `zep:merchant:<merchant_id>:graphs` | Set | Reused from #72 SCHEMA §2.3 — store generations join the merchant's set | Provisioning, rebuild, offboarding |
 | `zep:graph:<graph_id>` | Hash | Same shape as #72 SCHEMA §2.1 with `graph_kind=store` (writer asserts `merchant_*` id) | Provisioning, rebuild, offboarding |
 
-Reconstruction (revision 2, explicit): all of the above except the tombstone
-are rebuildable from a Zep `list_all` prefix scan + the engine ledger; the
-tombstone's durable source is the engine's redaction state machine
-(engine#193), which re-drives Wakaru until verified — so a flushed Redis
-delays nothing privacy-critical. The rebuild job reconciles `zep:stores`
-against the prefix scan each cycle and alerts on drift.
+Reconstruction (revision 2, made load-bearing-free in revision 3): every key
+above is a cache or coordination record. Durable sources: generation pointer
+and operation log = engine operations ledger (#192-E, delivered via envelope
+`memory_generation` and commands); tombstones and watermarks = engine
+redaction state machine (#193, re-delivered on every relevant command);
+graph existence = Zep prefix scan. A flushed Redis therefore delays nothing
+privacy-critical and mis-states nothing exact; caches are refreshed by the
+next envelope/command, and the stale-generation reaper (TDD §7) plus
+envelope-mismatch drift alerts surface any residue.
 
 ## 4. Episode payloads — **normative contracts** (revision 2)
 
@@ -127,7 +140,9 @@ producing and consuming ends. Rules for both:
 `event_id` = `<shopify_store_id>:<anonymous_id>:<episode_type>:<checkout_started_at>`
 — mirrors the engine's `abandonment_detections` PK (migrations 034/040) and
 arrives **pre-built in the envelope** (engine#192-A; Wakaru never
-re-derives it). Zep `created_at` param = `occurred_at`.
+re-derives it). The envelope also carries `memory_generation` (revision 3 —
+the engine-ledger generation pointer, TDD §2) and any active redaction
+watermarks for context. Zep `created_at` param = `occurred_at`.
 
 ### 4.2 Recovery-outcome episode (ingested via the endpoint; engine#192-C/D producer)
 
@@ -172,7 +187,7 @@ attribution-window close. Zep `created_at` = `resolved_at`.
 - `Idempotency-Key` header **required**: value = `attempt.attempt_id`
   (unique per attempt); scope `outcomes:<merchant_id>` via the existing
   `idempotency.py` with **TTL 14 days** (revision 2 — exceeds the outbox
-  backoff ceiling; the durable at-most-once layer is §5.3's UNIQUE + terminal
+  backoff ceiling; the durable at-most-once layer is §5.5's UNIQUE + terminal
   states, this TTL only covers one delivery sequence).
 - Body: §4.2, strictly validated. Responses: `202` accepted; `400` schema
   violation (PII-free error body); `401/403` auth chain or merchant
@@ -180,19 +195,55 @@ attribution-window close. Zep `created_at` = `resolved_at`.
   the idempotency slot (work not performed); an ambiguous failure after the
   graph write does **not** release it (possibly-succeeded discipline).
 
-### 5.2 `DELETE /api/store-memory/<merchant_id>` (Wakaru, new; offboarding)
+### 5.2 `POST /api/store-memory/commands` (Wakaru, new; revision 3 — replaces the r2 DELETE, which the POST-only HMAC middleware could not protect)
 
-Same auth chain; path merchant must equal bound `X-Merchant-Id`. Semantics
-(revision 2 — delete-and-verify, tombstone-first): write tombstone → delete
-all generations enumerated from Zep by prefix → ledger cleanup → `202` with
-`{status: verified_empty | pending, remaining: [...]}`. The engine's
-redaction state machine (engine#193) re-calls until `verified_empty`;
-idempotent, Zep 404 = success. Customer-level erasure is **not** an endpoint
-here: engine#193 erases its ledger rows and the shopper is excluded from the
-next (immediately triggered) rebuild — rebuild is the erasure mechanism
-(TDD §7).
+Same auth chain as §5.1 (the signed body carries `merchant_id`; 403 on
+header mismatch). `Idempotency-Key = operation_id`, scope
+`commands:<merchant_id>`, 14-day TTL. Body:
 
-### 5.3 Engine outbox (engine repo — **owned by vakaru-engine#192-D**; pattern = migration `036_orders_inkwell_forwarding`)
+```json
+{
+  "schema_version": 1,
+  "operation_id": "op_4f8a12",
+  "kind": "rebuild | redact_customer | offboard",
+  "merchant_id": "8b1c5f2e-4a6d-4e0b-9c3a-1f2e3d4c5b6a",
+  "memory_generation_next": 3,
+  "snapshot_id": "snap_2026-07-21_8b1c",
+  "expected_event_count": 1742,
+  "retention_cutoff": "2026-01-22T00:00:00Z",
+  "watermarks": [{"anonymous_id": "a-7f3c9d", "cutoff": "2026-07-21T10:00:00Z"}]
+}
+```
+
+`rebuild` requires the snapshot/count/generation fields; `redact_customer`
+requires `watermarks` (and implies an immediate rebuild); `offboard`
+requires none of them (tombstone-first, all-generation delete, TDD §7).
+Responses: `202` (operation accepted/replayed — same operation), `400`
+schema violation / unknown `kind`, `401/403` auth or merchant mismatch,
+`409` operation in progress with a different payload.
+
+### 5.3 `POST /api/store-memory/replay-pages` (Wakaru, new; the engine#192-E feed)
+
+Same auth chain. One page of a `rebuild` operation's snapshot:
+`{schema_version, operation_id, merchant_id, page_no, page_count,
+event_count, checksum, events: [§4.1 cart episodes and §4.2 outcomes]}` —
+`occurred_at`-ascending, bounded page size (≤ 500 events), idempotent per
+`(operation_id, page_no)` (replayed pages are acknowledged, not re-applied).
+Watermarks are enforced per episode on apply (TDD §4.1). `409` if the
+operation is not in `running` state.
+
+### 5.4 `GET /api/store-memory/operations/<operation_id>` (Wakaru, new; status)
+
+Read-only poll (like the existing jobs GET: X-API-Key + merchant binding
+suffice — no body to sign). Returns
+`{operation_id, kind, status: running | verified_current | verified_empty |
+failed, detail, memory_generation, updated_at}`. Terminal statuses carry the
+completion evidence (post-delete re-enumeration result, verified episode
+count). The engine's state machine (#193) polls this and re-drives on
+`failed`; it marks its own leg complete **only** on the verified terminal
+status.
+
+### 5.5 Engine outbox (engine repo — **owned by vakaru-engine#192-D**; pattern = migration `036_orders_inkwell_forwarding`)
 
 ```sql
 CREATE TABLE IF NOT EXISTS wakaru_outcome_forwards (

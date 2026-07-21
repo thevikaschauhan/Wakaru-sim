@@ -14,6 +14,18 @@
 > (§3.2). The orphan-age metric derives from the Zep scan (§3.2). Per-run
 > deletion is capped. The dry-run parser has one rule. Queue-interference
 > bounds are stated honestly (§3.4).
+>
+> **Revision 3 (2026-07-21), after review-round 2 — the r2 liveness story was
+> self-referential:** a work-horse SIGKILL/OOM skips the job's `finally`
+> while the worker process survives, so the chain dies with no boot to
+> reconcile it, and the 2×TTL alert was emitted by the very sweep that was no
+> longer running. Fixed with an **independent watcher** (Sentry Cron Monitor
+> check-in per occurrence — missed-check-in alerts come from Sentry's
+> infrastructure, not the worker) plus an RQ failure callback that re-seeds
+> the chain when a horse dies (§3.4). Lock release is Lua compare-and-delete
+> **only** (the r2 GET+DELETE fallback had a lease-expiry race). The sweep
+> keeps a bounded candidate heap with streamed metrics instead of collecting
+> every match (§3.2).
 
 ## 1. Verified API surface this design depends on
 
@@ -130,12 +142,14 @@ def sweep_orphan_graphs(*, dry_run: bool, ttl_hours: int, page_size: int,
                         max_deletes: int) -> SweepStats:
 ```
 
-Algorithm (single pass, bounded memory, bounded work):
+Algorithm (single listing pass; **genuinely bounded memory — revision 3**:
+the r2 text claimed bounded memory while collecting every match; now only a
+`max_deletes`-sized heap and running aggregates are retained):
 
 1. `page = 1`; loop `client.graph.list_all(page_number=page, page_size=page_size)`
-   until `graphs` is empty/None. **Collect matching candidates first, delete
-   after listing completes** — deleting while paginating shifts pages and
-   skips entries.
+   until `graphs` is empty/None. **No deletion during pagination** — deleting
+   while paginating shifts pages and skips entries. Per page, each matched
+   graph is folded into streaming state and the page is discarded.
 2. For every `SWEEPABLE_RE.fullmatch(graph_id)` graph, establish **proven
    age**:
    - Parse vendor `created_at` (ISO-8601 via `datetime.fromisoformat` after
@@ -147,22 +161,36 @@ Algorithm (single pass, bounded memory, bounded work):
      a vendor timestamp-format regression must not become a mass deletion of
      in-flight graphs; disposal of persistent unknown-age orphans is the §8
      runbook's operator-approved path).
-3. Candidates = matched graphs with proven age > `ttl_hours`, oldest first,
-   truncated to `max_deletes` (default 200; remainder drains next cycle —
-   `truncated_backlog` counted in stats so a large backlog is visible, per
-   the no-silent-caps rule).
-4. For each candidate: if `dry_run`, log intent; else `client.graph.delete`,
-   `record_deleted(graph_id, source="sweep")`. Per-graph try/except: one
-   failure never aborts the sweep; failures counted and logged by id.
-5. **Metrics from this scan, not Redis:** `oldest_scratch_age_seconds` = age
-   of the oldest *matched* graph still present after deletions (recomputed
-   from the collected listing). Reconcile the Redis registry against the
-   listing (remove entries whose graphs no longer exist; flag ledger drift).
-6. Emit one summary log line (`zep_sweep scanned=… matched=… deleted=…
-   failed=… skipped_dry_run=… skipped_unknown_age=… truncated_backlog=…
-   oldest_scratch_age_s=… total_count=…`) and `sentry_sdk.capture_message`
-   on: sweep-level exception, per-graph failure count > 0,
-   `skipped_unknown_age > 0`, or `oldest_scratch_age_s > 2 × ttl_hours`.
+3. Streaming state (revision 3): a **bounded max-heap of the oldest
+   ≤ `max_deletes` eligible candidates** (eligible = proven age >
+   `ttl_hours`); running counters `scanned`, `matched`, `eligible_total`,
+   `skipped_unknown_age`; running `oldest_scratch_age_seconds` over **all**
+   matched graphs (aggregate, no ids retained). `eligible_total −
+   len(heap)` is reported as `truncated_backlog` — the cap bounds deletion
+   calls per cycle, and the backlog it defers is visible, not silent.
+   Dry-run inventories via these counters + WARNING-level per-id log lines
+   as they stream — it does not require storing all ids either.
+4. For each heap candidate (oldest first): if `dry_run`, log intent; else
+   `client.graph.delete`, `record_deleted(graph_id, source="sweep")`.
+   Per-graph try/except: one failure never aborts the sweep; failures
+   counted and logged by id.
+5. **Metrics from this scan, not Redis:** `oldest_scratch_age_seconds` as
+   accumulated in step 3 (adjusted for deletions of the oldest candidates).
+   Reconcile the Redis registry against the listing (remove entries whose
+   graphs no longer exist; flag ledger drift) — membership checks stream per
+   page against the registry, no full listing copy needed.
+6. Emit one summary log line (`zep_sweep scanned=… matched=…
+   eligible_total=… deleted=… failed=… skipped_dry_run=…
+   skipped_unknown_age=… truncated_backlog=… oldest_scratch_age_s=…
+   total_count=…`) and `sentry_sdk.capture_message` on: sweep-level
+   exception, per-graph failure count > 0, `skipped_unknown_age > 0`, or
+   `oldest_scratch_age_s > 2 × ttl_hours`.
+7. **Liveness check-in (revision 3):** the occurrence wraps its body in a
+   Sentry Cron Monitor check-in (`monitor_slug="zep-graph-sweep"`,
+   schedule = interval, grace = interval; `sentry_sdk.crons` — the SDK is
+   already a dependency). In-progress → ok/error statuses are reported; a
+   **missed** check-in alert is raised by Sentry's own infrastructure, so
+   sweep death is detected by something the sweep cannot take down with it.
 
 Config (module-level, read live from `os.environ` per the `Config.validate`
 convention):
@@ -197,19 +225,23 @@ correctness (PRD FR-4).
 `.work(with_scheduler=True)` (RQ ≥ 1.2 built-in scheduler; in-range for the
 pinned `rq>=1.16,<2`).
 
-**Interference bound, stated honestly (revision 2):** an RQ worker executes
-one job at a time, so queues do not isolate workloads — they set priority.
-With `analyze` listed first, a queued analysis always dequeues ahead of a
-queued sweep; the worst case for a paid analysis is waiting out one
-**in-flight** sweep, bounded by the sweep `job_timeout` of **300 s**. The
-worst case for the sweep is starvation under sustained back-to-back analyses;
-that state is self-signaling because the Zep-derived orphan-age alert (§3.2)
-fires at 2 × TTL. This trade (≤ 5 min added tail latency on an 8-17 min job,
-vs a new operator-provisioned Railway service) is deliberate; a dedicated
-maintenance worker service remains the documented scale-out path if either
-bound is hit in practice.
+**Interference bound, stated honestly (revision 2; alerting corrected in
+revision 3):** an RQ worker executes one job at a time, so queues do not
+isolate workloads — they set priority. With `analyze` listed first, a queued
+analysis always dequeues ahead of a queued sweep; the worst case for a paid
+analysis is waiting out one **in-flight** sweep, bounded by the sweep
+`job_timeout` of **300 s**. The worst case for the sweep is starvation under
+sustained back-to-back analyses — detected by the **missed Sentry Cron
+check-in** (§3.2 step 7), which fires from outside the worker (revision 3:
+the r2 text claimed the orphan-age alert covers this, but a starved sweep
+emits no metrics at all — starvation must be watched externally). This trade
+(≤ 5 min added tail latency on an 8-17 min job, vs a new
+operator-provisioned Railway service) is an explicit product acceptance in
+PRD §3; a dedicated maintenance worker service remains the documented
+scale-out path if either bound is hit in practice.
 
-**Occurrence scheduling (revision 2 — replaces same-id self-reschedule):**
+**Occurrence scheduling (revision 2 — replaces same-id self-reschedule;
+revision 3 — liveness made independent of the chain):**
 
 - Every sweep occurrence is enqueued with a **unique** job id
   (`zep-graph-sweep-<uuid4hex>`), `job_timeout=300`, `result_ttl=0`,
@@ -224,25 +256,41 @@ bound is hit in practice.
   the lock is held by another occurrence, this occurrence exits immediately
   **without sweeping and without rescheduling** — it is a duplicate chain,
   and declining to reschedule is what collapses duplicate chains back to one.
-  The winner deletes the lock in a `finally` (only if it still owns it —
-  compare-and-delete via a small Lua script or `GET`+`DELETE` guarded by the
-  occurrence id).
+  The winner releases the lock in a `finally` via **atomic Lua
+  compare-and-delete only** (revision 3: the r2 GET+DELETE fallback is
+  removed — the lease can expire between GET and DELETE and the DELETE would
+  then kill a successor's lock; non-atomic release is not an allowed
+  implementation).
 - **Self-perpetuation:** the lock-holding occurrence schedules the next
   occurrence in the same `finally` (after lock release logic, before exit):
   `maintenance_queue.enqueue_in(timedelta(minutes=interval), sweep_job,
-  job_id=new_unique_id)` + refresh `zep:sweep:next`. A crash *before* the
-  `finally` leaves the marker to expire, which the reconciler heals.
-- **Boot reconciler:** on worker start, if `zep:sweep:next` is absent,
-  enqueue an immediate occurrence (with `SET NX` on the marker as the claim,
-  so simultaneously booting replicas enqueue once; a lost race simply skips).
-  This is the same boot-reconciler pattern engine #156 uses.
+  job_id=new_unique_id)` + refresh `zep:sweep:next`.
+- **Chain-death healing (revision 3 — the r2 story was incomplete: a
+  work-horse SIGKILL/OOM skips `finally` while the worker survives, and the
+  boot reconciler only runs at boot):**
+  - **RQ failure callback:** occurrences are enqueued with an `on_failure`
+    callback (runs in the *worker* process, which survives horse death) that
+    re-seeds the chain — `SET NX` claim on `zep:sweep:next`, then enqueue a
+    fresh occurrence `interval` out. Covers job exceptions, timeouts, and
+    horse kills that RQ detects.
+  - **Boot reconciler:** unchanged (worker start + marker absent ⇒ enqueue,
+    `SET NX` claim; racing replicas seed once) — now the second line of
+    defense, not the only one.
+  - **Independent watcher (the actual guarantee):** the Sentry Cron Monitor
+    check-in (§3.2 step 7) alerts on a missed occurrence from outside the
+    worker entirely. Whatever kills the chain — including failure modes the
+    two heals above cannot see (worker wedged, scheduler thread dead,
+    sustained queue starvation) — surfaces as a missed check-in within one
+    interval + grace. **No liveness property is attested solely by the
+    mechanism whose death it must detect.**
 
-**Proof obligation (revision 2):** these mechanics are covered by
-integration tests running against **real Redis and the pinned RQ version**
-(§6, tests 10-12) — not asserted from documentation. The failure of the
-revision-1 design (same-id reschedule) is itself pinned as a regression test:
-scheduling a unique-id occurrence while another runs must never mutate the
-running job's record.
+**Proof obligation (revision 2, extended by revision 3):** these mechanics
+are covered by integration tests running against **real Redis and the pinned
+RQ version** (§6, tests 12-16) — not asserted from documentation. Pinned
+regressions: scheduling a unique-id occurrence while another runs must never
+mutate the running job's record (r1 failure); a horse-killed occurrence must
+still yield a rescheduled chain via `on_failure` (r2 failure); lock release
+must be atomic under lease expiry (r2 failure).
 
 ### 3.5 Not changed
 
@@ -260,10 +308,13 @@ running job's record.
 | Worker killed mid-run (SIGKILL, deploy) | No inline delete happens | Same — graph is listed, aged, swept |
 | Vendor `created_at` format changes | Ages unparseable ⇒ ledger corroboration; if both unavailable, graphs are **retained** and `skipped_unknown_age` alerts | Operator runbook; no mass deletion (revision 2) |
 | Redis flushed / unavailable | Ledger writes no-op with warning; marker + lock lost | Boot reconciler restores the chain on worker start; sweep correctness and the orphan-age metric are Zep-derived and unaffected |
-| Sweep occurrence crashes before scheduling next | Chain broken; marker expires | Boot reconciler re-seeds; Sentry captured the crash; worst-case gap = time to next worker restart, alerted at 2 × TTL |
+| Occurrence raises / times out | RQ marks it failed | `on_failure` callback (worker process) re-seeds the chain immediately (revision 3) |
+| Work horse SIGKILL/OOM (`finally` skipped, worker survives) | Chain would die silently in r2 | `on_failure` re-seeds when RQ detects horse death; regardless, the **missed Sentry Cron check-in alerts within interval + grace** (revision 3) |
+| Worker wedged / scheduler thread dead / sustained starvation | No occurrences run; nothing in-process can notice | Missed Sentry Cron check-in — the watcher is external to the worker (revision 3) |
 | Duplicate chains (replica race, manual enqueue) | Loser fails the singleton lock, exits without rescheduling | Chains collapse to one within one interval |
-| Zep outage during sweep | Sweep fails, Sentry message; `finally` still schedules next occurrence | Next cycle retries |
-| Backlog larger than per-run cap | Oldest-first deletion, `truncated_backlog` logged | Drains across cycles; visible, not silent |
+| Lock lease expires mid-sweep, successor acquires | Lua compare-and-delete release no-ops on the successor's lock (revision 3 — GET+DELETE removed for exactly this race) | Successor proceeds; overlap bounded by lease design |
+| Zep outage during sweep | Sweep fails, Sentry error status on the check-in; `finally` still schedules next occurrence | Next cycle retries |
+| Backlog larger than per-run cap | Oldest-first deletion from the bounded heap, `truncated_backlog` logged | Drains across cycles; visible, not silent |
 | Operator sets TTL below in-flight run length | Floor of 6 h refuses the value, warns, uses default | — |
 | #61 later adds `merchant_*` graphs | Regex cannot match them; `record_created` asserts scratch ids only | Structural, tested |
 
@@ -296,25 +347,36 @@ Unit (pytest, `backend/tests/`, fake Zep client per existing patterns in
    ordering asserted.
 7. `test_sweeper_partial_failure` — one delete raises; sweep continues;
    failure counted.
-8. `test_sweeper_delete_cap` — backlog > cap ⇒ oldest-first, cap respected,
-   `truncated_backlog` counted. (Revision 2.)
-9. `test_metrics_from_scan` — oldest age computed from the fake listing, not
-   Redis; registry reconciliation removes stale entries. (Revision 2.)
+8. `test_sweeper_delete_cap_bounded_heap` — backlog > cap ⇒ oldest-first
+   from the heap, cap respected, `truncated_backlog` = eligible_total − cap;
+   heap never holds more than `max_deletes` entries during a multi-page
+   listing (revision 3 asserts the memory bound, not just the call bound).
+9. `test_metrics_from_scan` — oldest age computed from the streamed listing,
+   not Redis; registry reconciliation removes stale entries. (Revision 2.)
 10. `test_ttl_floor` — config guard.
+11. `test_cron_checkin_emitted` — occurrence body wraps in the Sentry cron
+    check-in (fake transport records in_progress → ok on success, error on
+    raise). (Revision 3.)
 
 Integration (real Redis + pinned RQ; new `tests/test_sweep_scheduling.py`,
 env-gated on a Redis URL like the repo's other gated tests — revision 2's
-proof obligation):
+proof obligation, extended by revision 3):
 
-11. `test_unique_occurrence_ids_never_touch_running_job` — start occurrence A
+12. `test_unique_occurrence_ids_never_touch_running_job` — start occurrence A
     (long-running stub), schedule occurrence B; assert A's job hash is
     unmodified and A completes + cleans only its own record.
-12. `test_chain_heals_after_kill` — kill an occurrence before its `finally`;
-    marker expires; boot reconciler re-seeds exactly one occurrence
-    (two reconcilers racing seed exactly one — `SET NX` claim).
-13. `test_duplicate_chains_collapse` — two live occurrences; loser exits
+13. `test_on_failure_reseeds_chain` — occurrence raises (and separately: its
+    horse is killed); the `on_failure` callback enqueues exactly one fresh
+    occurrence and refreshes the marker. (Revision 3.)
+14. `test_boot_reconciler` — marker expired, no scheduled occurrence; worker
+    boot re-seeds exactly one (two reconcilers racing seed exactly one —
+    `SET NX` claim).
+15. `test_duplicate_chains_collapse` — two live occurrences; loser exits
     without sweeping or rescheduling; exactly one chain remains after one
     interval.
+16. `test_lock_release_atomic` — occurrence A's lease expires mid-run;
+    occurrence B acquires; A's release no-ops (Lua compare-and-delete) and
+    B's lock survives. (Revision 3 — pins the removed GET+DELETE race.)
 
 Regression: existing `test_cart_recovery_cleanup.py` suite stays green
 (signature change is defaulted).

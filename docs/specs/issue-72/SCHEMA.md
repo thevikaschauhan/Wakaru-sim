@@ -87,8 +87,8 @@ sentinel.
 
 | Key | Type | Semantics |
 |---|---|---|
-| `zep:sweep:lock` | String, `SET NX EX 360` | Singleton execution lease; value = occurrence job id. Held for the duration of one sweep occurrence; compare-and-delete on release. A duplicate occurrence that fails to acquire exits without sweeping or rescheduling (chain collapse). |
-| `zep:sweep:next` | String, `EX = 3 × interval` | Chain-liveness marker; value = the next scheduled occurrence's job id. Refreshed on every successful schedule. Absent ⇒ chain dead ⇒ boot reconciler enqueues (with `SET NX` as the claim so racing replicas seed once). |
+| `zep:sweep:lock` | String, `SET NX EX 360` | Singleton execution lease; value = occurrence job id. Held for the duration of one sweep occurrence; released **only** via atomic Lua compare-and-delete on the owning occurrence id (revision 3 — GET+DELETE is not an allowed release: the lease can expire between the two commands and the DELETE would kill a successor's lock). A duplicate occurrence that fails to acquire exits without sweeping or rescheduling (chain collapse). |
+| `zep:sweep:next` | String, `EX = 3 × interval` | Chain-liveness marker; value = the next scheduled occurrence's job id. Refreshed on every successful schedule (including by the `on_failure` re-seed). Absent ⇒ chain dead ⇒ boot reconciler enqueues (with `SET NX` as the claim so racing replicas seed once). Liveness *alerting* does not depend on this key — the Sentry Cron Monitor is the external watcher (TDD §3.4). |
 
 RQ-owned keys (no new schema, listed for the namespace map):
 `rq:queue:maintenance`, `rq:scheduled:maintenance` (ScheduledJobRegistry
