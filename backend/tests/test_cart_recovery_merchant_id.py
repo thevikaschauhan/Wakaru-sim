@@ -50,7 +50,7 @@ def _fake_insight():
     )
 
 
-def _fake_run_with_progress(cart, on_progress=None):
+def _fake_run_with_progress(cart, on_progress=None, merchant_id=None):
     # Fire the progress callback so the INFO log line (which carries the
     # merchant_id prefix under test) is emitted, then return a stub insight.
     if on_progress is not None:
@@ -166,7 +166,7 @@ def test_analyze_same_idem_key_different_merchants_run_separately(client, monkey
     monkeypatch.setattr("app.api.cart_recovery.get_redis_connection", lambda: conn)
     calls = []
 
-    def counting_run(cart, on_progress=None):
+    def counting_run(cart, on_progress=None, merchant_id=None):
         calls.append(1)
         return _fake_insight()
 
@@ -238,7 +238,7 @@ def test_worker_log_line_carries_merchant_id(monkeypatch, caplog):
     fake_job.save_meta = lambda: None
     monkeypatch.setattr(jobs, "get_current_job", lambda: fake_job)
 
-    def _raise(cart, on_progress=None):
+    def _raise(cart, on_progress=None, merchant_id=None):
         raise RuntimeError("engine boom")
 
     monkeypatch.setattr(jobs, "run_cart_recovery", _raise)

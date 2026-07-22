@@ -1,17 +1,21 @@
-"""Issue #24 (CP2b) — per-analysis scratch cleanup.
+"""Issue #24 (CP2b) + issue #72 - per-analysis scratch cleanup.
 
 run_cart_recovery removes the project / simulation / report dirs it writes under
 uploads/ once the insight is produced (success or failure), so PII-bearing
 scratch with no live reader does not co-mingle across tenants or accumulate.
-These tests cover the manager delete primitives and the _cleanup_artifacts
-orchestrator in isolation; the finally-wiring (cleanup fires on success AND
-failure, with the right ids) is exercised in test_cart_recovery_workflow.py.
+Issue #72 adds a fourth guarded cleanup block: the run's throwaway Zep graph is
+deleted inline and its lifecycle-ledger record closed. These tests cover the
+manager delete primitives and the _cleanup_artifacts orchestrator in isolation;
+the finally-wiring (cleanup fires on success AND failure, with the right ids)
+is exercised in test_cart_recovery_workflow.py.
 """
 from types import SimpleNamespace
 
 import app.services.cart_recovery_workflow as wf
 from app.services.report_agent import ReportManager
 from app.services.simulation_manager import SimulationManager
+
+FAKE_GRAPH_ID = "mirofish_0123456789abcdef"
 
 
 # --- manager delete primitives -----------------------------------------------
@@ -98,3 +102,72 @@ def test_cleanup_artifacts_is_best_effort(monkeypatch):
     wf._cleanup_artifacts("proj_x", "sim_x")  # must not raise despite all three failing
 
     assert attempted == ["project", "sim", "report"]
+
+
+# --- #72: fourth guarded block - inline Zep graph delete ----------------------
+
+def _stub_local_deletes(monkeypatch):
+    monkeypatch.setattr(wf.ReportManager, "get_report_by_simulation", lambda sid: None)
+    monkeypatch.setattr(wf.ProjectManager, "delete_project", lambda pid: None)
+    monkeypatch.setattr(wf.SimulationManager, "delete_simulation", lambda sid: None)
+
+
+def test_cleanup_artifacts_deletes_zep_graph_and_closes_ledger(monkeypatch):
+    _stub_local_deletes(monkeypatch)
+    deleted_graphs, ledger = [], []
+
+    class FakeBuilder:
+        def __init__(self, api_key=None):
+            pass
+
+        def delete_graph(self, graph_id):
+            deleted_graphs.append(graph_id)
+
+    monkeypatch.setattr(wf, "GraphBuilderService", FakeBuilder)
+    monkeypatch.setattr(
+        wf.graph_lifecycle, "record_deleted", lambda gid, source: ledger.append((gid, source))
+    )
+
+    wf._cleanup_artifacts("proj_x", "sim_x", FAKE_GRAPH_ID, "merchant-uuid")
+
+    assert deleted_graphs == [FAKE_GRAPH_ID]
+    assert ledger == [(FAKE_GRAPH_ID, "inline")]
+
+
+def test_cleanup_artifacts_zep_delete_failure_is_guarded(monkeypatch):
+    # A Zep delete failure must neither propagate (the block runs in the
+    # analysis finally) nor close the ledger record of a still-existing graph
+    # (the W2 sweeper needs to find it).
+    _stub_local_deletes(monkeypatch)
+    ledger = []
+
+    class BoomBuilder:
+        def __init__(self, api_key=None):
+            pass
+
+        def delete_graph(self, graph_id):
+            raise OSError("zep unreachable")
+
+    monkeypatch.setattr(wf, "GraphBuilderService", BoomBuilder)
+    monkeypatch.setattr(
+        wf.graph_lifecycle, "record_deleted", lambda gid, source: ledger.append((gid, source))
+    )
+
+    wf._cleanup_artifacts("proj_x", "sim_x", FAKE_GRAPH_ID, "merchant-uuid")  # must not raise
+
+    assert ledger == []
+
+
+def test_cleanup_artifacts_without_graph_skips_zep_delete(monkeypatch):
+    # graph_id=None (failure before graph creation, or a legacy 2-arg call):
+    # the Zep client must not even be constructed.
+    _stub_local_deletes(monkeypatch)
+
+    class MustNotConstruct:
+        def __init__(self, api_key=None):
+            raise AssertionError("GraphBuilderService must not be built without a graph_id")
+
+    monkeypatch.setattr(wf, "GraphBuilderService", MustNotConstruct)
+
+    wf._cleanup_artifacts("proj_x", "sim_x", None, "merchant-uuid")
+    wf._cleanup_artifacts("proj_x", "sim_x")  # defaulted legacy signature

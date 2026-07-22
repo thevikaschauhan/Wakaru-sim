@@ -24,9 +24,14 @@ from app.services import cart_recovery_workflow as wf
 from app.services.report_agent import ReportStatus
 from app.services.simulation_manager import SimulationStatus
 from app.services.simulation_runner import RunnerStatus
+from app.utils.paths import SENTINEL_MERCHANT_ID
 from cart_recovery.email_prompt_builder import AbandonmentInsight
 from cart_recovery.recovery_spec import assess_confidence_heuristic
 from cart_recovery.shopify_formatter import ShopifyCartData
+
+# Valid scratch-graph id (mirofish_<16hex>): graph_lifecycle.record_created
+# structurally rejects anything else (#72), so the fakes must mint the real shape.
+FAKE_GRAPH_ID = "mirofish_0123456789abcdef"
 
 
 def _make_cart(customer_id="cust_x"):
@@ -59,6 +64,10 @@ def harness(monkeypatch):
     # Config reads env at import time, so set the class attrs the orchestrator checks.
     monkeypatch.setattr(Config, "ZEP_API_KEY", "test")
     monkeypatch.setattr(Config, "LLM_API_KEY", "test")
+    # Keep the graph-lifecycle ledger (#72) off any real Redis a developer
+    # environment might carry: unset REDIS_URL so record_* take their
+    # warn-and-no-op path.
+    monkeypatch.delenv("REDIS_URL", raising=False)
 
     calls = []
     state = SimpleNamespace(
@@ -97,8 +106,11 @@ def harness(monkeypatch):
         def build_graph_sync(self, text, ontology, graph_name, on_graph_created=None, **kw):
             calls.append("build")
             if on_graph_created:
-                on_graph_created("graph_test")
-            return {"graph_id": "graph_test", "graph_data": {}, "node_count": 1, "edge_count": 1, "chunk_count": 1}
+                on_graph_created(FAKE_GRAPH_ID)
+            return {"graph_id": FAKE_GRAPH_ID, "graph_data": {}, "node_count": 1, "edge_count": 1, "chunk_count": 1}
+
+        def delete_graph(self, graph_id):
+            calls.append(("delete_graph", graph_id))
 
     class FakeManager:
         @staticmethod
@@ -175,7 +187,9 @@ def harness(monkeypatch):
     monkeypatch.setattr(wf, "ReportAgent", FakeReportAgent)
     monkeypatch.setattr(wf, "LLMClient", FakeLLMClient)
     monkeypatch.setattr(wf, "_RUN_POLL_INTERVAL_SECONDS", 0)
-    return SimpleNamespace(calls=calls, state=state, runner=FakeRunner, llm=FakeLLMClient)
+    return SimpleNamespace(
+        calls=calls, state=state, runner=FakeRunner, llm=FakeLLMClient, builder=FakeBuilder
+    )
 
 
 def test_returns_insight_and_fires_five_stages(harness):
@@ -263,31 +277,38 @@ def test_no_stop_on_normal_completion(harness):
 
 
 def test_scratch_cleanup_fires_on_success(harness, monkeypatch):
-    # #24 CP2b: the per-analysis scratch is removed after a successful run, with
-    # both the project and simulation ids.
+    # #24 CP2b + #72: the per-analysis scratch is removed after a successful run,
+    # with the project, simulation, and captured graph ids plus the merchant
+    # attribution (sentinel here - no X-Merchant-Id in a direct call).
     cleaned = []
-    monkeypatch.setattr(wf, "_cleanup_artifacts", lambda pid, sid: cleaned.append((pid, sid)))
+    monkeypatch.setattr(
+        wf, "_cleanup_artifacts", lambda pid, sid, gid, mid: cleaned.append((pid, sid, gid, mid))
+    )
     wf.run_cart_recovery(_make_cart())
-    assert cleaned == [("proj_test", "sim_test")]
+    assert cleaned == [("proj_test", "sim_test", FAKE_GRAPH_ID, SENTINEL_MERCHANT_ID)]
 
 
 def test_scratch_cleanup_fires_on_failure_after_sim(harness, monkeypatch):
     # A failure AFTER the simulation is created must still clean its dir —
     # captured["simulation_id"] is set the moment the sim exists, so the finally
-    # passes it through.
+    # passes it through (and the graph id, captured even earlier, with it).
     harness.state.run_sequence = [RunnerStatus.FAILED]
     cleaned = []
-    monkeypatch.setattr(wf, "_cleanup_artifacts", lambda pid, sid: cleaned.append((pid, sid)))
+    monkeypatch.setattr(
+        wf, "_cleanup_artifacts", lambda pid, sid, gid, mid: cleaned.append((pid, sid, gid, mid))
+    )
     with pytest.raises(RuntimeError, match="simulation failed"):
         wf.run_cart_recovery(_make_cart())
-    assert cleaned == [("proj_test", "sim_test")]
+    assert cleaned == [("proj_test", "sim_test", FAKE_GRAPH_ID, SENTINEL_MERCHANT_ID)]
 
 
 def test_scratch_cleanup_fires_on_early_failure_without_sim(harness, monkeypatch):
     # A failure BEFORE the simulation is created cleans the project only (the sim
-    # id is still None).
+    # and graph ids are still None).
     cleaned = []
-    monkeypatch.setattr(wf, "_cleanup_artifacts", lambda pid, sid: cleaned.append((pid, sid)))
+    monkeypatch.setattr(
+        wf, "_cleanup_artifacts", lambda pid, sid, gid, mid: cleaned.append((pid, sid, gid, mid))
+    )
 
     def boom(self, document_texts, simulation_requirement, additional_context=None):
         raise RuntimeError("ontology boom")
@@ -295,7 +316,84 @@ def test_scratch_cleanup_fires_on_early_failure_without_sim(harness, monkeypatch
     monkeypatch.setattr(wf.OntologyGenerator, "generate", boom)
     with pytest.raises(RuntimeError, match="ontology boom"):
         wf.run_cart_recovery(_make_cart())
-    assert cleaned == [("proj_test", None)]
+    assert cleaned == [("proj_test", None, None, SENTINEL_MERCHANT_ID)]
+
+
+def test_merchant_id_threads_through_to_cleanup_and_ledger(harness, monkeypatch):
+    # #72: an explicit merchant_id reaches both the ledger "created" record and
+    # the cleanup call (attribution end to end).
+    merchant = "11111111-1111-4111-8111-111111111111"
+    cleaned, created = [], []
+    monkeypatch.setattr(
+        wf, "_cleanup_artifacts", lambda pid, sid, gid, mid: cleaned.append((gid, mid))
+    )
+    monkeypatch.setattr(
+        wf.graph_lifecycle, "record_created", lambda gid, mid: created.append((gid, mid))
+    )
+    wf.run_cart_recovery(_make_cart(), merchant_id=merchant)
+    assert created == [(FAKE_GRAPH_ID, merchant)]
+    assert cleaned == [(FAKE_GRAPH_ID, merchant)]
+
+
+# --- #72: inline Zep graph delete in the cleanup finally ---------------------
+
+def test_cleanup_deletes_graph_on_success(harness, monkeypatch):
+    # TDD section 6 item 1: the captured graph_id flows to delete_graph on the
+    # success path, and the ledger "deleted" record is written after it.
+    deleted = []
+    monkeypatch.setattr(
+        wf.graph_lifecycle, "record_deleted", lambda gid, source: deleted.append((gid, source))
+    )
+    insight = wf.run_cart_recovery(_make_cart())
+    assert isinstance(insight, AbandonmentInsight)
+    assert ("delete_graph", FAKE_GRAPH_ID) in harness.calls
+    assert deleted == [(FAKE_GRAPH_ID, "inline")]
+
+
+def test_cleanup_deletes_graph_on_pipeline_failure(harness, monkeypatch):
+    # TDD section 6 item 1: a failure after the graph exists still deletes it,
+    # and the original pipeline exception is preserved (never masked by cleanup).
+    harness.state.run_sequence = [RunnerStatus.FAILED]
+    deleted = []
+    monkeypatch.setattr(
+        wf.graph_lifecycle, "record_deleted", lambda gid, source: deleted.append((gid, source))
+    )
+    with pytest.raises(RuntimeError, match="simulation failed"):
+        wf.run_cart_recovery(_make_cart())
+    assert ("delete_graph", FAKE_GRAPH_ID) in harness.calls
+    assert deleted == [(FAKE_GRAPH_ID, "inline")]
+
+
+def test_cleanup_graph_delete_failure_preserves_result(harness, monkeypatch):
+    # TDD section 6 item 1: a Zep delete failure is best-effort (the W2 sweeper
+    # catches the orphan) - the analysis result must still be returned, and no
+    # "deleted" ledger record may be written for a graph that still exists.
+    deleted = []
+    monkeypatch.setattr(
+        wf.graph_lifecycle, "record_deleted", lambda gid, source: deleted.append((gid, source))
+    )
+
+    def boom(self, graph_id):
+        raise RuntimeError("zep 5xx")
+
+    monkeypatch.setattr(harness.builder, "delete_graph", boom)
+    insight = wf.run_cart_recovery(_make_cart())
+    assert isinstance(insight, AbandonmentInsight)
+    assert deleted == []
+
+
+def test_cleanup_without_graph(harness, monkeypatch):
+    # TDD section 6 item 2: a failure before graph creation means no graph_id was
+    # captured, so no Zep delete call is made.
+    def boom(self, document_texts, simulation_requirement, additional_context=None):
+        raise RuntimeError("ontology boom")
+
+    monkeypatch.setattr(wf.OntologyGenerator, "generate", boom)
+    with pytest.raises(RuntimeError, match="ontology boom"):
+        wf.run_cart_recovery(_make_cart())
+    assert not any(
+        c for c in harness.calls if isinstance(c, tuple) and c[0] == "delete_graph"
+    )
 
 
 def test_subprocess_cleanup_on_timeout(harness, monkeypatch):
@@ -349,6 +447,7 @@ def test_concurrent_runs_isolated(monkeypatch):
     calls, so the stubbed barrier is the calibrated substitute (see #20)."""
     monkeypatch.setattr(Config, "ZEP_API_KEY", "test")
     monkeypatch.setattr(Config, "LLM_API_KEY", "test")
+    monkeypatch.delenv("REDIS_URL", raising=False)  # ledger (#72) takes its no-op path
     sim_counter = count()
     created = []
     lock = threading.Lock()
@@ -377,8 +476,11 @@ def test_concurrent_runs_isolated(monkeypatch):
 
         def build_graph_sync(self, text, ontology, graph_name, on_graph_created=None, **kw):
             if on_graph_created:
-                on_graph_created("g")
-            return {"graph_id": "g", "graph_data": {}, "node_count": 0, "edge_count": 0, "chunk_count": 0}
+                on_graph_created(FAKE_GRAPH_ID)
+            return {"graph_id": FAKE_GRAPH_ID, "graph_data": {}, "node_count": 0, "edge_count": 0, "chunk_count": 0}
+
+        def delete_graph(self, graph_id):
+            pass
 
     class FakeMgr:
         @staticmethod

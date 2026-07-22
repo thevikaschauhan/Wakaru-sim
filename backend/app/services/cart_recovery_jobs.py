@@ -48,7 +48,8 @@ def run_analysis_job(cart_dict: dict) -> dict:
     request_id = job_id[:8]
     # merchant_id is bound into the job's meta at enqueue (#24, job->merchant
     # binding); recover it here so the worker's log line carries the same
-    # m=<merchant> prefix the web tier uses (the worker has no Flask g).
+    # m=<merchant> prefix the web tier uses (the worker has no Flask g) and so
+    # the run's Zep graph is attributed in the lifecycle ledger (#72).
     merchant_id = (job.meta or {}).get("merchant_id", SENTINEL_MERCHANT_ID) if job is not None else SENTINEL_MERCHANT_ID
 
     cart = ShopifyCartData(**cart_dict)
@@ -63,7 +64,7 @@ def run_analysis_job(cart_dict: dict) -> dict:
         job.save_meta()
 
     try:
-        insight = run_cart_recovery(cart, on_progress=on_progress)
+        insight = run_cart_recovery(cart, on_progress=on_progress, merchant_id=merchant_id)
     except Exception as e:
         # Mirror the /analyze handler: a sanitized Sentry message (no exception
         # object -> no PII via .args / frame locals) and a type-name-only log.
