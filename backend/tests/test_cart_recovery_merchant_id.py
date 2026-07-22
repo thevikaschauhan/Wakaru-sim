@@ -97,9 +97,16 @@ def test_malformed_merchant_id_header_rejected_400_on_analyze(client):
 
 
 def test_valid_merchant_id_bound_to_log_prefix(client, monkeypatch, caplog):
-    monkeypatch.setattr(
-        "app.api.cart_recovery.run_cart_recovery", _fake_run_with_progress
-    )
+    # Beyond the log prefix (built from g.merchant_id in the route's closure),
+    # pin that the route FORWARDS the header-bound merchant_id into the pipeline
+    # call itself — the value the #72 ledger attributes the graph to.
+    forwarded = []
+
+    def capture_run(cart, on_progress=None, merchant_id=None):
+        forwarded.append(merchant_id)
+        return _fake_run_with_progress(cart, on_progress=on_progress, merchant_id=merchant_id)
+
+    monkeypatch.setattr("app.api.cart_recovery.run_cart_recovery", capture_run)
     with caplog.at_level(logging.INFO, logger="mirofish.cart_recovery"):
         resp = client.post(
             "/api/cart-recovery/analyze",
@@ -110,20 +117,27 @@ def test_valid_merchant_id_bound_to_log_prefix(client, monkeypatch, caplog):
     progress = [r.getMessage() for r in caplog.records if "stub progress" in r.getMessage()]
     assert progress, "expected a progress log line"
     assert f"m={MERCHANT_A}" in progress[0], progress[0]
+    assert forwarded == [MERCHANT_A]
 
 
 def test_missing_merchant_id_falls_back_to_sentinel(client, monkeypatch, caplog):
     # No X-Merchant-Id (legacy /analyze caller, or pre-deploy engine) must not
-    # 400 — it is bucketed under the nil-UUID sentinel so the route still runs.
-    monkeypatch.setattr(
-        "app.api.cart_recovery.run_cart_recovery", _fake_run_with_progress
-    )
+    # 400 — it is bucketed under the nil-UUID sentinel so the route still runs,
+    # and the sentinel (not None) is what the route forwards into the pipeline.
+    forwarded = []
+
+    def capture_run(cart, on_progress=None, merchant_id=None):
+        forwarded.append(merchant_id)
+        return _fake_run_with_progress(cart, on_progress=on_progress, merchant_id=merchant_id)
+
+    monkeypatch.setattr("app.api.cart_recovery.run_cart_recovery", capture_run)
     with caplog.at_level(logging.INFO, logger="mirofish.cart_recovery"):
         resp = client.post("/api/cart-recovery/analyze", json=VALID_PAYLOAD)
     assert resp.status_code == 200, resp.get_data(as_text=True)
     progress = [r.getMessage() for r in caplog.records if "stub progress" in r.getMessage()]
     assert progress, "expected a progress log line"
     assert f"m={SENTINEL_MERCHANT_ID}" in progress[0], progress[0]
+    assert forwarded == [SENTINEL_MERCHANT_ID]
 
 
 # --- idempotency scope is namespaced by merchant (no cross-tenant replay) ------
@@ -237,8 +251,10 @@ def test_worker_log_line_carries_merchant_id(monkeypatch, caplog):
     fake_job = SimpleNamespace(id="abcdef1234567890", meta={"merchant_id": MERCHANT_A})
     fake_job.save_meta = lambda: None
     monkeypatch.setattr(jobs, "get_current_job", lambda: fake_job)
+    forwarded = []
 
     def _raise(cart, on_progress=None, merchant_id=None):
+        forwarded.append(merchant_id)
         raise RuntimeError("engine boom")
 
     monkeypatch.setattr(jobs, "run_cart_recovery", _raise)
@@ -260,6 +276,9 @@ def test_worker_log_line_carries_merchant_id(monkeypatch, caplog):
     errs = [r.getMessage() for r in caplog.records if "Cart recovery analysis failed" in r.getMessage()]
     assert errs, "expected the worker error log line"
     assert f"m={MERCHANT_A}" in errs[0], errs[0]
+    # The worker also forwards the job.meta merchant_id into the pipeline call
+    # (#72 ledger attribution), not just into its log prefix.
+    assert forwarded == [MERCHANT_A]
 
 
 # --- rate-limit key is per-merchant -------------------------------------------

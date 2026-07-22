@@ -364,6 +364,26 @@ def test_cleanup_deletes_graph_on_pipeline_failure(harness, monkeypatch):
     assert deleted == [(FAKE_GRAPH_ID, "inline")]
 
 
+def test_cleanup_graph_delete_failure_preserves_pipeline_exception(harness, monkeypatch):
+    # TDD section 6 item 1: when the pipeline fails AND the cleanup Zep delete
+    # also raises, the ORIGINAL pipeline exception still propagates through the
+    # finally (the Zep error never masks it), and no "deleted" ledger record is
+    # written for a graph that still exists.
+    harness.state.run_sequence = [RunnerStatus.FAILED]
+    deleted = []
+    monkeypatch.setattr(
+        wf.graph_lifecycle, "record_deleted", lambda gid, source: deleted.append((gid, source))
+    )
+
+    def boom(self, graph_id):
+        raise RuntimeError("zep 5xx")
+
+    monkeypatch.setattr(harness.builder, "delete_graph", boom)
+    with pytest.raises(RuntimeError, match="simulation failed"):
+        wf.run_cart_recovery(_make_cart())
+    assert deleted == []
+
+
 def test_cleanup_graph_delete_failure_preserves_result(harness, monkeypatch):
     # TDD section 6 item 1: a Zep delete failure is best-effort (the W2 sweeper
     # catches the orphan) - the analysis result must still be returned, and no
