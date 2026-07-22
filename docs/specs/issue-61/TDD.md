@@ -191,13 +191,29 @@ New blueprint `backend/app/api/store_memory.py`:
   existing X-API-Key + HMAC + `X-Merchant-Id` middleware chain. **Revision 2
   identity binding:** the body carries `merchant_id` (SCHEMA §4.2) and the
   handler rejects (403) any mismatch with the bound header identity — tenant
-  identity is thereby inside the signed bytes. **Signing (plan revision 2):
-  the store-memory blueprint implements the #73-style signature from day
-  one** (method + canonical path + tenant + nonce + timestamp + body
-  digest, cross-repo conformance tests) rather than waiting for #73's
-  legacy-endpoint migration — both sides are new code, so there is no
-  migration burden and the highest-privilege control plane never runs on
-  the weaker ts+body-only scheme.
+  identity is thereby inside the signed bytes. **Signing (plan revision 3 —
+  the complete issue-#73 contract, not a subset):** the store-memory
+  blueprint implements, from day one, the full canonical envelope
+  `version | key_id | method | canonical_path | merchant_id | timestamp |
+  nonce | SHA256(body)` with:
+  - **atomic nonce consumption** server-side (`SET NX` with the replay-window
+    TTL) — an identical replayed request is rejected even inside the
+    timestamp window;
+  - **fail-closed nonce store**: if Redis is unavailable, these privileged
+    endpoints return 503 rather than accepting an unverifiable nonce (the
+    engine's outbox/state machine re-drives, so fail-closed costs latency,
+    never data);
+  - **`Idempotency-Key` bound to the body hash**: the recorded slot stores
+    `SHA256(body)`; the same key with a different body is a 409 conflict,
+    never a stale replay;
+  - **versioned, key-id'd credentials** supporting overlapping rotation;
+    unknown or retired key ids fail closed;
+  - constant-time signature comparison and the existing timestamp window.
+  Cross-repo conformance tests cover canonicalization, clock skew, nonce
+  replay, nonce-store outage, tenant substitution, same-key/different-body
+  conflict, and key rotation. Both sides are new code, so there is no
+  migration burden; the legacy cart-recovery endpoints migrate separately
+  under #73.
 - Idempotency: `Idempotency-Key` header required — **= `attempt_id`**
   (revision 3: r2 left `event_id` here while SCHEMA said `attempt_id`; the
   attempt is the correct granularity because one cart may legitimately
@@ -319,13 +335,19 @@ data flows in the direction the topology already supports):
      each page with `graph.add_batch` (stamped `created_at`), enforcing
      watermarks per episode (§4.1), idempotent per `(operation_id, page_no)`.
   3. On the final page: wait processed, verify episode count against
-     `expected_event_count`, report terminal status **`verified_current`**
-     (or `failed` with the discrepancy). The engine ledger records the new
-     generation and starts naming it in envelopes (§2).
-  4. Wakaru deletes prior generations after the 2 h grace (§6) and the
-     terminal status includes the post-delete re-enumeration, so completion
-     evidence covers stale-generation absence — the engine re-drives on
-     `failed` and does not mark retention/redaction complete otherwise.
+     `expected_event_count`, flip the current-generation pointer, and report
+     **`cleanup_pending`** (plan-r3 correction: this is explicitly an
+     in-progress state, not completion — the r2 plan had the terminal status
+     emitted here, contradicting step 4). On a count/checksum discrepancy:
+     `failed`, no flip. The engine ledger records the new generation and
+     starts naming it in envelopes (§2) from the flip.
+  4. Wakaru deletes prior generations after the 2 h grace (§6), re-lists the
+     `merchant_<hex32>` prefix, and only when stale generations are
+     **verified absent** reports terminal **`verified_current`**. The
+     operation lifecycle is `running → cleanup_pending → verified_current |
+     failed`; the engine re-drives on `failed`, treats `cleanup_pending` as
+     in-progress, and marks retention/redaction complete on nothing short of
+     the terminal status.
 - **This machinery is also the erasure mechanism** (customers/redact ⇒
   immediate rebuild excluding the watermarked shopper) and the
   ontology-migration mechanism (renames/removals ⇒ rebuild on the new
@@ -400,10 +422,13 @@ Unit (fake Zep client that **records call types**, existing patterns):
    write-barrier drops pre-cutoff episodes for the watermarked shopper on
    both the write path and replay pages (counted, logged).
 9. Rebuild operation: page ordering/`page_no` idempotency; count-vs-manifest
-   verification failure ⇒ `failed` terminal (no flip); old-generation grace;
-   shopper-exclusion drops exactly the watermarked `anonymous_id`'s
-   pre-cutoff episodes; cap enforcement; envelope `memory_generation`
-   mismatch with cache ⇒ envelope wins + drift alert.
+   verification failure ⇒ `failed` terminal (no flip); **the full state walk
+   `running → cleanup_pending` (at flip) `→ verified_current` (only after
+   grace deletion + stale generations re-listed absent)** — asserting the
+   status is *not* terminal at flip; shopper-exclusion drops exactly the
+   watermarked `anonymous_id`'s pre-cutoff episodes; cap enforcement;
+   envelope `memory_generation` mismatch with cache ⇒ envelope wins + drift
+   alert.
 10. Offboard operation: tombstone-first ordering; prefix enumeration covers
     stale generations; `verified_empty` only on empty re-list (straggler
     recreation ⇒ `failed`, engine re-drives); idempotency per

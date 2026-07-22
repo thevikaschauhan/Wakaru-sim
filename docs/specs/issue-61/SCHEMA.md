@@ -78,7 +78,7 @@ lazy re-apply; rename/remove ⇒ rebuild generation (TDD §3, §7).
 | `zep:store:<merchant_id>` | Hash | `graph_id` (current generation — **cache**; the envelope's `memory_generation` is authoritative and wins on mismatch, with a drift alert; TDD §2), `status` (`provisioning\|ready`), `ontology_version`, `created_at` (epoch s), `last_rebuilt_at`, `episode_count_estimate` | `ensure_store_graph` (readiness barrier, TDD §2), rebuild terminal status (TDD §7), envelope reconcile |
 | `zep:store:<merchant_id>:tombstone` | String, no TTL | Redaction timestamp; presence blocks `ensure_store_graph` (PRD §4) | `offboard` command (engine#193-driven) |
 | `zep:store:<merchant_id>:watermarks` | Hash | `anonymous_id → cutoff_ts` (RFC 3339); enforced on every episode write and replay page (TDD §4.1) — **cache**; durable source = engine ledger, refreshed by every `rebuild`/`redact_customer` command | `redact_customer` command, rebuild commands |
-| `zep:store:op:<operation_id>` | Hash, `EX 30d` | `kind`, `merchant_id`, `status` (`running\|verified_current\|verified_empty\|failed`), `detail`, `updated_at` — backs the §5.4 status GET and `operation_id` idempotency | Commands endpoint, operation progress |
+| `zep:store:op:<operation_id>` | Hash, `EX 30d` | `kind`, `merchant_id`, `status` (`running\|cleanup_pending\|verified_current\|verified_empty\|failed`), `detail`, `updated_at` — backs the §5.4 status GET and `operation_id` idempotency | Commands endpoint, operation progress |
 | `zep:stores` | Set | merchant_ids with a live store graph | Provisioning, offboarding; reaper's iteration hint |
 | `zep:merchant:<merchant_id>:graphs` | Set | Reused from #72 SCHEMA §2.3 — store generations join the merchant's set | Provisioning, rebuild, offboarding |
 | `zep:graph:<graph_id>` | Hash | Same shape as #72 SCHEMA §2.1 with `graph_kind=store` (writer asserts `merchant_*` id) | Provisioning, rebuild, offboarding |
@@ -182,11 +182,15 @@ attribution-window close. Zep `created_at` = `resolved_at`.
 - Auth: existing chain — `X-API-Key` (#10), HMAC signature with
   `WAKARU_INTERNAL_SECRET` (#11), `X-Merchant-Id` (#24) — **plus** the
   §4.2 body/header merchant match (revision 2). **Signing (plan revision
-  2):** the store-memory blueprint implements the #73-style signature
-  **from day one** — method + canonical path + tenant + nonce + timestamp
-  + body digest, with cross-repo conformance tests — since both sides are
-  new code. The legacy cart-recovery endpoints migrate separately under
-  issue #73; that migration is not a dependency here.
+  3):** the store-memory blueprint implements the **complete issue-#73
+  contract from day one** — canonical envelope `version | key_id | method |
+  canonical_path | merchant_id | timestamp | nonce | SHA256(body)`, atomic
+  nonce consumption, fail-closed nonce-store outage behavior,
+  Idempotency-Key-to-body-hash binding (same key + different body = 409),
+  overlapping key-id rotation with unknown/retired ids failing closed —
+  full semantics and the conformance-test list in TDD §4.2. Both sides are
+  new code; the legacy cart-recovery endpoints migrate separately under
+  issue #73, and that migration is not a dependency here.
 - `Idempotency-Key` header **required**: value = `attempt.attempt_id`
   (unique per attempt); scope `outcomes:<merchant_id>` via the existing
   `idempotency.py` with **TTL 14 days** (revision 2 — exceeds the outbox
@@ -194,7 +198,7 @@ attribution-window close. Zep `created_at` = `resolved_at`.
   states, this TTL only covers one delivery sequence).
 - Body: §4.2, strictly validated. Responses: `202` accepted; `400` schema
   violation (PII-free error body); `401/403` auth chain or merchant
-  mismatch; `409` idempotency-pending; `503` Zep unavailable — **releases**
+  mismatch; `409` idempotency-pending **or same Idempotency-Key with a different body hash (conflict, never a stale replay)**; `503` Zep unavailable — **releases**
   the idempotency slot (work not performed); an ambiguous failure after the
   graph write does **not** release it (possibly-succeeded discipline).
 
@@ -239,12 +243,15 @@ operation is not in `running` state.
 
 Read-only poll (like the existing jobs GET: X-API-Key + merchant binding
 suffice — no body to sign). Returns
-`{operation_id, kind, status: running | verified_current | verified_empty |
-failed, detail, memory_generation, updated_at}`. Terminal statuses carry the
-completion evidence (post-delete re-enumeration result, verified episode
-count). The engine's state machine (#193) polls this and re-drives on
-`failed`; it marks its own leg complete **only** on the verified terminal
-status.
+`{operation_id, kind, status: running | cleanup_pending | verified_current |
+verified_empty | failed, detail, memory_generation, updated_at}`.
+`cleanup_pending` (rebuild only, plan-r3): replay verified and generation
+flipped, prior generations awaiting grace deletion — **in-progress, not
+completion**. Terminal statuses carry the completion evidence (post-delete
+re-enumeration result, verified episode count). The engine's state machine
+(#193) polls this, re-drives on `failed`, treats `cleanup_pending` as
+in-progress, and marks its own leg complete **only** on the verified
+terminal status.
 
 ### 5.5 Engine outbox (engine repo — **owned by vakaru-engine#192-D**; pattern = migration `036_orders_inkwell_forwarding`)
 
