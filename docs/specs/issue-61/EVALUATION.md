@@ -54,8 +54,18 @@ following hold:
 4. The merchant is not the sentinel merchant (legacy traffic without
    `X-Merchant-Id` is never store-memory eligible, PRD §6), is not
    tombstoned or offboarded, and is not a development or test store
-   operated by Vakaru itself (any such stores are listed explicitly in the
-   roster commit).
+   operated by Vakaru itself. The excluded-store list is frozen **here**,
+   not deferred to the roster commit: the HMAC key is published in this
+   commit, so digests are computable as soon as a roster is known, and a
+   list assembled later would be a roster-composition lever. The frozen
+   list (operator: enumerate every Vakaru-operated development or test
+   store before this PR merges; merging with the placeholder is a merge
+   blocker, and an empty list is itself a frozen claim that none exist):
+
+   - (fill before merge)
+
+   The roster commit records only the assertion that no store was added
+   to or removed from this list.
 
 Merchants that install after the snapshot (**late joiners**) are not
 enrolled and never enter the analysis. They stay on the throwaway path. A
@@ -67,10 +77,20 @@ before any of that wave's data is used.
 The snapshot instant is **00:00 UTC on the Monday of the ISO week in which
 the W4 pilot allowlist is first populated with any real merchant**. The
 roster commit must merge before that flag flips, and records: the snapshot
-timestamp, the exact SQL run (§4.3), per-merchant inputs
-(`accepted_56d`, `episodes_56d`, `b_i`, `v_i`), the full HMAC digest per
-merchant, the pairing, and the resulting arms. Anyone can recompute the
-assignment from the roster commit; a mismatch voids the registration (§9).
+timestamp, the intended flip ISO week, the exact SQL run (§4.3),
+per-merchant inputs (`accepted_56d`, `episodes_56d`, `b_i`, `v_i`), the
+full HMAC digest per merchant, the pairing, and the resulting arms. Anyone
+can recompute the assignment from the roster commit; a mismatch voids the
+registration (§9).
+
+**Slippage rule (frozen):** the roster commit names the ISO week in which
+the flip will occur, and the snapshot it uses must be that week's Monday
+00:00 UTC. If the allowlist is not first populated within the named week,
+the roster is void: its arms may not be reused, and enrollment requires a
+fresh roster commit, recomputed at the new snapshot per this section, in
+an amendment commit recording the reason for the slip. Arms are therefore
+valid for exactly one candidate snapshot; deferring the flip can never
+silently redraw them.
 
 ### 2.4 Assignment mechanism (deterministic, auditable, not re-rollable)
 
@@ -93,24 +113,34 @@ Why this cannot be gamed or re-rolled:
   commit, in git history, before any roster exists.
 - Merchant UUIDs are engine-minted at install time, before the pilot
   existed; no party chooses them.
-- The snapshot instant is fixed by an objective event (§2.3), not chosen
-  after inspecting digests.
+- The snapshot event is the operator's own flip timing, and the published
+  key means digests are computable before the flip. That residual lever
+  is closed by the §2.3 slippage rule, not by the event's objectivity:
+  the roster commit binds itself to one named flip week, so arms are
+  valid for exactly one candidate snapshot and a deferred flip voids the
+  roster instead of redrawing the arms.
 - `b_i` and `v_i` come from frozen queries over historical data; the roster
   commit publishes them, so the sort order is auditable.
 - Assignment is a pure function of the committed roster. Re-running it is
   the audit. There is no randomness to re-roll.
 
 The W4 allowlist and the Phase-3 (W7) allowlist must equal the treatment
-arm exactly. The operator asserts this equality at each enablement and
-weekly during the pilot; an uncorrected mismatch is a protocol breach (§9).
+arm exactly, minus any merchants removed by a registered rollback (§2.5).
+The operator asserts this equality at each enablement and weekly during
+the pilot; an uncorrected unregistered mismatch is a protocol breach (§9).
 
 ### 2.5 Mid-pilot churn, uninstall, and redaction
 
 - **Intention-to-treat at the merchant level:** once enrolled, a merchant
   stays in its assigned arm for analysis regardless of what happens later.
   Treated runs that fall back to the throwaway path (errors, caps,
-  rollback) remain treated. No post-randomization exclusion may be based
-  on any outcome-correlated quantity.
+  rollback) remain treated. A **registered rollback** (allowlist removal
+  under the plan's W4 rollback/abort mechanism, i.e. store-memory write
+  errors over the abort threshold, recorded in a visible commit) is
+  sanctioned divergence: the merchant stays in the treatment arm for
+  analysis and does not trigger §9 item 3; no pair is dropped. No
+  post-randomization exclusion may be based on any outcome-correlated
+  quantity.
 - **Weekly aggregate snapshots:** during the pilot the operator runs the
   registered aggregate query weekly and commits per-merchant cumulative
   `{accepted, recovered}` counts by arm. These snapshots are the fallback
@@ -146,6 +176,14 @@ failed`.
 - `delivery_state` (`none | processed | delivered | dropped | bounced`) is
   tracked separately, never overwrites send state, and `dropped`/`bounced`
   never make an attempt retryable.
+- `sent_at`: engine#192-C sets `sent_at` only on the direct-acceptance
+  path; no component assigns it on E4c webhook reconciliation. For
+  attempts reconciled to `accepted` by E4c, this registration freezes the
+  attempt row's creation timestamp (the instant the row was created
+  `pending`, i.e. send initiation; always present, written before any
+  outcome is known) as `sent_at`. That value serves everywhere this
+  document uses `sent_at`: the §3.2 window predicate, the 7-day
+  attribution anchor, and Q1.
 
 ### 3.2 Primary metric: provider-accepted intention-to-treat (ITT)
 
@@ -203,6 +241,13 @@ bound. A sustained guardrail breach kills the pilot regardless of the
 primary result (PRD kill criteria). Guardrail readings are reported
 descriptively.
 
+PRD §7 lists one further secondary, the insight `confidence`
+distribution. Its exclusion here is deliberate and registered:
+`insight.confidence` is `assess_confidence_heuristic(cart)`, computed
+from the cart alone and therefore treatment-insensitive (the same
+property that disqualified it as the W3 gate metric), so it cannot
+inform this pilot.
+
 ## 4. MDE and power
 
 ### 4.1 Frozen statistical parameters
@@ -242,10 +287,11 @@ two-proportion per-arm sample size; `J > B * rho_pair` is the hard floor on
 pairs that no duration can buy back: between-merchant variance, not
 attempt count, is the binding constraint.
 
-The formula is evaluated with `v = v_bar`, the **median** of enrolled
-merchants' weekly accepted volumes (for an even count, the lower middle
-value; conservative), rounded down to one decimal. `p0` is the pooled
-baseline conversion over the roster (total recovered / total denominator,
+The formula is evaluated per roster (§4.5): `v = v_bar` of the roster
+under evaluation, the **median** of that roster's merchants' weekly
+accepted volumes (for an even count, the lower middle value;
+conservative), rounded down to one decimal. `p0` is the pooled baseline
+conversion over that same roster (total recovered / total denominator,
 §4.3), rounded to four decimals. `p1 = MDE * p0`.
 
 ### 4.3 Operator measurement queries (the number this document waits for)
@@ -294,7 +340,8 @@ GROUP BY d.shopify_store_id;
 ```
 
 `b_i = recovered_56d / episodes_56d`; pooled
-`p0 = sum(recovered_56d) / sum(episodes_56d)` over the roster. Once
+`p0 = sum(recovered_56d) / sum(episodes_56d)`, computed separately per
+roster (`p0_A` over roster A, `p0_B` over roster B). Once
 `recovery_attempt` predates the snapshot by 56 days, the attempt-based
 version (denominator = accepted attempts, numerator = recovered per §3.2)
 replaces the episode proxy; the roster commit states which construct was
@@ -346,16 +393,24 @@ the ladder moves on. Computed from the §4.2 formula with
 | 6 | >12 | 6 | 4 |
 | 8 | 8 | 4 | 4 |
 
-Honest reading: at the `J_min` row of each tier the pilot is never
-feasible within the cap; merchant count, not duration, is the lever. The
-PRD's 5+5 floor supports only the 2.0x tier at moderate-to-high volume.
+Honest reading: at the 1.5x and 1.75x tiers the `J_min` row is never
+feasible within the cap; merchant count, not duration, is the lever
+there. Only the 2.0x tier is feasible at its floor rows (from J = 4 at
+`v_bar` = 50, and at the displayed J = 5 from `v_bar` = 25). The PRD's
+5+5 floor supports only the 2.0x tier at moderate-to-high volume.
 
 ### 4.5 Mechanical sizing ladder (zero post-hoc discretion)
 
-Inputs: roster A and roster B (§2.2 volume floors), their sizes `K_A`,
-`K_B`, pooled `p0`, and `v_bar`, all from §4.3. `J = floor(K/2)` for the
-roster in use. Evaluate the steps in order; **the first satisfiable step
-launches with its tier and duration**:
+Inputs: roster A and roster B (§2.2 volume floors), their sizes `K_A` and
+`K_B`, and per-roster values from §4.3: pooled baselines `p0_A`, `p0_B`
+and median weekly volumes `v_bar_A`, `v_bar_B`, each computed over that
+roster's merchants. Pairs: `J_A = floor(K_A / 2)`,
+`J_B = floor(K_B / 2)`. Each step is evaluated with its own roster's
+values: `p0_A`, `v_bar_A`, `J_A` for the A steps and `p0_B`, `v_bar_B`,
+`J_B` for the B steps (roster B is a superset at a lower volume floor, so
+`v_bar_B <= v_bar_A`; the two evaluations are not interchangeable).
+Evaluate the steps in order; **the first satisfiable step launches with
+its tier and duration**:
 
 | Step | MDE | Roster (floor per 56 d) | Week floor | Condition |
 |---|---|---|---|---|
@@ -381,14 +436,19 @@ an amendment commit, merged before Phase-3 enablement, stating the
 achieved power at MDE 2.0x.
 
 **Two evaluations, both committed, both mechanical:** the ladder runs once
-at enrollment (fixes roster, pairs, and J) and once at Phase-3 enablement
-(re-runs the same formula on the enrolled roster's then-current trailing
-56-day volume to fix the tier and `w`; pairing and J never change). The
-second run is blinded sample-size re-estimation on pre-exposure data: no
-treatment-vs-control outcome exists before Phase 3, because reads are off
-until W7 flips. Its output is committed (the Phase-3 sizing commit,
-recording `T3`, `v_bar`, the chosen step, and `w`) before the W7 flag
-flips.
+at enrollment (fixes roster, pairs, and J) and once at Phase-3 enablement.
+The re-run's protocol is frozen: with the roster fixed at enrollment, only
+the steps whose roster equals the enrolled roster are evaluable (keeping
+that roster's week floor and its frozen J); `v_bar` is re-measured as the
+enrolled roster's median over the then-current trailing 56 days; `p0` is
+**not** re-measured (the enrollment value for the enrolled roster is
+reused); pairing and J never change. If no evaluable step passes, the L7
+outcome applies: Phase 3 does not launch as confirmatory without an
+amendment per the preceding paragraph. The re-run is blinded sample-size
+re-estimation on pre-exposure data: no treatment-vs-control outcome
+exists before Phase 3, because reads are off until W7 flips. Its output
+is committed (the Phase-3 sizing commit, recording `T3`, the re-measured
+`v_bar`, the chosen step, and `w`) before the W7 flag flips.
 
 ## 5. Seasonality
 
@@ -413,8 +473,8 @@ flips.
   conversion. The permutation distribution flips treatment labels
   independently within each pair (the actual randomization scheme),
   enumerating all `2^J'` arrangements when `J' <= 20`; otherwise Monte
-  Carlo with 100,000 draws, RNG seed 61, p-value
-  `(1 + #{T* >= T_obs}) / (N + 1)`. Exhaustive p-value:
+  Carlo with 100,000 draws from numpy `default_rng` (PCG64), seed 61,
+  p-value `(1 + #{T* >= T_obs}) / (N + 1)`. Exhaustive p-value:
   `#{T* >= T_obs} / 2^J'`, identity included.
 - **Alpha and sidedness:** one-sided, alpha = 0.05, H1: treatment exceeds
   control (rationale in §4.1).
@@ -439,8 +499,9 @@ flips.
   registered duration `w` runs to completion; there is no early efficacy
   stop. Operational aborts (safety, cost, rollback thresholds) may stop
   the pilot at any time and count as a kill.
-- **Tooling:** the analysis script implementing this section is committed
-  to the repo before the pilot end date and run once at the §3.2 analysis
+- **Tooling:** the analysis script implementing this section is merged to
+  the repo before Phase-3 enablement (the same freeze point as §9, before
+  any treatment exposure exists) and run once at the §3.2 analysis
   instant.
 
 ## 7. Operator fill-in (to be completed in the roster and sizing commits)
@@ -452,18 +513,19 @@ Enrollment (roster commit, merges before the W4 allowlist is populated):
 | Snapshot timestamp (§2.3) | (fill) |
 | SQL actually run for Q1/Q2 | (fill) |
 | K_A, K_B | (fill) |
-| Pooled p0 | (fill) |
-| v_bar (median, roster in use) | (fill) |
+| Pooled p0_A, p0_B | (fill) |
+| v_bar_A, v_bar_B | (fill) |
 | Ladder step selected | (fill) |
-| J (pairs) | (fill) |
-| Excluded test stores | (fill) |
+| J (pairs, from the selected roster) | (fill) |
+| Assertion: no stores beyond the §2.2 frozen exclusion list | (fill) |
+| Intended flip ISO week (§2.3) | (fill) |
 
 Per-merchant roster table: merchant UUID, `accepted_56d`, `episodes_56d`,
 `b_i`, `v_i`, pair index, full HMAC digest, arm.
 
 Phase-3 sizing commit (merges before the W7 flag flips): `T3`, re-measured
-`v_bar`, ladder step, final `w`, and the allowlist-equality assertion
-(§2.4).
+`v_bar` for the enrolled roster, the evaluable ladder step selected, final
+`w`, and the allowlist-equality assertion (§2.4).
 
 ## 8. Relationship to other gates
 
@@ -477,14 +539,17 @@ already sequenced ahead of the pilot by the implementation plan.
 ## 9. Registration integrity
 
 The confirmatory status of the pilot is void if any of the following
-happens without a pre-data amendment commit (merged before Phase-3
-enablement):
+happens without an amendment commit permitted by the staged windows at
+the end of this section:
 
 1. The assignment recomputation from the roster commit does not reproduce
    the committed arms.
 2. The roster, pairing, or arms change after the roster commit.
-3. The W4/W7 allowlist diverges from the treatment arm and is not
-   corrected within one week (the affected pair is dropped either way).
+3. The W4/W7 allowlist diverges from the treatment arm through
+   **unregistered** divergence (a non-treatment merchant on the
+   allowlist, or a removal not recorded as a registered rollback per
+   §2.5) and is not corrected within one week. A registered rollback is
+   sanctioned: the merchant stays in ITT and no pair is dropped.
 4. `ATTRIBUTION_WINDOW_DAYS` is changed from 7 mid-pilot.
 5. The analysis deviates from §6, the metrics from §3, or the window from
    the committed `T3` and `w`.
@@ -492,7 +557,20 @@ enablement):
 7. The Q1/Q2 semantics are altered after the roster commit (the SQL text
    may only be adapted to schema naming, with the semantics of §4.3
    preserved and the change recorded).
+8. The W4 allowlist is first populated outside the ISO week named in the
+   roster commit and the pilot proceeds on that roster instead of a fresh
+   roster commit per the §2.3 slippage rule.
 
-Amendments before Phase-3 enablement are permitted as visible commits to
-this file; each must state what changed and why. After Phase-3 enablement,
-nothing in this document changes.
+**Amendment windows (staged):** per-merchant, arm-labeled attempt and
+conversion data accumulate from Phase 2 onward, so a single window open
+until Phase-3 enablement would permit outcome-informed rule changes. §2
+and §3 (assignment, eligibility, exclusion rules, metric definitions)
+therefore close at the roster commit: after it merges they may not be
+amended, only voided and redrawn per §2.3. Between the roster commit and
+Phase-3 enablement, the only permitted amendments are those §4.5 itself
+provides for (the Phase-3 sizing re-run, blinded and pre-exposure, and at
+L7 a non-confirmatory-launch amendment) and operational clarifications
+that alter no definition in §2, §3, or §6. Every amendment is a visible
+commit to this file stating what changed, why, and what pilot data
+existed when it was made. After Phase-3 enablement, nothing in this
+document changes.
