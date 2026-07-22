@@ -179,11 +179,14 @@ attribution-window close. Zep `created_at` = `resolved_at`.
 
 ### 5.1 `POST /api/store-memory/outcomes` (Wakaru, new)
 
-- Auth: existing chain — `X-API-Key` (#10), HMAC body signature with
+- Auth: existing chain — `X-API-Key` (#10), HMAC signature with
   `WAKARU_INTERNAL_SECRET` (#11), `X-Merchant-Id` (#24) — **plus** the
-  §4.2 body/header merchant match (revision 2; converges with issue #73,
-  whose stronger method/path/ts/merchant/body-hash signature this endpoint
-  adopts verbatim when it lands).
+  §4.2 body/header merchant match (revision 2). **Signing (plan revision
+  2):** the store-memory blueprint implements the #73-style signature
+  **from day one** — method + canonical path + tenant + nonce + timestamp
+  + body digest, with cross-repo conformance tests — since both sides are
+  new code. The legacy cart-recovery endpoints migrate separately under
+  issue #73; that migration is not a dependency here.
 - `Idempotency-Key` header **required**: value = `attempt.attempt_id`
   (unique per attempt); scope `outcomes:<merchant_id>` via the existing
   `idempotency.py` with **TTL 14 days** (revision 2 — exceeds the outbox

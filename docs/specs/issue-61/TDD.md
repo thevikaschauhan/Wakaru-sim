@@ -191,10 +191,13 @@ New blueprint `backend/app/api/store_memory.py`:
   existing X-API-Key + HMAC + `X-Merchant-Id` middleware chain. **Revision 2
   identity binding:** the body carries `merchant_id` (SCHEMA §4.2) and the
   handler rejects (403) any mismatch with the bound header identity — tenant
-  identity is thereby inside the HMAC-signed bytes with zero middleware
-  change. When issue #73 lands its stronger signature (method/path/ts/
-  merchant/body-hash), this endpoint adopts it as-is; the body field is the
-  forward-compatible half.
+  identity is thereby inside the signed bytes. **Signing (plan revision 2):
+  the store-memory blueprint implements the #73-style signature from day
+  one** (method + canonical path + tenant + nonce + timestamp + body
+  digest, cross-repo conformance tests) rather than waiting for #73's
+  legacy-endpoint migration — both sides are new code, so there is no
+  migration burden and the highest-privilege control plane never runs on
+  the weaker ts+body-only scheme.
 - Idempotency: `Idempotency-Key` header required — **= `attempt_id`**
   (revision 3: r2 left `event_id` here while SCHEMA said `attempt_id`; the
   attempt is the correct granularity because one cart may legitimately
