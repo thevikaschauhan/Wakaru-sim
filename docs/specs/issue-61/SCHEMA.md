@@ -82,9 +82,9 @@ lazy re-apply; rename/remove ⇒ rebuild generation (TDD §3, §7).
 
 | Key | Type | Fields / members | Written |
 |---|---|---|---|
-| `zep:store:<merchant_id>` | Hash | `graph_id` (current generation — **cache**; the envelope's `memory_generation` is authoritative and wins on mismatch, with a drift alert; TDD §2), `status` (`provisioning\|ready`), `ontology_version`, `created_at` (epoch s), `last_rebuilt_at`, `episode_count_estimate` | `ensure_store_graph` (readiness barrier, TDD §2), rebuild terminal status (TDD §7), envelope reconcile |
+| `zep:store:<merchant_id>` | Hash | `graph_id` (current generation — **cache** under **monotonic acceptance**: an envelope/command `memory_generation` **higher** than the cache advances it, an **equal** value confirms it, a **lower** value is rejected with a drift alert; on a cache miss the floor is **rehydrated from Zep prefix enumeration** of `merchant_<hex32>*` before any write/provision decision — the **rehydration floor**; TDD §2, plan-r5), `status` (`provisioning\|ready`), `ontology_version`, `created_at` (epoch s), `last_rebuilt_at`, `episode_count_estimate` | `ensure_store_graph` (readiness barrier, TDD §2), rebuild terminal status (TDD §7), envelope reconcile |
 | `zep:store:<merchant_id>:tombstone` | String, no TTL | **Fast-path cache** of the Zep-resident `merchant_<hex32>_tombstone` marker graph (§1, plan-r4) — on cache miss, `ensure_store_graph` consults Zep (`graph.get`) before any create, so a Redis flush cannot un-tombstone a merchant | `offboard` command (engine#193-driven) |
-| `zep:store:<merchant_id>:watermarks` | Hash | `anonymous_id → cutoff_ts` (RFC 3339); enforced on every episode write and replay page (TDD §4.1) — **cache**; durable source = engine ledger, refreshed by every `rebuild`/`redact_customer` command | `redact_customer` command, rebuild commands |
+| `zep:store:<merchant_id>:watermarks` | Hash | `anonymous_id → cutoff_ts` (RFC 3339); enforced on every episode write and replay page (TDD §4.1) — **cache**; durable source = engine ledger, refreshed by every `rebuild`/`purge` command | `rebuild`/`purge` commands |
 | `zep:store:op:<operation_id>` | Hash, `EX 30d` | `kind`, `merchant_id`, `status` (`running\|cleanup_pending\|verified_current\|verified_empty\|failed`), `detail`, `updated_at` — backs the §5.4 status GET and `operation_id` idempotency | Commands endpoint, operation progress |
 | `zep:stores` | Set | merchant_ids with a live store graph | Provisioning, offboarding; reaper's iteration hint |
 | `zep:merchant:<merchant_id>:graphs` | Set | Reused from #72 SCHEMA §2.3 — store generations join the merchant's set | Provisioning, rebuild, offboarding |
@@ -219,23 +219,46 @@ header mismatch). `Idempotency-Key = operation_id`, scope
 {
   "schema_version": 1,
   "operation_id": "op_4f8a12",
-  "kind": "rebuild | redact_customer | offboard",
+  "kind": "rebuild | offboard | purge",
+  "phase": "prepare | execute",
   "merchant_id": "8b1c5f2e-4a6d-4e0b-9c3a-1f2e3d4c5b6a",
   "memory_generation_next": 3,
   "snapshot_id": "snap_2026-07-21_8b1c",
+  "snapshot_cutoff": "2026-07-21T11:30:00Z",
   "expected_event_count": 1742,
   "retention_cutoff": "2026-01-22T00:00:00Z",
   "watermarks": [{"anonymous_id": "a-7f3c9d", "cutoff": "2026-07-21T10:00:00Z"}]
 }
 ```
 
-`rebuild` requires the snapshot/count/generation fields; `redact_customer`
-requires `watermarks` (and implies an immediate rebuild); `offboard`
-requires none of them (Zep-resident tombstone first, all-generation delete,
-`verified_empty` = nothing but the marker remains; TDD §7). During
-Phase 1 — before rebuild machinery exists — `customers/redact` is satisfied
-by `offboard`-style whole-graph deletion (the W4e erasure floor; PRD §4).
-Responses: `202` (operation accepted/replayed — same operation), `400`
+`rebuild` is **two-phase (plan-r5 — the prepare/ACK barrier)**; `phase` is
+required for `rebuild` and absent for the other kinds. The engine first
+POSTs the **prepare sub-message** (`phase: "prepare"`, carrying only
+`operation_id`/`merchant_id`/`memory_generation_next`); Wakaru provisions
+the pending generation, starts dual-writing live episodes to both the
+current and pending generations, and ACKs — the `202` response body
+carries `ack_at` (`T_ack`). The engine then freezes the replay snapshot
+at a cutoff **≤ the ACK time** (`snapshot_cutoff ≤ ack_at`), POSTs the
+execute phase (`phase: "execute"`, adding the
+snapshot/cutoff/count fields), and streams §5.3 replay pages; dual-write
+ends at the generation flip (TDD §7). Both phases are idempotent per
+`(operation_id, phase)`. **Customer redaction is not a distinct kind
+(plan-r5 simplification):** watermarks ride every `rebuild` and `purge`
+command, so post-M5 customer redaction = persist the watermark, then an
+immediate `rebuild` (which excludes the watermarked shopper), and Phase-1
+customer redaction = `purge` after the drain window. `offboard` requires
+none of the rebuild fields: Zep-resident tombstone first, all-generation delete,
+`verified_empty` = nothing but the marker remains (TDD §7). `purge`
+(plan-r5) likewise requires none of them: delete **all**
+`merchant_<hex32>*` generations, write **no tombstone**, terminal
+`verified_empty` = zero generations remain — the graph may re-provision
+organically afterward. `purge` is the Phase-1 `customers/redact` path
+(purge-after-drain; the W4e erasure floor, PRD §4): the engine dispatches
+it **unconditionally** on every redact webhook after the
+`REDACT_DRAIN_HOURS` drain delay — an idempotent no-op for a merchant
+with no graph, never keyed on the store-memory allowlist.
+Responses: `202` (operation accepted/replayed — same operation; for a
+`rebuild` prepare, the body carries `ack_at`), `400`
 schema violation / unknown `kind`, `401/403` auth or merchant mismatch,
 `409` operation in progress with a different payload.
 
@@ -246,8 +269,12 @@ Same auth chain. One page of a `rebuild` operation's snapshot:
 event_count, checksum, events: [§4.1 cart episodes and §4.2 outcomes]}` —
 `occurred_at`-ascending, bounded page size (≤ 500 events), idempotent per
 `(operation_id, page_no)` (replayed pages are acknowledged, not re-applied).
-Watermarks are enforced per episode on apply (TDD §4.1). `409` if the
-operation is not in `running` state.
+Watermarks are enforced per episode on apply (TDD §4.1). Events with
+`occurred_at > snapshot_cutoff` are **skipped on apply** — they reach the
+pending generation via the prepare/ACK dual-write window — with a
+per-operation `event_id` dedupe as the belt at the boundary (plan-r5;
+TDD §7). `409` if the operation is not in `running` state or (for
+`rebuild`) its execute phase has not yet been accepted.
 
 ### 5.4 `GET /api/store-memory/operations/<operation_id>` (Wakaru, new; status)
 
@@ -261,7 +288,11 @@ Returns
 verified_empty | failed, detail, memory_generation, updated_at}`.
 `cleanup_pending` (rebuild only, plan-r3): replay verified and generation
 flipped, prior generations awaiting grace deletion — **in-progress, not
-completion**. Terminal statuses carry the completion evidence (post-delete
+completion**. `verified_empty` (plan-r5 — its evidence differs by kind):
+for `offboard` it means the post-delete re-enumeration returned **nothing
+but the tombstone marker graph**; for `purge` it means **zero generations
+remain and no marker exists** (re-provisioning stays possible). Terminal
+statuses carry the completion evidence (post-delete
 re-enumeration result, verified episode count). The engine's state machine
 (#193) polls this, re-drives on `failed`, treats `cleanup_pending` as
 in-progress, and marks its own leg complete **only** on the verified

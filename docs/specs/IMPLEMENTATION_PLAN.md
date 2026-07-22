@@ -4,12 +4,14 @@
 [issue-72/PRD](./issue-72/PRD.md) · [issue-72/TDD](./issue-72/TDD.md) · [issue-72/SCHEMA](./issue-72/SCHEMA.md) ·
 [issue-61/PRD](./issue-61/PRD.md) · [issue-61/TDD](./issue-61/TDD.md) · [issue-61/SCHEMA](./issue-61/SCHEMA.md)
 **Engine issues (bodies re-synchronized 2026-07-22, second pass):** [#191](https://github.com/thevikaschauhan/vakaru-engine/issues/191), [#192](https://github.com/thevikaschauhan/vakaru-engine/issues/192) (parts A1-A3/B1/B2/C1-C4/D/E), [#193](https://github.com/thevikaschauhan/vakaru-engine/issues/193)
-**Status:** plan revision 4 (2026-07-22, after the third external plan
-review). **Conditionally ready: E1, W1, E2a may start now; W2 after W1; W3
-code may start (its production enablement follows the safety floor in its
-section).** All other units are blocked on the gates in their sections;
-**W4 may merge dark but must not enable for any real merchant before the
-W4e erasure floor is verified.**
+**Status:** plan revision 5 (2026-07-22, after the fourth external plan
+review). **Conditionally ready: E1, W1, E2a, P0 may start now; W2 after W1;
+W3 code now — its offline replay experiment runs only after graph deletion
+is verified working (W1 deployed to staging and the replay harness asserts
+each run's graph deletion). W4e/W4, E4b/E4c, and W6b were redesigned this
+revision and may start once PR #75 merges.** All other units are blocked on
+the gates in their sections; **W4 may merge dark but must not enable for
+any real merchant before the W4e erasure floor is verified.**
 
 > **Plan revision 3.** Phase-0 gates repaired: G3 now measures
 > ontology-sensitive signals (the r2 gate metric, insight confidence, is
@@ -32,7 +34,10 @@ W4e erasure floor is verified.**
 > a verified deletion path exists; during Phase 1, `customers/redact` is
 > satisfied by whole-graph deletion (the graph is a write-only rebuildable
 > cache until Phase 3, so over-erasure is compliant and history returns via
-> replay once E6 exists). (2) **Race-safe rebuild cutover** — dual-write to
+> replay once E6 exists — a claim plan-r5 shows held only for
+> non-tombstoned deletion; purged merchants can be restored by replay,
+> tombstoned merchants cannot — see the plan-r5 note). (2) **Race-safe
+> rebuild cutover** — dual-write to
 > both generations from `rebuild` receipt until terminal, and the
 > generation pointer is **monotonic** (an envelope can move it forward,
 > never backward, and never provisions a stale generation — the r3 "envelope
@@ -49,6 +54,32 @@ W4e erasure floor is verified.**
 > a redacted assertion report, W3 runs its offline safety floor before
 > `dual_sample` touches production, and the M4 graph matches the E4b
 > section (E4b depends only on C1).
+>
+> **Plan revision 5.** Four blocker fixes from the fourth review (plan-r5):
+> (1) **Purge-after-drain** — r4 routed `customers/redact` through the
+> tombstoning `offboard` path, contradicting its own claim that history
+> returns via replay (a permanent tombstone forecloses replay); r5 splits
+> the paths — `shop/redact` keeps `offboard` (permanent Zep tombstone; the
+> merchant is gone), while `customers/redact` persists the durable customer
+> watermark, waits `REDACT_DRAIN_HOURS`, then dispatches a new **`purge`**
+> command that deletes all generations and writes **no tombstone**; purged
+> (non-tombstoned) merchants can be restored by replay, offboarded
+> (tombstoned) merchants cannot, and dispatch is unconditional on every
+> redact webhook (never allowlist-keyed). (2) **Prepare/ACK barrier** —
+> r4's dual-write-until-terminal raced W6c's deletion of the old
+> generation; rebuild is now two-phase (a `prepare` phase → dual-write +
+> ACK at T_ack → snapshot frozen at cutoff ≤ T_ack), dual-write ends **at
+> flip**, and the old generation is read-only through the grace window.
+> (3) **Rehydration floor** — a third "wins on mismatch"
+> generation-resolution variant survived r4's grep; on a `zep:store` cache
+> miss Wakaru enumerates `merchant_<hex32>*` and rejects any envelope
+> generation below the highest existing suffix (fail closed to the
+> throwaway path). (4) **Send/delivery split** — r4's dropped/bounce ⇒
+> `failed` mapping composed with E4b's re-send-from-`failed` rule into
+> re-sends to suppressed recipients; `failed` is now pre-acceptance
+> positive rejection only, any authenticated provider webhook proves API
+> acceptance (⇒ `accepted`), and delivery state is tracked separately with
+> `dropped`/`bounced` never retryable.
 
 ## Ground rules
 
@@ -108,7 +139,7 @@ W4e erasure floor is verified.**
 | **P0** | Evaluation pre-registration | Assignment rule, primary metric, MDE, power calc, exclusions, analysis method frozen **before any Phase-1 production data exists** |
 | **R5** | Outcome round-trip | W5 dark + readiness ⇒ E5 dispatch enabled ⇒ live delivery + idempotent replay + 503-retry proven |
 | **R6** | Lifecycle round-trip | W6a+W6b+W6c readiness ⇒ E6b dispatch enabled ⇒ staging rebuild reaches `verified_current` (incl. stale-generation re-list) |
-| **W4E** | W4e unit | **Erasure floor verified before any persistent production write:** offboard path (Zep tombstone + delete-all + re-list) exercised end-to-end in staging, incl. the Redis-flush replay test; Phase-1 `customers/redact` = whole-graph-delete policy live in the engine hook |
+| **W4E** | W4e unit | **Erasure floor verified before any persistent production write:** offboard AND purge paths verified (incl. Redis-flush replay test for offboard; drain-window test for purge) |
 
 ## Dependency graph
 
@@ -128,7 +159,7 @@ M5  E6a ──▶ E6b-impl (dispatch OFF)
     W4 ──▶ W6a (dark) ──▶ W6b ──▶ W6c ──▶ R6 (enable E6b dispatch)
     E6a ──▶ E7a ──▶ E7b (engine leg)
     I3 (Inkwell erasure consumer, dark) ──▶ E7c (Inkwell leg)
-    R6 ──▶ E7d (Wakaru leg: offboard supersedes W4e; redact_customer needs R6)
+    R6 ──▶ E7d (Wakaru leg: offboard/purge live from W4E; restoration rebuild needs R6)
     E5 + sample-volume gate (N≥30/cell or seeded staging set) ──▶ E3b
 M6  W4 + E3a ──▶ W7 (disabled by default)
 M7  P1 ⇐ fan-in: G0 · W4 stable ≥2 wk · R5 · R6 · E7b/c/d complete · E3b · E2b · W7 rollback-tested · P0 (already frozen)
@@ -238,7 +269,10 @@ plan-r3). May start day one **as revised here**.
   production path before any safety evidence existed):**
   1. **Offline safety floor first**, in staging, **after W1 is deployed
      there** (the ~40 replay runs create ~40 graphs; W1's inline delete +
-     W2's sweeper are what clean them up): the frozen paired replay — a
+     W2's sweeper are what clean them up), and with the **replay harness
+     asserting each run's graph deletion (W1)** — the experiment does not
+     count as runnable until that assertion is in place: the frozen
+     paired replay — a
      **synthetic cart corpus** committed to the repo (~20 carts varied by
      `ontology_code` scenario, price band, device; synthetic because Wakaru
      retains no real carts and must not start doing so for a test) through
@@ -277,31 +311,52 @@ plan-r3). May start day one **as revised here**.
 - **Done-when:** EVALUATION.md merged; if power is insufficient, pilot size/
   duration adjusted **now**.
 
-### W4e — erasure floor (Wakaru + minimal engine hook) — size S-M. **Blocks W4's production enable (plan-r4, B1: persistence must never precede a verified erasure path).**
+### W4e — erasure floor (Wakaru + minimal engine hook) — size S-M. **Blocks W4's production enable (plan-r4, B1: persistence must never precede a verified erasure path; paths redesigned in plan-r5, B1).**
 Rationale: during Phase 1 the store graph is **write-only and rebuildable**
 (no reads until W7; the engine ledger is the durable source), so
-**whole-graph deletion satisfies both `shop/redact` and `customers/redact`**
-— over-erasure is always compliant, and history returns via E6 replay once
-it exists. That makes the floor small:
-- **Wakaru:** the offboard subset of W6a — `POST /api/store-memory/commands`
-  accepting `kind=offboard` only (full-#73 signing per ground rule 7),
-  tombstone-first, delete-all-generations by prefix, re-list verification,
-  `verified_empty` status. **The tombstone is the Zep-resident
-  `merchant_<hex>_tombstone` graph** (issue-61 TDD §7 / SCHEMA §1 as revised
-  in plan-r4): metadata-only, synchronously checked by `ensure_store_graph`,
-  immune to Redis loss.
-- **Engine:** a minimal durable hook (subset of E7a): `shop/redact` **and**
-  `customers/redact` for a store-memory-allowlisted merchant persist a
-  redaction row and dispatch `offboard` with retry until `verified_empty`
-  (Phase-1 policy: customers/redact ⇒ whole-graph delete, documented in the
-  PRD §4). Superseded by E7a-d in M5 without contract change — the command
-  shape is identical.
-- Tests: offboard end-to-end in staging; **Redis-flush replay test** (offboard
-  → flush Redis → replay a queued pre-uninstall analyze job →
+whole-graph deletion is always compliant over-erasure. But the two webhooks
+mean different things and take **two paths** (plan-r5, B1 — r4 routed both
+through the tombstoning offboard, contradicting its own replay claim):
+- **`shop/redact` ⇒ `offboard`** (the merchant is gone — permanent
+  closure): tombstone-first, delete-all-generations by prefix, re-list
+  verification, `verified_empty` status. **The tombstone is the
+  Zep-resident `merchant_<hex>_tombstone` graph** (issue-61 TDD §7 /
+  SCHEMA §1 as revised in plan-r4): metadata-only, synchronously checked
+  by `ensure_store_graph`, immune to Redis loss. Offboarded (tombstoned)
+  merchants are permanently closed — replay cannot restore them.
+- **`customers/redact` ⇒ purge-after-drain** (plan-r5, B1): the engine
+  persists the durable customer watermark **first**, waits
+  `REDACT_DRAIN_HOURS` (default 2 h — must exceed Wakaru's max queue+run
+  latency ≈ 90 min) so all pre-redaction envelopes drain and every later
+  envelope carries the watermark, then dispatches a **`purge` command** (a
+  new command kind): Wakaru deletes ALL `merchant_<hex32>*` generations
+  and writes **no tombstone**; terminal `verified_empty` = zero
+  generations remain. The graph re-provisions organically on the next
+  envelope. Purged (non-tombstoned) merchants can be restored by replay
+  once E6 exists.
+- **Wakaru:** the command subset of W6a — `POST /api/store-memory/commands`
+  accepting `kind ∈ {offboard, purge}` (full-#73 signing per ground
+  rule 7) with the semantics above.
+- **Engine:** a minimal durable hook (subset of E7a). Dispatch is
+  **UNCONDITIONAL on every redact webhook** (an idempotent no-op when no
+  graph exists) — **never keyed on the current allowlist**, because
+  allowlist removal is W4's rollback mechanism and privacy handling must
+  not depend on it. Persist the redaction row (+ watermark for
+  `customers/redact`), then dispatch `offboard` immediately / `purge`
+  after the drain window, with retry until `verified_empty` (Phase-1
+  policy documented in the PRD §4). Superseded by E7a-d in M5 without
+  contract change — the command shapes are identical.
+- Tests: offboard end-to-end in staging; **Redis-flush replay test**
+  (offboard → flush Redis → replay a queued pre-uninstall analyze job →
   `ensure_store_graph` refuses via the Zep tombstone, no graph recreated);
-  tombstone graph excluded from #72 sweep (regex already cannot match) and
-  from verified-empty accounting.
-- **Done-when:** staging proof of all three tests. **Produces W4E.**
+  **drain-window test** (purge dispatch waits `REDACT_DRAIN_HOURS`; the
+  post-drain envelope carries the watermark); purge → `verified_empty`
+  with zero generations and **no tombstone**, then the graph re-provisions
+  on the next envelope; **unconditional dispatch** fires for a
+  non-allowlisted merchant with a leftover graph; tombstone graph excluded
+  from #72 sweep (regex already cannot match) and from verified-empty
+  accounting.
+- **Done-when:** staging proof of the tests above. **Produces W4E.**
 
 ### W4 — Wakaru: provisioning + dual-write (#61 Phase 1) — size M. **Code may merge dark after E2a. Production enable gate: G0 + G3 + E2a + E3a + P0 + W4E.**
 Spec: issue-61 TDD §2, §4.1; SCHEMA §1, §3, §4.1.
@@ -311,6 +366,13 @@ Spec: issue-61 TDD §2, §4.1; SCHEMA §1, §3, §4.1.
   until E7a). Dual-write of the §4.1 episode behind `STORE_MEMORY_ENABLED`
   + allowlist; guarded. Contracts file + strict validation. CLAUDE.md D2
   edit in this PR.
+- **Rehydration floor (plan-r5, B3; issue-61 TDD §2):** on a `zep:store`
+  cache miss, before any write/provision decision, enumerate
+  `merchant_<hex32>*` in Zep; the floor is the highest existing generation
+  suffix. An envelope `memory_generation` below the floor is rejected —
+  drift alert, and the treated run falls back to the throwaway path (fail
+  closed). Fresh merchant (enumeration finds nothing) ⇒ generation 0
+  allowed.
 - Enablement: default off; rollback = allowlist removal; abort threshold =
   store-memory write errors > 1% of treated runs.
 - Tests: TDD §9 items 1-6 + interlock item 12.
@@ -327,9 +389,10 @@ Spec: issue-61 TDD §2, §4.1; SCHEMA §1, §3, §4.1.
   handler; **Inkwell generates `attempt_id`** (it owns retry identity);
   the engine persists `pending` **before** the provider call, puts
   `attempt_id` in SendGrid custom args, transitions to
-  `accepted | ambiguous | failed`, re-sends only from `failed`
-  (possibly-succeeded discipline). No atomicity across the provider is
-  claimed anywhere.
+  `accepted | ambiguous | failed`, re-sends only from pre-acceptance
+  `failed` (possibly-succeeded discipline; plan-r5, B4 pins `failed` =
+  pre-acceptance positive rejection only). No atomicity across the
+  provider is claimed anywhere.
 - **Done-when:** #192-C text agreed by both repo owners (it is the
   authoritative wording; this plan summarizes it).
 
@@ -352,8 +415,11 @@ Spec: issue-61 TDD §2, §4.1; SCHEMA §1, §3, §4.1.
   never a second send), `angle`, `discount_offered`, `sent_at`);
   `email_send.go` accepts the optional fields, validates `event_id` against
   the authenticated merchant, persists `pending` pre-provider, custom-args
-  `attempt_id`, transitions post-provider; same-`attempt_id` retry returns
-  state, re-sends only from `failed`. **Legacy documents:** an email
+  `attempt_id`, transitions post-provider. **`failed` = pre-acceptance
+  positive rejection only** (the provider API rejected the request;
+  plan-r5, B4) — delivery outcomes never map to it. Same-`attempt_id`
+  retry returns state, re-sends only from pre-acceptance `failed`.
+  **Legacy documents:** an email
   document created before I1a has no `event_id` — I1b sends without it and
   no attempt row is created (today's behavior, stated explicitly). Absent
   fields ⇒ today's behavior throughout. Gated DB tests:
@@ -362,21 +428,32 @@ Spec: issue-61 TDD §2, §4.1; SCHEMA §1, §3, §4.1.
 - **Done-when:** staging send with hand-crafted fields walks
   `pending → accepted`; ambiguous path proven with a stubbed provider.
 
-### E4c — engine: attempt reconciliation via SendGrid webhooks — size S-M. After E4b. **Gates R5** (plan-r4, B4 — without it a crash after provider acceptance strands the attempt in `pending` forever and E5 excludes it indefinitely).
+### E4c — engine: attempt reconciliation via SendGrid webhooks — size S-M. After E4b. **Gates R5** (plan-r4, B4 — without it a crash after provider acceptance strands the attempt in `pending` forever and E5 excludes it indefinitely; transition mapping corrected in plan-r5, B4).
 - Widen the webhook handling: `forwardableSendGridEvent` currently ignores
-  `processed`/`deferred`/`dropped` (verified, `sendgrid_webhook.go`) — the
-  reconciler consumes `processed`/`delivered`/`dropped`/`bounce` events
-  whose custom args carry `attempt_id` and applies **monotonic**
-  transitions: `pending|ambiguous → accepted` (processed/delivered),
-  `→ failed` (dropped, hard bounce); `delivered`/`bounced` recorded as
-  **delivery state alongside, never overwriting, send state** (H2).
-  Terminal states never regress.
+  `processed`/`deferred`/`dropped` (verified, `sendgrid_webhook.go`). The
+  reconciler consumes authenticated provider events whose custom args
+  carry `attempt_id`. **Any such webhook**
+  (`processed`/`delivered`/`dropped`/`bounce`/`deferred`) **proves API
+  acceptance** ⇒ reconciles `send_state` to `accepted` (**monotonic**;
+  terminal states never regress). The r4 mapping of dropped/hard-bounce
+  to send-state `failed` is gone — it composed with E4b's resend rule
+  into re-sends to suppressed recipients; `failed` is reachable only
+  pre-acceptance (E4b).
+- **`delivery_state` is separate** (`none|processed|delivered|dropped|
+  bounced`), recorded alongside and never overwriting send state;
+  `dropped`/`bounced` NEVER make an attempt retryable.
+- Webhooks **dedupe on `sg_event_id`**.
 - Stale-attempt watchdog: `pending`/`ambiguous` older than a threshold
-  (default 24 h) alerts with an operator runbook path (query SendGrid by
-  `attempt_id`, resolve manually).
+  (default 24 h) alerts with an operator runbook path that queries
+  **engine-local attempt + delivery records first**; the SendGrid Email
+  Activity API is an **optional paid escalation** and, if used, must be
+  named as an explicit operational prerequisite in the runbook.
 - Tests: provider-accepted + process crash + webhook ⇒ reconciled to
-  `accepted` **exactly once**; duplicate webhook delivery idempotent;
-  cross-tenant/unknown `attempt_id` events logged and dropped.
+  `accepted` **exactly once**; a `dropped`/`bounce` webhook ⇒
+  `send_state=accepted` + the matching `delivery_state`, and the attempt
+  is **not** retryable; duplicate webhook delivery idempotent via
+  `sg_event_id`; cross-tenant/unknown `attempt_id` events logged and
+  dropped.
 - **Done-when:** staged crash-reconcile test green against the webhook
   fixture path.
 
@@ -418,11 +495,16 @@ Spec: issue-61 TDD §4.2; SCHEMA §4.2, §5.1.
 
 ### E6a — engine: operations ledger + frozen snapshot builder (#192-E) — size M
 - Operations schema + `running → cleanup_pending → verified_* | failed`
-  transitions; snapshot builder (180-day, watermark-filtered,
+  transitions; the snapshot builder is **two-phase (plan-r5, B2
+  prepare/ACK barrier)**: the `rebuild` command's `prepare` phase
+  (`phase: "prepare"`, SCHEMA §5.2) `{operation_id,
+  memory_generation_next}` goes out first (via E6b's dispatcher at
+  runtime) → Wakaru ACKs with timestamp T_ack → the builder freezes the
+  snapshot at cutoff ≤ T_ack → emits pages (180-day, watermark-filtered,
   `occurred_at`-ordered, paged, count+checksum); **explicit sub-task:**
   verify/extend engine event retention to 180 d. No dispatch.
 - **Done-when:** transition tests + deterministic snapshot replay tests
-  green.
+  green (incl. the cutoff-≤-T_ack freeze).
 
 ### W6a — Wakaru: command/replay/status consumers, dark — size M. After W4.
 - The three endpoints per SCHEMA §5.2-5.4 (statuses incl.
@@ -430,8 +512,8 @@ Spec: issue-61 TDD §4.2; SCHEMA §4.2, §5.1.
   conformance **including the status GET** (signed with the empty-body
   hash under the same canonical envelope — an unsigned GET contradicted
   "complete #73"; plan-r4, H1), readiness advertising versions. Supersedes
-  W4e's offboard-only subset (same contract, adds `rebuild`/
-  `redact_customer` kinds + replay + status).
+  W4e's command subset (same contract; W4e ships `offboard` + `purge`,
+  W6a adds the `rebuild` kind + replay + status).
 - Tests add: status polling for another merchant's `operation_id` ⇒ 403/404
   (merchant-namespaced, no cross-tenant read).
 - **Done-when:** contract tests green; deployed dark.
@@ -440,19 +522,28 @@ Spec: issue-61 TDD §4.2; SCHEMA §4.2, §5.1.
 - Generation creation, page replay (watermark enforcement, per-page
   idempotency), count/checksum verification, atomic flip, then report
   **`cleanup_pending`** (not terminal — plan-r3 state correction).
-- **Race-safe cutover (plan-r4, B2):** from `rebuild` command receipt until
-  the terminal status, new episodes **dual-write to both generations** (the
-  command names the pending generation; the snapshot cutoff is the
-  command's watermark, so post-cutoff live events reach N+1 directly, not
-  via the snapshot). **Monotonic pointer:** an envelope's
+- **Prepare/ACK barrier (plan-r5, B2):** rebuild is two-phase. The engine
+  sends the `rebuild` prepare phase (`phase: "prepare"`,
+  `{operation_id, memory_generation_next}`) → Wakaru
+  provisions N+1 and starts **dual-writing every new episode to BOTH N and
+  N+1**, then ACKs with timestamp T_ack → the engine freezes the snapshot
+  at cutoff ≤ T_ack → replay pages → count/checksum verify → flip.
+  **Dual-write ends AT FLIP** (the r4 dual-write-until-terminal wording
+  raced W6c's deletion of N): after the flip, writes go to N+1 only; N is
+  **read-only** during the 2 h grace; W6c deletes N and only then emits
+  `verified_current`. **Dedupe:** replay application skips events with
+  `occurred_at > cutoff` (those arrive via dual-write); belt = `event_id`
+  dedupe per operation. **Monotonic pointer:** an envelope's
   `memory_generation` may move the cache forward only — a lower value is a
   drift alert, never an update, and never provisions a missing stale
   generation (replaces r3's "envelope wins" rule, which let a delayed
   request roll the pointer back).
-- Tests add: an event arriving mid-rebuild appears in the new generation
-  after cutover; a delayed old-generation envelope neither rolls back the
-  pointer nor recreates a deleted generation.
-- **Done-when:** crash/resume + mismatched-page + both cutover tests green.
+- Tests add: an event arriving mid-rebuild appears in N+1; a write after
+  the flip goes only to N+1; a boundary event (present in both the frozen
+  snapshot and the dual-write stream) is not duplicated; a delayed
+  old-generation envelope neither rolls back the pointer nor recreates a
+  deleted generation.
+- **Done-when:** crash/resume + mismatched-page + all cutover tests green.
 
 ### W6c — Wakaru: grace deletion + terminal verification + reaper — size S-M. After W6b.
 - 2 h grace deletion of prior generations, prefix re-list, **emit terminal
@@ -490,9 +581,11 @@ Spec: issue-61 TDD §4.2; SCHEMA §4.2, §5.1.
 - **Done-when:** leg completes against staging Inkwell with evidence
   recorded; re-drive safe.
 
-### E7d — engine: Wakaru cascade leg — size S-M. **Gate: W6a (offboard) and R6 (redact_customer — it requires snapshot production, replay, flip, and cleanup, i.e. the whole rebuild path).**
-- `offboard`-only mode may enable at W6a readiness (it needs only commands
-  + prefix deletion); `redact_customer` enables at R6.
+### E7d — engine: Wakaru cascade leg — size S-M. **Gate: W4E (offboard/purge erasure is live from the floor) and R6 (post-purge restoration rebuild — it requires snapshot production, replay, flip, and cleanup, i.e. the whole rebuild path).**
+- `offboard`/`purge` mode may enable at W6a readiness (they need only
+  commands + prefix deletion); the post-purge restoration rebuild (which
+  completes customer redaction with history retention) enables at R6. No
+  distinct `redact_customer` kind exists (plan-r5 simplification).
 - **Done-when:** staging offboard → `verified_empty` (incl.
   straggler-recreation re-drive); staging customer redact → watermark
   active + pre-cutoff episodes absent from the new generation; deadline

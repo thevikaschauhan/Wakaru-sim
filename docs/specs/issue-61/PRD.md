@@ -133,23 +133,33 @@ amendment):
   the marker — a straggler-recreated graph fails the verify and the engine
   re-drives, and re-verifies once more T+24h after terminal. Incomplete
   redaction past deadline alerts engine-side.
-- **Phase-1 erasure floor (plan-r4, W4e):** store memory never writes a
-  production graph before this deletion path is verified end-to-end.
-  Until the rebuild machinery exists, `customers/redact` is satisfied by
-  **whole-graph deletion** — the graph is a write-only rebuildable cache in
-  Phase 1, so over-erasure is compliant and history returns via replay
-  once #192-E lands.
-- **Customer-level erasure (customers/redact ⇒ watermark + `redact_customer`
-  command):** the engine persists a **redaction watermark**
-  `(merchant_id, anonymous_id, cutoff)` in its ledger (#193), erases its own
-  rows, and commands an immediate rebuild that excludes the shopper —
-  **rebuild is the erasure mechanism**, so customer deletion depends on
-  neither unverified episode-delete semantics nor luck. The watermark rides
-  every subsequent rebuild command and analyze envelope, and Wakaru enforces
-  it on **every episode write and every replay page** (revision 3 — closes
-  the race where an in-flight analysis carrying pre-redaction data re-writes
-  erased episodes after the rebuild). Completion evidence: only the new
-  generation exists and the watermark is active.
+- **Phase-1 erasure floor (plan-r5, W4e — purge-after-drain):** store memory
+  never writes a production graph before this deletion path is verified
+  end-to-end. Until the rebuild machinery exists, `customers/redact` is
+  satisfied by **purge-after-drain**: the engine persists the durable
+  customer watermark (#193) first, waits a drain delay
+  (`REDACT_DRAIN_HOURS`, default 2 h — deliberately above Wakaru's max
+  queue + run latency of ≈ 90 min, so every pre-redaction envelope has
+  drained and every later envelope carries the watermark), then dispatches
+  a **`purge` command** (new kind; SCHEMA §5.2): delete **all**
+  `merchant_<hex32>*` generations, write **no tombstone**, terminal
+  `verified_empty` = zero generations remain. The graph is a write-only
+  rebuildable cache in Phase 1, so this over-erasure is compliant; the
+  graph re-provisions organically on the merchant's next analyzed
+  abandonment, and replay (#192-E) can restore a purged — non-tombstoned —
+  merchant's retained history once it lands. Dispatch is **unconditional
+  on every `customers/redact` webhook** (an idempotent no-op for a
+  merchant with no graph) and is never keyed on the store-memory
+  allowlist, so a merchant removed from the pilot is still purged. Only
+  `shop/redact` writes the permanent tombstone: a tombstoned (offboarded)
+  merchant is permanently closed, and replay never restores it.
+- **Customer-level erasure (customers/redact):** the engine persists the
+  durable per-shopper watermark, then erases via **purge-after-drain**
+  (Phase 1, above) or — once rebuild machinery exists — via an immediate
+  **`rebuild`**, whose replay excludes the watermarked shopper; **rebuild
+  is the erasure mechanism**, and no distinct `redact_customer` command
+  exists (plan-r5 simplification: watermarks ride every `rebuild`/`purge`
+  command, so the two compose to surgical erasure with restoration).
 - All flows are idempotent under Shopify webhook redelivery (`operation_id`)
   and survive retries, races, and Redis loss: the state machine, tombstones,
   watermarks, and generation pointer live in the **engine ledger**; Wakaru's
@@ -176,7 +186,7 @@ review's recommended sequence (contract → #72 → foundation → pilot → sca
 | 0a | #72 live (revised scheduler proven on real Redis + pinned RQ) | No | #72 steady state clean for 1 week |
 | 0b | Fixed `cr-v1` ontology replaces per-event LLM ontology on the **throwaway** path, run as a sampled dual-generation experiment | No | **Ontology-sensitive gate (plan-r3 correction — the previous gate metric, insight confidence, comes from `assess_confidence_heuristic(cart)` and is independent of the ontology, so it could not fail):** (a) entity/edge-type coverage of sampled LLM-generated ontologies against `cr-v1` over ≥ 1 week, and (b) a one-time frozen paired replay of a synthetic cart corpus through both full pipelines — structured-insight agreement (`reason_category`, `recommended_angle`, `key_objections` overlap) + blinded report adjudication. Non-inferiority thresholds pre-defined in the W3 PR |
 | **CG** | **Contract gate:** engine#192-**A1** (additive versioned envelope incl. `memory_generation`) + **B1** (non-exposure SQL priors) merged and deployed; envelope validated end-to-end in staging. (A2/A3 — the PII-removal steps — and B2 — exposure priors — are separately gated: A3 before any privacy claim, B2 before the pilot.) | No | Envelope fields present on real traffic |
-| 1 | Dual-write: pilot merchants' cart episodes (from envelope fields) also written to their `merchant_*` graph. Analysis still reads only the throwaway graph. **Production enablement additionally requires the W4e erasure floor (verified offboard path incl. Redis-flush replay test; §4)** | No | V-2 exception classes pinned; readiness barrier race-tested; episodes visible via `get_by_graph_id`; erasure floor verified |
+| 1 | Dual-write: pilot merchants' cart episodes (from envelope fields) also written to their `merchant_*` graph. Analysis still reads only the throwaway graph. **Production enablement additionally requires the W4e erasure floor (verified offboard path incl. Redis-flush replay test, plus the plan-r5 purge-after-drain path; §4)** | No | V-2 exception classes pinned; readiness barrier race-tested; episodes visible via `get_by_graph_id`; erasure floor verified (offboard AND purge paths verified end-to-end) |
 | 2 | Outcome ingestion (engine#192-C/D: attempts + outbox) **and lifecycle commands + rebuild feed (engine#192-E, #193)** live → outcomes land in store graphs; one full rebuild-and-verify and one redaction exercised in staging | No | Idempotent replay proven; outcome lag < 24 h; rebuild `verified_current` and redaction completion evidence observed |
 | 3 | Read integration for pilot merchants: bounded working set (graph) + SQL priors (envelope) feed personas + report; throwaway graph no longer created for treated runs | **Yes** | Per-merchant instant rollback verified; latency delta < +10% |
 | 4 | Decision gate on §7 → default-on for all merchants, or kill (graphs deleted, issue closed with data) | — | §7 criteria |

@@ -103,13 +103,22 @@ Engine (@ `1bb1d95`):
   command value **greater** than the cache moves it forward; an **equal**
   value confirms it; a **lower** value is rejected with a drift alert —
   it never updates the pointer and never provisions a missing stale
-  generation. If neither an envelope value nor a cache entry is available
-  (fresh merchant), generation 0 applies; if the cache is lost *and* the
-  request predates #192's envelope, the treated run **falls back to the
-  throwaway path** (fail closed) rather than guessing a generation. All
+  generation. **Rehydration floor (plan-r5, B3):** on a
+  `zep:store:<merchant_id>` cache miss, **before any write or provisioning
+  decision**, Wakaru enumerates `merchant_<hex32>*` in Zep and rehydrates
+  the floor as the highest existing generation suffix; the monotonic rule
+  is then applied against that floor, so a flushed cache can never make a
+  stale envelope look current. An envelope `memory_generation` below the
+  rehydrated floor is rejected with a drift alert and the treated run
+  **falls back to the throwaway path** (fail closed) — it never writes to
+  or provisions the below-floor generation. An empty enumeration means a
+  genuinely fresh merchant: generation 0 is allowed. If the cache is lost
+  *and* the request predates #192's envelope, the treated run likewise
+  falls back to the throwaway path rather than guessing a generation. All
   generations remain enumerable from Zep by prefix `merchant_<hex32>` —
-  used for offboarding enumeration and the stale-generation check (§7),
-  which prove existence; *currency* is always the ledger's claim.
+  used for offboarding enumeration, the stale-generation check (§7), and
+  the plan-r5 rehydration floor — which prove existence; *currency* is
+  always the ledger's claim.
 - Provisioning with a **readiness barrier** (revision 2 — closes the
   loser-before-ontology race):
 
@@ -311,15 +320,17 @@ throwaway path again. No data migration in either direction.
   ordering ("this run's episodes processed before this run's search") is
   enforced by the uuid-scoped `_wait_for_episodes`.
 - Rebuild vs analysis race: the rebuild operation builds the **new**
-  generation to completion, verifies it, reports it in its terminal status
-  (the engine ledger then names it in subsequent envelopes), and deletes the
-  old generation only after a grace period ≥ the max run wall clock (2 h) —
+  generation to completion, verifies it, and flips at `cleanup_pending`
+  (the engine ledger then names it in subsequent envelopes); it deletes the
+  old generation only after a grace period ≥ the max run wall clock (2 h),
+  during which the old generation is read-only (plan-r5, §7) —
   an in-flight analysis keeps reading the generation it resolved at run
   start (graph ids are immutable per run), so no run's reads can dangle.
 - Redaction vs analysis race (revision 3 — two independent guards):
   merchant tombstone at `ensure_store_graph` blocks recreation after
   `offboard`; the **per-shopper watermark** (§4.1) blocks re-writes of
-  erased episodes by in-flight runs after `redact_customer`. Both flows end
+  erased episodes by in-flight runs after a customer redaction (purge, or
+  rebuild post-M5). Both flows end
   with a verify pass (re-enumeration / generation check) and the engine
   re-drives until the evidence holds (engine#193).
 
@@ -333,34 +344,51 @@ data flows in the direction the topology already supports):
 
 - The **engine** schedules rebuilds (rolling cadence: every merchant at
   least every `STORE_MEMORY_REBUILD_EVERY_DAYS`, jittered; plus immediately
-  on `redact_customer` and on ontology-version migrations) and drives each
+  on customer redaction and on ontology-version migrations) and drives each
   one through the command contract (SCHEMA §5.2-5.4):
-  1. `rebuild` command → Wakaru: `{operation_id, snapshot_id,
-     memory_generation_next, expected_event_count, redaction watermarks,
-     retention cutoff}`. Wakaru provisions generation `_r<N+1>` via the §2
-     path (ontology applied, `provisioning`).
-  2. Engine pushes **replay pages** referencing the `operation_id`: stable
-     `occurred_at`-ascending order, `page_no`/`page_count`, per-page count +
-     checksum, bounded page size, resume-from-page on retry. Wakaru applies
-     each page with `graph.add_batch` (stamped `created_at`), enforcing
-     watermarks per episode (§4.1), idempotent per `(operation_id, page_no)`.
-     **Race-safe cutover (plan-r4, B2):** the snapshot covers events up to
-     the command's watermark only; from `rebuild` receipt until the terminal
-     status, the live write path **dual-writes every new episode to both
-     generations** (the command names the pending generation), so events
-     concurrent with the rebuild are present in N+1 at flip — nothing
-     depends on the next rebuild to backfill them. The count verification
-     in step 3 checks the snapshot-derived population (dual-written
-     episodes are additional by construction, identified by
-     `occurred_at > watermark`).
+  1. **Prepare/ACK barrier (plan-r5, B2):** the engine opens the operation
+     with the `rebuild` **prepare sub-message**
+     `{operation_id, memory_generation_next}` (SCHEMA §5.2 — `rebuild` is
+     two-phase). Wakaru provisions generation `_r<N+1>` via the §2 path
+     (ontology applied, `provisioning`), **starts dual-writing every new
+     live episode to BOTH the current generation N and the pending N+1**,
+     and ACKs with a timestamp `T_ack`. Only after that ACK does the
+     engine freeze the replay snapshot at a cutoff (`snapshot_cutoff`)
+     **≤ `T_ack`** — so every event after the cutoff is dual-written by
+     construction and no event can fall between snapshot end and
+     dual-write start.
+  2. The engine sends the `rebuild` execute phase `{operation_id,
+     snapshot_id, snapshot_cutoff, expected_event_count, redaction
+     watermarks, retention cutoff}` and pushes **replay pages** referencing
+     the `operation_id`: stable `occurred_at`-ascending order,
+     `page_no`/`page_count`, per-page count + checksum, bounded page size,
+     resume-from-page on retry. Wakaru applies each page with
+     `graph.add_batch` (stamped `created_at`), enforcing watermarks per
+     episode (§4.1), idempotent per `(operation_id, page_no)`.
+     **Race-safe cutover (plan-r5, B2 — supersedes r4's
+     receipt-to-terminal dual-write window):** the snapshot covers events
+     up to the cutoff only; replay **skips any event with
+     `occurred_at > cutoff`** — those arrive in N+1 via the prepare-ACK
+     dual-write — and a per-operation `event_id` dedupe is the belt for
+     boundary events, so an episode at the cutoff lands exactly once.
+     Events concurrent with the rebuild are therefore present in N+1 at
+     flip; nothing depends on the next rebuild to backfill them. The count
+     verification in step 3 checks the snapshot-derived population
+     (dual-written episodes are additional by construction, identified by
+     `occurred_at > cutoff`).
   3. On the final page: wait processed, verify episode count against
      `expected_event_count`, flip the current-generation pointer, and report
      **`cleanup_pending`** (plan-r3 correction: this is explicitly an
      in-progress state, not completion — the r2 plan had the terminal status
-     emitted here, contradicting step 4). On a count/checksum discrepancy:
-     `failed`, no flip. The engine ledger records the new generation and
+     emitted here, contradicting step 4). **Dual-write ends AT the flip
+     (plan-r5, B2): from the flip onward, new episodes are written only to
+     N+1, and the old generation N is read-only for the duration of the
+     grace period.** On a count/checksum discrepancy: `failed`, no flip.
+     The engine ledger records the new generation and
      starts naming it in envelopes (§2) from the flip.
-  4. Wakaru deletes prior generations after the 2 h grace (§6), re-lists the
+  4. Wakaru deletes prior generations after the 2 h grace (§6) — during
+     which N serves only in-flight reads (read-only from the flip, per
+     step 3) — re-lists the
      `merchant_<hex32>` prefix, and only when stale generations are
      **verified absent** reports terminal **`verified_current`**. The
      operation lifecycle is `running → cleanup_pending → verified_current |
@@ -405,6 +433,26 @@ stragglers that started before the tombstone landed). Idempotent per
 `operation_id` (repeat ⇒ re-verify ⇒ same terminal state; Zep 404s treated
 as success — same V-class check as #72's V-1).
 
+**Purge (plan-r5, B1 — the `customers/redact` erasure command).** `purge`
+is a fourth command kind on the same signed POST contract, serving two
+roles: the **Phase-1 erasure floor** for `customers/redact`
+(purge-after-drain; PRD §4 — before the rebuild machinery exists) and,
+post-M5, the command variant for whole-graph customer erasure where a
+targeted rebuild is not warranted. Semantics: delete **all** generations
+enumerated from Zep by prefix `merchant_<hex32>`, write **no tombstone**,
+terminal `verified_empty` only when a re-enumeration returns **zero
+generations**. Because no tombstone is written, the graph re-provisions
+organically on the merchant's next analyzed abandonment and replay
+(#192-E) can restore retained history — purge closes nothing permanently,
+unlike offboard. Dispatch is **engine-side and unconditional** on every
+`customers/redact` webhook (#193): the engine persists the durable
+customer watermark, waits the `REDACT_DRAIN_HOURS` drain delay (default
+2 h, above Wakaru's ≈ 90 min max queue + run latency, so pre-redaction
+envelopes drain and every later envelope carries the watermark), then
+sends the command — an idempotent no-op for a merchant with no graph,
+never keyed on the store-memory allowlist. Idempotent per `operation_id`;
+Zep 404s treated as success (same V-class check as offboard).
+
 ## 8. Config
 
 | Var | Default | Notes |
@@ -416,6 +464,7 @@ as success — same V-class check as #72's V-1).
 | `STORE_MEMORY_REBUILD_EVERY_DAYS` | `30` | Rolling rebuild cadence (engine-side scheduling input, #192-E), jittered |
 | `STORE_MEMORY_WORKING_SET_MAX` | `30` | Entity cap (D3); edges 2×, anchors ≤ 8, one search call per anchor, per-call limit 10, serialized ≤ 8 KB (§5, revision 3) |
 | `STORE_MEMORY_OUTCOME_IDEM_TTL_DAYS` | `14` | Outcomes idempotency scope TTL (§4.2) |
+| `REDACT_DRAIN_HOURS` | `2` | Engine-side (#193, plan-r5): purge-after-drain delay before dispatching `purge` on `customers/redact`; must exceed Wakaru's max queue + run latency (≈ 90 min) |
 | `ATTRIBUTION_WINDOW_DAYS` | `7` | Engine-side, in the #192 contract |
 
 ## 9. Testing plan
@@ -426,10 +475,14 @@ Unit (fake Zep client that **records call types**, existing patterns):
 2. Provisioning: exists-ready / not-exists / create-race → **loser blocks on
    readiness barrier and never writes pre-ontology** (revision 2); crashed
    claim expires and setup resumes; lazy ontology-version upgrade.
-3. Tombstone: `ensure_store_graph` raises; write path skips + warns; a
-   post-tombstone provisioning attempt cannot recreate; **Redis-flush
-   replay (plan-r4, B3): offboard → flush Redis → replay a queued
-   pre-uninstall job → the Zep marker graph still blocks recreation.**
+3. Tombstone and purge: `ensure_store_graph` raises on a tombstoned
+   merchant; write path skips + warns; a post-tombstone provisioning
+   attempt cannot recreate; **Redis-flush replay (plan-r4, B3): offboard →
+   flush Redis → replay a queued pre-uninstall job → the Zep marker graph
+   still blocks recreation.** **Purge leaves no tombstone (plan-r5, B1):
+   after a `purge` reaches `verified_empty` (zero generations), a new
+   provisioning attempt succeeds — the graph re-provisions organically,
+   unlike after offboard.**
 4. Dual-write guard: store-memory write failure does not fail the analysis.
 5. **Read-boundary ban (revision 3, was scan ban):** any
    `get_all_nodes`/`get_all_edges`/`panorama_search` against a `merchant_*`
@@ -451,8 +504,13 @@ Unit (fake Zep client that **records call types**, existing patterns):
    write-barrier drops pre-cutoff episodes for the watermarked shopper on
    both the write path and replay pages (counted, logged).
 9. Rebuild operation: page ordering/`page_no` idempotency; count-vs-manifest
-   verification failure ⇒ `failed` terminal (no flip); **an event arriving
-   mid-rebuild dual-writes and appears in the new generation after cutover;
+   verification failure ⇒ `failed` terminal (no flip); **prepare/ACK
+   barrier window (plan-r5, B2): an event arriving between the prepare ACK
+   and the flip dual-writes and lands in BOTH generations; a write after
+   the flip lands only in N+1 (dual-write ends at flip; N is read-only
+   during grace); a boundary event at the cutoff is not duplicated — the
+   `occurred_at > cutoff` replay skip plus the per-operation `event_id`
+   dedupe admit it exactly once;
    a delayed lower-`memory_generation` envelope neither moves the pointer
    back nor provisions a deleted generation (monotonic rule)**; **the full state walk
    `running → cleanup_pending` (at flip) `→ verified_current` (only after
@@ -470,6 +528,13 @@ Unit (fake Zep client that **records call types**, existing patterns):
 11. Stale-generation reaper: alerts on unknown generations, never deletes.
 12. #72 interlock: sweeper regex + registry `graph_kind` assertions reject
     `merchant_*` ids (asserted in both specs' suites).
+13. Rehydration floor (plan-r5, B3): flush the `zep:store` cache while
+    `merchant_<hex32>_r2` exists in Zep, then deliver a delayed envelope
+    naming generation 0 ⇒ prefix enumeration rehydrates the floor to 2,
+    the envelope is rejected with a drift alert, generation 0 is neither
+    provisioned nor written, and the treated run falls back to the
+    throwaway path; an empty enumeration (genuinely fresh merchant)
+    admits generation 0.
 
 Integration (staging, env-gated like the repo's other gated tests): one real
 end-to-end pilot run per phase-gate (PRD §6), including a replay of the same
