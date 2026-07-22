@@ -27,8 +27,15 @@ episode payloads (§4), and the internal API + engine outbox contract (§5).
   `merchant_<hex32>_r<N>` for rebuild generations — a pure function of the
   request-bound merchant UUID (`validate_merchant_id`, `paths.py:52`) plus
   the ledger's generation pointer; charset `[a-z0-9_]`. All generations are
-  enumerable from Zep by prefix `merchant_<hex32>` — privacy operations
-  never depend on Redis (TDD §7).
+  enumerable from Zep by prefix `merchant_<hex32>`. **Erasure markers are
+  Zep-resident (plan-r4, B3):** offboard creates the metadata-only marker
+  graph `merchant_<hex32>_tombstone`, synchronously checked by
+  `ensure_store_graph` and immune to Redis loss — the r3 claim that privacy
+  operations "never depend on Redis" was asserted while the tombstone lived
+  only in Redis; this mechanism is what makes it true. The marker is
+  excluded from generation enumeration, from `verified_empty` accounting
+  (which requires *nothing but* the marker to remain), and is structurally
+  unsweepable by #72 (regex mismatch).
 - Shopper identity inside a graph: the engine's tenant-scoped pseudonymous
   `anonymous_id` (engine migration 035), delivered via the #192-A envelope.
   Never email, name, address, or phone.
@@ -76,7 +83,7 @@ lazy re-apply; rename/remove ⇒ rebuild generation (TDD §3, §7).
 | Key | Type | Fields / members | Written |
 |---|---|---|---|
 | `zep:store:<merchant_id>` | Hash | `graph_id` (current generation — **cache**; the envelope's `memory_generation` is authoritative and wins on mismatch, with a drift alert; TDD §2), `status` (`provisioning\|ready`), `ontology_version`, `created_at` (epoch s), `last_rebuilt_at`, `episode_count_estimate` | `ensure_store_graph` (readiness barrier, TDD §2), rebuild terminal status (TDD §7), envelope reconcile |
-| `zep:store:<merchant_id>:tombstone` | String, no TTL | Redaction timestamp; presence blocks `ensure_store_graph` (PRD §4) | `offboard` command (engine#193-driven) |
+| `zep:store:<merchant_id>:tombstone` | String, no TTL | **Fast-path cache** of the Zep-resident `merchant_<hex32>_tombstone` marker graph (§1, plan-r4) — on cache miss, `ensure_store_graph` consults Zep (`graph.get`) before any create, so a Redis flush cannot un-tombstone a merchant | `offboard` command (engine#193-driven) |
 | `zep:store:<merchant_id>:watermarks` | Hash | `anonymous_id → cutoff_ts` (RFC 3339); enforced on every episode write and replay page (TDD §4.1) — **cache**; durable source = engine ledger, refreshed by every `rebuild`/`redact_customer` command | `redact_customer` command, rebuild commands |
 | `zep:store:op:<operation_id>` | Hash, `EX 30d` | `kind`, `merchant_id`, `status` (`running\|cleanup_pending\|verified_current\|verified_empty\|failed`), `detail`, `updated_at` — backs the §5.4 status GET and `operation_id` idempotency | Commands endpoint, operation progress |
 | `zep:stores` | Set | merchant_ids with a live store graph | Provisioning, offboarding; reaper's iteration hint |
@@ -224,7 +231,10 @@ header mismatch). `Idempotency-Key = operation_id`, scope
 
 `rebuild` requires the snapshot/count/generation fields; `redact_customer`
 requires `watermarks` (and implies an immediate rebuild); `offboard`
-requires none of them (tombstone-first, all-generation delete, TDD §7).
+requires none of them (Zep-resident tombstone first, all-generation delete,
+`verified_empty` = nothing but the marker remains; TDD §7). During
+Phase 1 — before rebuild machinery exists — `customers/redact` is satisfied
+by `offboard`-style whole-graph deletion (the W4e erasure floor; PRD §4).
 Responses: `202` (operation accepted/replayed — same operation), `400`
 schema violation / unknown `kind`, `401/403` auth or merchant mismatch,
 `409` operation in progress with a different payload.
@@ -241,8 +251,12 @@ operation is not in `running` state.
 
 ### 5.4 `GET /api/store-memory/operations/<operation_id>` (Wakaru, new; status)
 
-Read-only poll (like the existing jobs GET: X-API-Key + merchant binding
-suffice — no body to sign). Returns
+Read-only poll — **signed (plan-r4, H1: an unsigned GET contradicted the
+"complete #73" claim):** the same canonical envelope as §5.1-5.3 with
+`SHA256("")` as the body hash; operations are merchant-namespaced and a
+poll whose bound merchant does not own the `operation_id` gets the same
+404 as a nonexistent operation (no cross-tenant existence disclosure).
+Returns
 `{operation_id, kind, status: running | cleanup_pending | verified_current |
 verified_empty | failed, detail, memory_generation, updated_at}`.
 `cleanup_pending` (rebuild only, plan-r3): replay verified and generation

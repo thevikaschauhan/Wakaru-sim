@@ -124,12 +124,21 @@ amendment):
 - **Active merchant:** rolling 180-day episode retention, enforced by
   engine-driven rebuild (D4; replay feed = engine#192-E).
 - **Uninstalled merchant (shop/redact ⇒ `offboard` command):** Wakaru writes
-  the **merchant tombstone first** (checked by `ensure_store_graph` — an
-  in-flight analysis cannot recreate the graph), then deletes **all
-  generations** enumerated from Zep by prefix (never from Redis), then
-  reports terminal status `verified_empty` only after a re-enumeration
-  returns none — a straggler-recreated graph fails the verify and the
-  engine re-drives. Incomplete redaction past deadline alerts engine-side.
+  the **merchant tombstone first — durably, as a metadata-only marker graph
+  in Zep itself** (plan-r4: a Redis-only tombstone did not survive a flush,
+  so a queued pre-uninstall job could recreate erased data; checked by
+  `ensure_store_graph` before any create), then deletes **all generations**
+  enumerated from Zep by prefix (never from Redis), then reports terminal
+  status `verified_empty` only after a re-enumeration returns nothing but
+  the marker — a straggler-recreated graph fails the verify and the engine
+  re-drives, and re-verifies once more T+24h after terminal. Incomplete
+  redaction past deadline alerts engine-side.
+- **Phase-1 erasure floor (plan-r4, W4e):** store memory never writes a
+  production graph before this deletion path is verified end-to-end.
+  Until the rebuild machinery exists, `customers/redact` is satisfied by
+  **whole-graph deletion** — the graph is a write-only rebuildable cache in
+  Phase 1, so over-erasure is compliant and history returns via replay
+  once #192-E lands.
 - **Customer-level erasure (customers/redact ⇒ watermark + `redact_customer`
   command):** the engine persists a **redaction watermark**
   `(merchant_id, anonymous_id, cutoff)` in its ledger (#193), erases its own
@@ -167,7 +176,7 @@ review's recommended sequence (contract → #72 → foundation → pilot → sca
 | 0a | #72 live (revised scheduler proven on real Redis + pinned RQ) | No | #72 steady state clean for 1 week |
 | 0b | Fixed `cr-v1` ontology replaces per-event LLM ontology on the **throwaway** path, run as a sampled dual-generation experiment | No | **Ontology-sensitive gate (plan-r3 correction — the previous gate metric, insight confidence, comes from `assess_confidence_heuristic(cart)` and is independent of the ontology, so it could not fail):** (a) entity/edge-type coverage of sampled LLM-generated ontologies against `cr-v1` over ≥ 1 week, and (b) a one-time frozen paired replay of a synthetic cart corpus through both full pipelines — structured-insight agreement (`reason_category`, `recommended_angle`, `key_objections` overlap) + blinded report adjudication. Non-inferiority thresholds pre-defined in the W3 PR |
 | **CG** | **Contract gate:** engine#192-**A1** (additive versioned envelope incl. `memory_generation`) + **B1** (non-exposure SQL priors) merged and deployed; envelope validated end-to-end in staging. (A2/A3 — the PII-removal steps — and B2 — exposure priors — are separately gated: A3 before any privacy claim, B2 before the pilot.) | No | Envelope fields present on real traffic |
-| 1 | Dual-write: pilot merchants' cart episodes (from envelope fields) also written to their `merchant_*` graph. Analysis still reads only the throwaway graph | No | V-2 exception classes pinned; readiness barrier race-tested; episodes visible via `get_by_graph_id` |
+| 1 | Dual-write: pilot merchants' cart episodes (from envelope fields) also written to their `merchant_*` graph. Analysis still reads only the throwaway graph. **Production enablement additionally requires the W4e erasure floor (verified offboard path incl. Redis-flush replay test; §4)** | No | V-2 exception classes pinned; readiness barrier race-tested; episodes visible via `get_by_graph_id`; erasure floor verified |
 | 2 | Outcome ingestion (engine#192-C/D: attempts + outbox) **and lifecycle commands + rebuild feed (engine#192-E, #193)** live → outcomes land in store graphs; one full rebuild-and-verify and one redaction exercised in staging | No | Idempotent replay proven; outcome lag < 24 h; rebuild `verified_current` and redaction completion evidence observed |
 | 3 | Read integration for pilot merchants: bounded working set (graph) + SQL priors (envelope) feed personas + report; throwaway graph no longer created for treated runs | **Yes** | Per-merchant instant rollback verified; latency delta < +10% |
 | 4 | Decision gate on §7 → default-on for all merchants, or kill (graphs deleted, issue closed with data) | — | §7 criteria |
@@ -191,7 +200,10 @@ Pre-registered before Phase 1 starts:
   attempted recoveries, not analyses.
 - **Primary metric:** recovery conversion within `ATTRIBUTION_WINDOW_DAYS`
   of the attempt (engine SQL, deterministic), treatment vs concurrent
-  control. Pre-registered minimum detectable effect and a power calculation
+  control. **Exposure definition (plan-r4): provider-accepted
+  intention-to-treat is primary** (`accepted` is a send state — accepted
+  mail can still bounce or drop); delivered-exposure, from the
+  reconciliation unit's delivery states, is the pre-registered secondary. Pre-registered minimum detectable effect and a power calculation
   sized on the pilot merchants' trailing 8-week attempt volume decide
   whether the pilot can conclude at all — if power is insufficient, extend
   duration or merchant count *before* starting, not after.

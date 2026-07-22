@@ -4,10 +4,12 @@
 [issue-72/PRD](./issue-72/PRD.md) · [issue-72/TDD](./issue-72/TDD.md) · [issue-72/SCHEMA](./issue-72/SCHEMA.md) ·
 [issue-61/PRD](./issue-61/PRD.md) · [issue-61/TDD](./issue-61/TDD.md) · [issue-61/SCHEMA](./issue-61/SCHEMA.md)
 **Engine issues (bodies re-synchronized 2026-07-22, second pass):** [#191](https://github.com/thevikaschauhan/vakaru-engine/issues/191), [#192](https://github.com/thevikaschauhan/vakaru-engine/issues/192) (parts A1-A3/B1/B2/C1-C4/D/E), [#193](https://github.com/thevikaschauhan/vakaru-engine/issues/193)
-**Status:** plan revision 3 (2026-07-22, after the second external plan
+**Status:** plan revision 4 (2026-07-22, after the third external plan
 review). **Conditionally ready: E1, W1, E2a may start now; W2 after W1; W3
-may start as revised below.** All other units are blocked on the gates in
-their sections.
+code may start (its production enablement follows the safety floor in its
+section).** All other units are blocked on the gates in their sections;
+**W4 may merge dark but must not enable for any real merchant before the
+W4e erasure floor is verified.**
 
 > **Plan revision 3.** Phase-0 gates repaired: G3 now measures
 > ontology-sensitive signals (the r2 gate metric, insight confidence, is
@@ -24,6 +26,29 @@ their sections.
 > proof. Signing is the **complete** #73 contract (version, key id, atomic
 > nonce consumption, fail-closed nonce store, idempotency-body binding,
 > rotation), pinned in TDD §4.2 / SCHEMA §5.
+>
+> **Plan revision 4.** Four production-safety corrections from the third
+> review: (1) **W4e erasure floor** — no persistent production write before
+> a verified deletion path exists; during Phase 1, `customers/redact` is
+> satisfied by whole-graph deletion (the graph is a write-only rebuildable
+> cache until Phase 3, so over-erasure is compliant and history returns via
+> replay once E6 exists). (2) **Race-safe rebuild cutover** — dual-write to
+> both generations from `rebuild` receipt until terminal, and the
+> generation pointer is **monotonic** (an envelope can move it forward,
+> never backward, and never provisions a stale generation — the r3 "envelope
+> wins" rule allowed a delayed request to roll back the pointer). (3)
+> **Durable erasure markers** — the merchant tombstone lives in Zep itself
+> (`merchant_<hex>_tombstone`, metadata-only), synchronously checkable and
+> immune to Redis loss; #193 gains a T+24h post-completion re-verification.
+> (4) **E4c attempt reconciliation** — SendGrid webhooks resolve crashed
+> `pending`/`ambiguous` attempts (the current handler ignores
+> `processed`/`dropped`, verified); `accepted` (send state) is distinct
+> from `delivered` (delivery state), and P0 pre-registers
+> provider-accepted **ITT** as the primary exposure definition. Plus: the
+> status GET is signed (empty-body hash), P1 gates on E2b, the E2b proof is
+> a redacted assertion report, W3 runs its offline safety floor before
+> `dual_sample` touches production, and the M4 graph matches the E4b
+> section (E4b depends only on C1).
 
 ## Ground rules
 
@@ -37,7 +62,7 @@ their sections.
    | Additive fields into an existing endpoint whose consumer **ignores extras** | Producer first (verified for the Wakaru analyze payload) | E2a, E3a, E3b |
    | New request fields the **receiver must persist or strictly validates** | Receiver's tolerant handler first, then the emitter (Inkwell's event decoders are strict) | I1a→E4a, E4b→I1b |
    | **New endpoint** / new consumer | Consumer deploys dark + readiness proof → producer deploys with dispatch OFF → enable → live retry proof | W5→E5-enable, W6a/W6b/W6c→E6b-enable, I3→E7c, W6-path→E7d |
-   | Field **removal** | Consumer stops requiring it → producer stops sending it → wire-capture test proves absence | WP1→E2b |
+   | Field **removal** | Consumer stops requiring it → producer stops sending it → absence proven by a **redacted assertion report** (field-presence booleans; raw captures are PII artifacts) | WP1→E2b |
 
 3. **Enablement protocol (every cross-repo unit):** named producer dispatch
    flag + consumer accept flag; a readiness check advertising supported
@@ -83,27 +108,37 @@ their sections.
 | **P0** | Evaluation pre-registration | Assignment rule, primary metric, MDE, power calc, exclusions, analysis method frozen **before any Phase-1 production data exists** |
 | **R5** | Outcome round-trip | W5 dark + readiness ⇒ E5 dispatch enabled ⇒ live delivery + idempotent replay + 503-retry proven |
 | **R6** | Lifecycle round-trip | W6a+W6b+W6c readiness ⇒ E6b dispatch enabled ⇒ staging rebuild reaches `verified_current` (incl. stale-generation re-list) |
+| **W4E** | W4e unit | **Erasure floor verified before any persistent production write:** offboard path (Zep tombstone + delete-all + re-list) exercised end-to-end in staging, incl. the Redis-flush replay test; Phase-1 `customers/redact` = whole-graph-delete policy live in the engine hook |
 
 ## Dependency graph
 
 ```
 M1  E1 (independent)
     W1 ──▶ W2 ──▶ OP1 ──▶ G0
-M2  E2a ──▶ E3a          E2a ──▶ WP1 ──▶ E2b (PII removal proof)
-M3  W3 ──▶ G3            P0 (paper gate, before W4 enablement)
-    G0 + G3 + E2a + E3a + P0 ──▶ W4 (enable on pilot allowlist)
-M4  C1 ──▶ I1a ──▶ E4a ──▶ E4b ──▶ I1b ──▶ E5 (dispatch OFF)
-    W4 ──▶ W5 (dark) ── W5 + E5 ──▶ R5
+M2  E2a ──▶ E3a          E2a ──▶ WP1 ──▶ E2b (redacted absence report)
+M3  W3-code ──▶ offline safety floor (staging, after W1) ──▶ dual_sample ──▶ G3
+    P0 (paper gate, before W4 enablement)
+    W4 code may merge dark after E2a; W4e ──▶ W4E
+    G0 + G3 + E2a + E3a + P0 + W4E ──▶ W4 (enable on pilot allowlist)
+M4  C1 ──▶ I1a ──▶ E4a ─┐
+    C1 ──▶ E4b ─────────┴─▶ I1b ──▶ E5 (dispatch OFF)
+    E4b ──▶ E4c (webhook reconciliation)
+    W4 ──▶ W5 (dark) ── W5 + E5 + E4c ──▶ R5
 M5  E6a ──▶ E6b-impl (dispatch OFF)
     W4 ──▶ W6a (dark) ──▶ W6b ──▶ W6c ──▶ R6 (enable E6b dispatch)
     E6a ──▶ E7a ──▶ E7b (engine leg)
     I3 (Inkwell erasure consumer, dark) ──▶ E7c (Inkwell leg)
-    R6 ──▶ E7d (Wakaru leg: offboard needs W6a; redact_customer needs R6)
+    R6 ──▶ E7d (Wakaru leg: offboard supersedes W4e; redact_customer needs R6)
     E5 + sample-volume gate (N≥30/cell or seeded staging set) ──▶ E3b
 M6  W4 + E3a ──▶ W7 (disabled by default)
-M7  P1 ⇐ fan-in: G0 · W4 stable ≥2 wk · R5 · R6 · E7b/c/d complete · E3b · W7 rollback-tested · P0 (already frozen)
+M7  P1 ⇐ fan-in: G0 · W4 stable ≥2 wk · R5 · R6 · E7b/c/d complete · E3b · E2b · W7 rollback-tested · P0 (already frozen)
     P1 ──▶ P2 (4-week decision)
 ```
+
+Production-enablement order (code may land dark in any order consistent
+with the edges above; **flags flip only in this order**): W4e-verified →
+W4-pilot-enable → two-week dual-write observation → R5 → R6 → E7d →
+E2b → W7-pilot-enable → P1.
 
 ---
 
@@ -176,9 +211,14 @@ Spec: issue-72 TDD §8. Deploy → review dry-sweep inventory (paste into #72)
   analysis in staging.
 
 ### E2b — engine: remove `email`/`customer_name` from the payload — size XS. After WP1 deployed.
-- Drop the fields; **wire-capture test proves absence** on the staging
-  request. Only now is the PRD-D5 pseudonymization claim true.
-- **Done-when:** capture artifact attached to the PR; #192-A3 checked off.
+- Drop the fields; an absence-assertion test runs against the staging
+  request and emits a **redacted assertion report** (field-presence
+  booleans only — attaching a raw wire capture would itself be a PII
+  artifact; plan-r4, H3). Only now is the PRD-D5 pseudonymization claim
+  true.
+- **Done-when:** redacted report attached to the PR; #192-A3 checked off.
+  **Gates P1** (plan-r4: the removal step must not be skippable — the pilot
+  cannot start on a payload still carrying email/name).
 
 ---
 
@@ -194,34 +234,76 @@ plan-r3). May start day one **as revised here**.
   out-of-band and logs a **coverage row**: LLM-proposed entity/edge types
   mapped against `cr-v1` (unmatched-type rate, attribute coverage). Type
   names only — no PII in the rows. Sampled-arm failures log, never raise.
-- **Frozen paired replay (one-time, offline):** a **synthetic cart corpus**
-  committed to the repo (~20 carts varied by `ontology_code` scenario,
-  price band, device; synthetic because Wakaru retains no real carts and
-  must not start doing so for a test) run through **both** full pipelines
-  once. Compare structured insights (`reason_category` agreement,
-  `recommended_angle` agreement, `key_objections` overlap) + blinded
-  adjudication of the two reports per cart. Bounded cost (~40 pipeline
-  runs, ≈ $2, parallelizable).
+- **Ordering (plan-r4 correction — the r3 text made the fixed ontology the
+  production path before any safety evidence existed):**
+  1. **Offline safety floor first**, in staging, **after W1 is deployed
+     there** (the ~40 replay runs create ~40 graphs; W1's inline delete +
+     W2's sweeper are what clean them up): the frozen paired replay — a
+     **synthetic cart corpus** committed to the repo (~20 carts varied by
+     `ontology_code` scenario, price band, device; synthetic because Wakaru
+     retains no real carts and must not start doing so for a test) through
+     **both** full pipelines once. Compare structured insights
+     (`reason_category` agreement, `recommended_angle` agreement,
+     `key_objections` overlap) + blinded adjudication of the two reports.
+     **Pinned in the PR before any run:** LLM model id, prompts, adjudication
+     rubric, and the statistical comparison (thresholds + method). Bounded
+     cost (~40 pipeline runs, ≈ $2, parallelizable).
+  2. Only after the floor passes does `dual_sample` reach production
+     (fixed ontology becomes the real path there), with a **canary + abort
+     threshold**: any treated-run pipeline-failure or empty-entity rate
+     regression vs trailing baseline flips `ONTOLOGY_MODE=llm` back
+     (rollback owner: whoever enabled it).
 - **Explicitly not a gate metric:** `insight.confidence` — it is
   `assess_confidence_heuristic(cart)` (`cart_recovery_workflow.py:224`),
   cart-only, ontology-independent; it cannot detect the change.
-- **Done-when:** suite green; `dual_sample` live; replay artifacts +
-  pre-defined thresholds committed.
-- **Produces G3:** coverage thresholds held for ≥ 1 week of samples AND the
-  frozen-set comparison non-inferior. Then `ONTOLOGY_MODE=fixed` and the
-  LLM path is deleted in a follow-up chore.
+- **Done-when:** suite green; safety floor passed and artifacts committed;
+  `dual_sample` live in production under the canary.
+- **Produces G3:** coverage thresholds held for ≥ 1 week of production
+  samples AND the frozen-set comparison non-inferior. Then
+  `ONTOLOGY_MODE=fixed` and the LLM path is deleted in a follow-up chore.
 
 ### P0 — evaluation pre-registration — paper, no code. Before W4 enablement.
 - Freeze in the repo (`docs/specs/issue-61/EVALUATION.md`): randomization
-  rule and unit (merchant), primary metric (exposure-attributed recovery
-  conversion), MDE + power calculation on trailing 8-week attempt volume,
-  eligibility/exclusions, seasonality handling, analysis method. The #61
-  PRD §7 requires this **before Phase-1 production data exists** — i.e.
-  before W4 is enabled for any real merchant, not at P1.
+  rule and unit (merchant), primary metric, MDE + power calculation on
+  trailing 8-week attempt volume, eligibility/exclusions, seasonality
+  handling, analysis method. The #61 PRD §7 requires this **before Phase-1
+  production data exists** — i.e. before W4 is enabled for any real
+  merchant, not at P1.
+- **Exposure definition (plan-r4, H2):** `accepted` is a send state, not
+  delivery — accepted mail can bounce or drop. The primary analysis is
+  **provider-accepted intention-to-treat** (available from E4b day one);
+  delivered-exposure (from E4c's delivery states) is pre-registered as the
+  secondary. This choice is frozen here, not decided after data exists.
 - **Done-when:** EVALUATION.md merged; if power is insufficient, pilot size/
   duration adjusted **now**.
 
-### W4 — Wakaru: provisioning + dual-write (#61 Phase 1) — size M. **Gate: G0 + G3 + E2a + E3a + P0.**
+### W4e — erasure floor (Wakaru + minimal engine hook) — size S-M. **Blocks W4's production enable (plan-r4, B1: persistence must never precede a verified erasure path).**
+Rationale: during Phase 1 the store graph is **write-only and rebuildable**
+(no reads until W7; the engine ledger is the durable source), so
+**whole-graph deletion satisfies both `shop/redact` and `customers/redact`**
+— over-erasure is always compliant, and history returns via E6 replay once
+it exists. That makes the floor small:
+- **Wakaru:** the offboard subset of W6a — `POST /api/store-memory/commands`
+  accepting `kind=offboard` only (full-#73 signing per ground rule 7),
+  tombstone-first, delete-all-generations by prefix, re-list verification,
+  `verified_empty` status. **The tombstone is the Zep-resident
+  `merchant_<hex>_tombstone` graph** (issue-61 TDD §7 / SCHEMA §1 as revised
+  in plan-r4): metadata-only, synchronously checked by `ensure_store_graph`,
+  immune to Redis loss.
+- **Engine:** a minimal durable hook (subset of E7a): `shop/redact` **and**
+  `customers/redact` for a store-memory-allowlisted merchant persist a
+  redaction row and dispatch `offboard` with retry until `verified_empty`
+  (Phase-1 policy: customers/redact ⇒ whole-graph delete, documented in the
+  PRD §4). Superseded by E7a-d in M5 without contract change — the command
+  shape is identical.
+- Tests: offboard end-to-end in staging; **Redis-flush replay test** (offboard
+  → flush Redis → replay a queued pre-uninstall analyze job →
+  `ensure_store_graph` refuses via the Zep tombstone, no graph recreated);
+  tombstone graph excluded from #72 sweep (regex already cannot match) and
+  from verified-empty accounting.
+- **Done-when:** staging proof of all three tests. **Produces W4E.**
+
+### W4 — Wakaru: provisioning + dual-write (#61 Phase 1) — size M. **Code may merge dark after E2a. Production enable gate: G0 + G3 + E2a + E3a + P0 + W4E.**
 Spec: issue-61 TDD §2, §4.1; SCHEMA §1, §3, §4.1.
 - `services/store_memory.py`: deterministic ids, `ensure_store_graph` with
   readiness barrier, tombstone check, envelope-authoritative generation
@@ -262,17 +344,41 @@ Spec: issue-61 TDD §2, §4.1; SCHEMA §1, §3, §4.1.
 - `services/inkwell_forwarder.go` adds the field.
 - **Done-when:** staging forward shows it stored Inkwell-side.
 
-### E4b — engine: attempt schema + send-attempt state machine — size M. After C1 (parallel with I1a/E4a).
+### E4b — engine: attempt schema + send-attempt state machine — size M. **After C1 only** (runs in parallel with the I1a→E4a hop; the graph and this line now agree — plan-r4, M1).
 - `recovery_attempt` migration (`attempt_id` PK-per-store, `status`
   `pending|accepted|ambiguous|failed`, `event_id`, `email_document_id`,
-  `angle`, `discount_offered`, `sent_at`); `email_send.go` accepts the
-  optional fields, persists `pending` pre-provider, custom-args
+  **`provider_message_id`**, **`request_fingerprint`** (SHA256 of the send
+  body — same `attempt_id` with a different fingerprint ⇒ 409 conflict,
+  never a second send), `angle`, `discount_offered`, `sent_at`);
+  `email_send.go` accepts the optional fields, validates `event_id` against
+  the authenticated merchant, persists `pending` pre-provider, custom-args
   `attempt_id`, transitions post-provider; same-`attempt_id` retry returns
-  state, re-sends only from `failed`. Absent fields ⇒ today's behavior.
-  Gated DB tests: crash-between-provider-and-commit leaves `pending`/
-  `ambiguous`, never a duplicate send on retry.
+  state, re-sends only from `failed`. **Legacy documents:** an email
+  document created before I1a has no `event_id` — I1b sends without it and
+  no attempt row is created (today's behavior, stated explicitly). Absent
+  fields ⇒ today's behavior throughout. Gated DB tests:
+  crash-between-provider-and-commit leaves `pending`/`ambiguous`, never a
+  duplicate send on retry; fingerprint conflict.
 - **Done-when:** staging send with hand-crafted fields walks
   `pending → accepted`; ambiguous path proven with a stubbed provider.
+
+### E4c — engine: attempt reconciliation via SendGrid webhooks — size S-M. After E4b. **Gates R5** (plan-r4, B4 — without it a crash after provider acceptance strands the attempt in `pending` forever and E5 excludes it indefinitely).
+- Widen the webhook handling: `forwardableSendGridEvent` currently ignores
+  `processed`/`deferred`/`dropped` (verified, `sendgrid_webhook.go`) — the
+  reconciler consumes `processed`/`delivered`/`dropped`/`bounce` events
+  whose custom args carry `attempt_id` and applies **monotonic**
+  transitions: `pending|ambiguous → accepted` (processed/delivered),
+  `→ failed` (dropped, hard bounce); `delivered`/`bounced` recorded as
+  **delivery state alongside, never overwriting, send state** (H2).
+  Terminal states never regress.
+- Stale-attempt watchdog: `pending`/`ambiguous` older than a threshold
+  (default 24 h) alerts with an operator runbook path (query SendGrid by
+  `attempt_id`, resolve manually).
+- Tests: provider-accepted + process crash + webhook ⇒ reconciled to
+  `accepted` **exactly once**; duplicate webhook delivery idempotent;
+  cross-tenant/unknown `attempt_id` events logged and dropped.
+- **Done-when:** staged crash-reconcile test green against the webhook
+  fixture path.
 
 ### I1b — Inkwell: emit attempt fields on send — size S. After E4a + E4b deployed.
 - Sender loads `event_id` from the email document, generates `attempt_id`,
@@ -301,8 +407,10 @@ Spec: issue-61 TDD §4.2; SCHEMA §4.2, §5.1.
   in both repos.
 
 ### R5 — gate: enable outcome dispatch — operator + engine flag flip
-- W5 readiness green ⇒ flip E5 dispatcher ⇒ observe live delivery,
-  idempotent replay, forced 503 → retry → success. **Produces R5.**
+- Preconditions: W5 readiness green **and E4c live** (outcomes must not
+  start flowing while crashed attempts can strand in `pending`). Flip the
+  E5 dispatcher ⇒ observe live delivery, idempotent replay, forced 503 →
+  retry → success. **Produces R5.**
 
 ---
 
@@ -319,15 +427,32 @@ Spec: issue-61 TDD §4.2; SCHEMA §4.2, §5.1.
 ### W6a — Wakaru: command/replay/status consumers, dark — size M. After W4.
 - The three endpoints per SCHEMA §5.2-5.4 (statuses incl.
   `cleanup_pending`), operation idempotency, tombstones, full-#73
-  conformance, readiness advertising versions. No caller exists — dark by
-  definition.
+  conformance **including the status GET** (signed with the empty-body
+  hash under the same canonical envelope — an unsigned GET contradicted
+  "complete #73"; plan-r4, H1), readiness advertising versions. Supersedes
+  W4e's offboard-only subset (same contract, adds `rebuild`/
+  `redact_customer` kinds + replay + status).
+- Tests add: status polling for another merchant's `operation_id` ⇒ 403/404
+  (merchant-namespaced, no cross-tenant read).
 - **Done-when:** contract tests green; deployed dark.
 
 ### W6b — Wakaru: rebuild application — size M. After W6a.
 - Generation creation, page replay (watermark enforcement, per-page
   idempotency), count/checksum verification, atomic flip, then report
   **`cleanup_pending`** (not terminal — plan-r3 state correction).
-- **Done-when:** crash/resume + mismatched-page tests green.
+- **Race-safe cutover (plan-r4, B2):** from `rebuild` command receipt until
+  the terminal status, new episodes **dual-write to both generations** (the
+  command names the pending generation; the snapshot cutoff is the
+  command's watermark, so post-cutoff live events reach N+1 directly, not
+  via the snapshot). **Monotonic pointer:** an envelope's
+  `memory_generation` may move the cache forward only — a lower value is a
+  drift alert, never an update, and never provisions a missing stale
+  generation (replaces r3's "envelope wins" rule, which let a delayed
+  request roll the pointer back).
+- Tests add: an event arriving mid-rebuild appears in the new generation
+  after cutover; a delayed old-generation envelope neither rolls back the
+  pointer nor recreates a deleted generation.
+- **Done-when:** crash/resume + mismatched-page + both cutover tests green.
 
 ### W6c — Wakaru: grace deletion + terminal verification + reaper — size S-M. After W6b.
 - 2 h grace deletion of prior generations, prefix re-list, **emit terminal
@@ -403,8 +528,9 @@ pilot merchants at P1.
 
 ### P1 — pilot launch — operator. **Fan-in gate (all required):**
 G0 · W4 stable ≥ 2 weeks on pilot allowlist · R5 · R6 · E7b/E7c/E7d
-complete · E3b deployed · W7 enabled for pilot + rollback tested · P0
-(frozen since M3 — P1 executes the registered design, it does not write it).
+complete · **E2b (PII removal proven — plan-r4, H3)** · E3b deployed · W7
+enabled for pilot + rollback tested · P0 (frozen since M3 — P1 executes
+the registered design, it does not write it).
 - Operator: allowlist env vars, Zep plan headroom check (V-4), dashboards
   for the PRD §8 metrics.
 

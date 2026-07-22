@@ -97,9 +97,13 @@ Engine (@ `1bb1d95`):
   it on Redis loss was unsafe).** The durable pointer lives in the **engine
   operations ledger** (#192-E) and arrives on **every analyze request** as
   the envelope's `memory_generation` field; lifecycle commands (§7) carry it
-  too. Wakaru's `zep:store:<merchant_id>` hash is a **cache**: on mismatch,
-  the envelope/command value wins, the cache is reconciled, and drift is
-  alerted. If neither an envelope value nor a cache entry is available
+  too. Wakaru's `zep:store:<merchant_id>` hash is a **cache** with
+  **monotonic acceptance (plan-r4 — replaces r3's "envelope wins", which
+  let a delayed old request roll the pointer backward):** an envelope or
+  command value **greater** than the cache moves it forward; an **equal**
+  value confirms it; a **lower** value is rejected with a drift alert —
+  it never updates the pointer and never provisions a missing stale
+  generation. If neither an envelope value nor a cache entry is available
   (fresh merchant), generation 0 applies; if the cache is lost *and* the
   request predates #192's envelope, the treated run **falls back to the
   throwaway path** (fail closed) rather than guessing a generation. All
@@ -111,7 +115,13 @@ Engine (@ `1bb1d95`):
 
 ```python
 def ensure_store_graph(client, merchant_id) -> str:
-    if is_tombstoned(merchant_id):                    # PRD §4; redaction wins
+    if is_tombstoned(merchant_id):                    # PRD §4; redaction wins.
+        # Plan-r4 (B3): the tombstone check is DURABLE — it consults the
+        # Zep-resident marker graph merchant_<hex32>_tombstone (graph.get,
+        # metadata-only, created by offboard) with the Redis key as a
+        # fast-path cache. A Redis flush therefore cannot un-tombstone a
+        # merchant: a queued pre-uninstall job replayed after the flush
+        # still refuses to recreate the graph.
         raise StoreMemoryTombstoned(merchant_id)
     rec = ledger_get(merchant_id)                     # zep:store:<mid> hash
     if rec and rec.status == "ready":
@@ -334,6 +344,15 @@ data flows in the direction the topology already supports):
      checksum, bounded page size, resume-from-page on retry. Wakaru applies
      each page with `graph.add_batch` (stamped `created_at`), enforcing
      watermarks per episode (§4.1), idempotent per `(operation_id, page_no)`.
+     **Race-safe cutover (plan-r4, B2):** the snapshot covers events up to
+     the command's watermark only; from `rebuild` receipt until the terminal
+     status, the live write path **dual-writes every new episode to both
+     generations** (the command names the pending generation), so events
+     concurrent with the rebuild are present in N+1 at flip — nothing
+     depends on the next rebuild to backfill them. The count verification
+     in step 3 checks the snapshot-derived population (dual-written
+     episodes are additional by construction, identified by
+     `occurred_at > watermark`).
   3. On the final page: wait processed, verify episode count against
      `expected_event_count`, flip the current-generation pointer, and report
      **`cleanup_pending`** (plan-r3 correction: this is explicitly an
@@ -370,13 +389,21 @@ is removed: `verify_internal_hmac` is POST-only and signs only
 `timestamp.body`, so a bodyless DELETE cannot bind the tenant into signed
 bytes; the r2 text's "body-bound merchant" was inapplicable to it).**
 Offboarding is the `offboard` command on the same signed POST contract:
-tombstone first, delete **all** generations enumerated from Zep by prefix
-`merchant_<hex32>` (never from Redis), ledger cleanup, then terminal status
-`verified_empty` only after a re-enumeration returns none — a
-straggler-recreated graph fails the verify and the engine re-drives
-(engine#193). Idempotent per `operation_id` (repeat ⇒ re-verify ⇒ same
-terminal state; Zep 404s treated as success — same V-class check as #72's
-V-1).
+**tombstone first — created durably in Zep itself** as the metadata-only
+marker graph `merchant_<hex32>_tombstone` (plan-r4, B3: Redis-resident
+tombstones did not survive a flush, so a queued pre-uninstall job could
+recreate the graph after erasure; the Zep marker is synchronously checkable
+by `ensure_store_graph` and lives in the same durable vendor store as the
+data it guards) — then delete **all** generations enumerated from Zep by
+prefix `merchant_<hex32>` (never from Redis; the tombstone marker is
+excluded from this enumeration and from #72's sweep, whose regex cannot
+match it), ledger cleanup, then terminal status `verified_empty` only after
+a re-enumeration returns nothing but the tombstone — a straggler-recreated
+graph fails the verify and the engine re-drives (engine#193). The engine
+additionally **re-verifies T+24h after terminal** (re-list; catches
+stragglers that started before the tombstone landed). Idempotent per
+`operation_id` (repeat ⇒ re-verify ⇒ same terminal state; Zep 404s treated
+as success — same V-class check as #72's V-1).
 
 ## 8. Config
 
@@ -400,7 +427,9 @@ Unit (fake Zep client that **records call types**, existing patterns):
    readiness barrier and never writes pre-ontology** (revision 2); crashed
    claim expires and setup resumes; lazy ontology-version upgrade.
 3. Tombstone: `ensure_store_graph` raises; write path skips + warns; a
-   post-tombstone provisioning attempt cannot recreate.
+   post-tombstone provisioning attempt cannot recreate; **Redis-flush
+   replay (plan-r4, B3): offboard → flush Redis → replay a queued
+   pre-uninstall job → the Zep marker graph still blocks recreation.**
 4. Dual-write guard: store-memory write failure does not fail the analysis.
 5. **Read-boundary ban (revision 3, was scan ban):** any
    `get_all_nodes`/`get_all_edges`/`panorama_search` against a `merchant_*`
@@ -422,13 +451,18 @@ Unit (fake Zep client that **records call types**, existing patterns):
    write-barrier drops pre-cutoff episodes for the watermarked shopper on
    both the write path and replay pages (counted, logged).
 9. Rebuild operation: page ordering/`page_no` idempotency; count-vs-manifest
-   verification failure ⇒ `failed` terminal (no flip); **the full state walk
+   verification failure ⇒ `failed` terminal (no flip); **an event arriving
+   mid-rebuild dual-writes and appears in the new generation after cutover;
+   a delayed lower-`memory_generation` envelope neither moves the pointer
+   back nor provisions a deleted generation (monotonic rule)**; **the full state walk
    `running → cleanup_pending` (at flip) `→ verified_current` (only after
    grace deletion + stale generations re-listed absent)** — asserting the
    status is *not* terminal at flip; shopper-exclusion drops exactly the
    watermarked `anonymous_id`'s pre-cutoff episodes; cap enforcement;
-   envelope `memory_generation` mismatch with cache ⇒ envelope wins + drift
-   alert.
+   envelope `memory_generation` mismatch with cache ⇒ monotonic rule: a
+   higher value advances the cache, a lower value is rejected with a drift
+   alert (plan-r4 — this test previously asserted "envelope wins", the
+   exact rollback bug B2 identified).
 10. Offboard operation: tombstone-first ordering; prefix enumeration covers
     stale generations; `verified_empty` only on empty re-list (straggler
     recreation ⇒ `failed`, engine re-drives); idempotency per
