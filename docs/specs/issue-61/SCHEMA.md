@@ -125,7 +125,7 @@ producing and consuming ends. Rules for both:
 {
   "schema_version": 1,
   "kind": "cart_episode",
-  "event_id": "12345:a-7f3c9d:checkout:2026-07-18T13:41:00Z",
+  "event_id": "01912d68-783a-7000-8000-0123456789ab",
   "merchant_id": "8b1c5f2e-4a6d-4e0b-9c3a-1f2e3d4c5b6a",
   "shopify_store_id": 12345,
   "anonymous_id": "a-7f3c9d",
@@ -144,12 +144,19 @@ producing and consuming ends. Rules for both:
 }
 ```
 
-`event_id` = `<shopify_store_id>:<anonymous_id>:<episode_type>:<checkout_started_at>`
-— mirrors the engine's `abandonment_detections` PK (migrations 034/040) and
-arrives **pre-built in the envelope** (engine#192-A; Wakaru never
-re-derives it). The envelope also carries `memory_generation` (revision 3 —
-the engine-ledger generation pointer, TDD §2) and any active redaction
-watermarks for context. Zep `created_at` param = `occurred_at`.
+`event_id` is an **immutable UUIDv7 surrogate** minted in the engine at
+detection-claim time (engine migration 041 / `#192-A1`; stored on
+`abandonment_detections.episode_uuid`) and arrives **pre-built in the
+envelope**; Wakaru never re-derives it. It replaced a composite key
+`<shopify_store_id>:<anonymous_id>:<episode_type>:<checkout_started_at>` whose
+seconds-truncated timestamp was not 1:1 with the episode (two sub-second-
+distinct PK rows collapsed), which matters because `event_id` is the
+downstream join key for attempts and outcomes (external review, engine #195 /
+Wakaru #77). The `(shopify_store_id, anonymous_id, episode_type,
+checkout_started_at)` tuple still travels in the envelope as descriptive
+fields. The envelope also carries `memory_generation` (revision 3 — the
+engine-ledger generation pointer, TDD §2) and any active redaction watermarks
+for context. Zep `created_at` param = `occurred_at`.
 
 ### 4.2 Recovery-outcome episode (ingested via the endpoint; engine#192-C/D producer)
 
@@ -157,7 +164,7 @@ watermarks for context. Zep `created_at` param = `occurred_at`.
 {
   "schema_version": 1,
   "kind": "recovery_outcome",
-  "event_id": "12345:a-7f3c9d:checkout:2026-07-18T13:41:00Z",
+  "event_id": "01912d68-783a-7000-8000-0123456789ab",
   "merchant_id": "8b1c5f2e-4a6d-4e0b-9c3a-1f2e3d4c5b6a",
   "anonymous_id": "a-7f3c9d",
   "attempt": {
