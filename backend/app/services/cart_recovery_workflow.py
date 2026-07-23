@@ -22,6 +22,10 @@ import logging
 import time
 from typing import Callable, Optional
 
+# The exception base, not zep_cloud.ApiError (a Pydantic response model). Zep's
+# typed errors (e.g. NotFoundError, status_code 404) subclass this one.
+from zep_cloud.core.api_error import ApiError
+
 from cart_recovery.email_prompt_builder import AbandonmentInsight, EmailPromptBuilder
 from cart_recovery.recovery_spec import RECOVERY_REQUIREMENT, assess_confidence_heuristic
 from cart_recovery.shopify_formatter import ShopifyCartData, ShopifyFormatter
@@ -305,9 +309,24 @@ def _cleanup_artifacts(
             logger.warning("scratch cleanup: report delete failed for %s", report_id)
 
     if graph_id is not None:
+        # `deleted` gates ledger closure. It is set both when the delete
+        # succeeds and when Zep reports the graph already gone (404): an
+        # already-absent graph is the successful end state, and leaving the
+        # ledger record live would strand the id in the active/merchant sets
+        # with no TTL (issue-72 TDD V-1). record_deleted runs OUTSIDE the try
+        # so a ledger hiccup is never mislabeled as a Zep delete failure.
+        deleted = False
         try:
             GraphBuilderService(api_key=Config.ZEP_API_KEY).delete_graph(graph_id)
-            graph_lifecycle.record_deleted(graph_id, source="inline")
+            deleted = True
+        except ApiError as exc:
+            if getattr(exc, "status_code", None) == 404:
+                deleted = True
+            else:
+                logger.warning(
+                    "scratch cleanup: zep graph delete failed for %s (m=%s): %s",
+                    graph_id, merchant_id, exc,
+                )
         except Exception:
             # Best-effort fast path: the W2 sweeper deletes what this misses
             # within one TTL window, so a Zep hiccup here is a warning, not a
@@ -315,6 +334,8 @@ def _cleanup_artifacts(
             logger.warning(
                 "scratch cleanup: zep graph delete failed for %s (m=%s)", graph_id, merchant_id
             )
+        if deleted:
+            graph_lifecycle.record_deleted(graph_id, source="inline")
 
 
 def _wait_for_run(simulation_id: str, on_progress: ProgressCallback):

@@ -135,7 +135,7 @@ def test_cleanup_artifacts_deletes_zep_graph_and_closes_ledger(monkeypatch):
 
 
 def test_cleanup_artifacts_zep_delete_failure_is_guarded(monkeypatch):
-    # A Zep delete failure must neither propagate (the block runs in the
+    # A real Zep delete failure must neither propagate (the block runs in the
     # analysis finally) nor close the ledger record of a still-existing graph
     # (the W2 sweeper needs to find it).
     _stub_local_deletes(monkeypatch)
@@ -156,6 +156,54 @@ def test_cleanup_artifacts_zep_delete_failure_is_guarded(monkeypatch):
     wf._cleanup_artifacts("proj_x", "sim_x", FAKE_GRAPH_ID, "merchant-uuid")  # must not raise
 
     assert ledger == []
+
+
+def test_cleanup_artifacts_non_404_api_error_keeps_ledger_live(monkeypatch):
+    # A non-404 Zep ApiError is a real failure: the graph may still exist, so
+    # the ledger record stays live for the W2 sweeper to retry.
+    _stub_local_deletes(monkeypatch)
+    ledger = []
+
+    class ServerErrorBuilder:
+        def __init__(self, api_key=None):
+            pass
+
+        def delete_graph(self, graph_id):
+            raise wf.ApiError(status_code=500, body="boom")
+
+    monkeypatch.setattr(wf, "GraphBuilderService", ServerErrorBuilder)
+    monkeypatch.setattr(
+        wf.graph_lifecycle, "record_deleted", lambda gid, source: ledger.append((gid, source))
+    )
+
+    wf._cleanup_artifacts("proj_x", "sim_x", FAKE_GRAPH_ID, "merchant-uuid")  # must not raise
+
+    assert ledger == []
+
+
+def test_cleanup_artifacts_already_deleted_404_closes_ledger(monkeypatch):
+    # An expected 404 (a concurrent cleanup, or a future offboard path, already
+    # removed the graph) is a successful end state, not a failure. The ledger
+    # must be closed so the id leaves the active/merchant sets and does not
+    # linger without a TTL (issue-72 TDD V-1).
+    _stub_local_deletes(monkeypatch)
+    ledger = []
+
+    class GoneBuilder:
+        def __init__(self, api_key=None):
+            pass
+
+        def delete_graph(self, graph_id):
+            raise wf.ApiError(status_code=404, body="graph not found")
+
+    monkeypatch.setattr(wf, "GraphBuilderService", GoneBuilder)
+    monkeypatch.setattr(
+        wf.graph_lifecycle, "record_deleted", lambda gid, source: ledger.append((gid, source))
+    )
+
+    wf._cleanup_artifacts("proj_x", "sim_x", FAKE_GRAPH_ID, "merchant-uuid")
+
+    assert ledger == [(FAKE_GRAPH_ID, "inline")]
 
 
 def test_cleanup_artifacts_without_graph_skips_zep_delete(monkeypatch):
