@@ -55,14 +55,20 @@ following hold:
    `X-Merchant-Id` is never store-memory eligible, PRD §6), is not
    tombstoned or offboarded, and is not a development or test store
    operated by Vakaru itself. The excluded-store list is frozen **here**,
-   not deferred to the roster commit: the HMAC key is published in this
-   commit, so digests are computable as soon as a roster is known, and a
-   list assembled later would be a roster-composition lever. The frozen
-   list (operator: enumerate every Vakaru-operated development or test
-   store before this PR merges; merging with the placeholder is a merge
-   blocker, and an empty list is itself a frozen claim that none exist):
+   not deferred to the roster commit: freezing it before any roster exists
+   is what stops it from becoming a roster-composition lever. (The
+   assignment seed is independently unknowable until the post-roster beacon
+   reveal, §2.4, so the list cannot be tuned against a known split either.)
+   The frozen list, keyed by `shopify_store_id` with the store domain as an
+   integrity check:
 
-   - (fill before merge)
+   | shopify_store_id | domain |
+   |---|---|
+   | 1 | vakaru-test.myshopify.com |
+   | 3 | vakarutest1.myshopify.com |
+   | 4 | vakarutest2.myshopify.com |
+   | 14 | vakarutest3.myshopify.com |
+   | 19 | label-house-test.myshopify.com |
 
    The roster commit records only the assertion that no store was added
    to or removed from this list.
@@ -75,22 +81,32 @@ before any of that wave's data is used.
 ### 2.3 Enrollment snapshot and roster commit
 
 The snapshot instant is **00:00 UTC on the Monday of the ISO week in which
-the W4 pilot allowlist is first populated with any real merchant**. The
-roster commit must merge before that flag flips, and records: the snapshot
-timestamp, the intended flip ISO week, the exact SQL run (§4.3),
-per-merchant inputs (`accepted_56d`, `episodes_56d`, `b_i`, `v_i`), the
-full HMAC digest per merchant, the pairing, and the resulting arms. Anyone
-can recompute the assignment from the roster commit; a mismatch voids the
-registration (§9).
+the W4 pilot allowlist is first populated with any real merchant**.
+Assignment is a two-commit protocol so that the randomizing entropy does
+not exist when the roster and every input is chosen (§2.4):
 
-**Slippage rule (frozen):** the roster commit names the ISO week in which
-the flip will occur, and the snapshot it uses must be that week's Monday
-00:00 UTC. If the allowlist is not first populated within the named week,
-the roster is void: its arms may not be reused, and enrollment requires a
-fresh roster commit, recomputed at the new snapshot per this section, in
-an amendment commit recording the reason for the slip. Arms are therefore
-valid for exactly one candidate snapshot; deferring the flip can never
-silently redraw them.
+1. **Roster commit** (merges before the flag flips). Records the snapshot
+   timestamp, the intended flip ISO week, the exact SQL run (§4.3),
+   per-merchant inputs (`accepted_56d`, `recovered_56d`, `b_i`, `v_i`), the
+   deterministic pairing (§2.4 steps 1-3), and the **named future beacon
+   round** that will supply the seed. It does **not** and cannot record the
+   arms: the seed is not yet knowable. It publishes `SHA256` of the sorted
+   roster UUID list so the roster is tamper-evident before the beacon
+   emits.
+2. **Assignment commit** (merges after the beacon reveal, before any
+   arm-labeled data is used). Records the revealed beacon value, the seed
+   derived from it, the per-merchant digest, and the resulting arms. Anyone
+   recomputes the arms from (roster commit + public beacon value); a
+   mismatch voids the registration (§9).
+
+**Slippage rule (frozen):** the roster commit names both the flip ISO week
+and the beacon round, and the beacon round must fall inside that week after
+the snapshot. If the allowlist is not first populated within the named
+week, the roster is void: its beacon round may not be reused for a
+different roster, and enrollment requires a fresh roster commit (new
+snapshot, new future beacon round) in an amendment commit recording the
+reason for the slip. A seed is therefore bound to exactly one roster;
+deferring the flip can never silently redraw the arms.
 
 ### 2.4 Assignment mechanism (deterministic, auditable, not re-rollable)
 
@@ -99,30 +115,44 @@ silently redraw them.
 2. Sort the roster by `b_i` descending; break ties by merchant UUID
    ascending.
 3. Form consecutive pairs (1,2), (3,4), ... If the roster count is odd,
-   the last merchant (lowest `b_i`) is not enrolled.
-4. For each merchant compute
-   `t_i = HMAC-SHA256(key, lowercase merchant UUID string)`, hex digest,
-   with the frozen key `wakaru-61-p0-evaluation-2026-07-22`.
-5. Within each pair, the merchant with the lexicographically smaller hex
+   the last merchant (lowest `b_i`) is not enrolled. Steps 1-3 are fixed at
+   the **roster commit** and use no randomness.
+4. **Seed (from a public randomness beacon, revealed after the roster
+   commit).** The roster commit names a future beacon round: a specific
+   [drand](https://drand.love) round `R` (League of Entropy, 30 s cadence)
+   whose scheduled time falls inside the named flip week, after the
+   snapshot. `seed = SHA256(drand_randomness(R))`, where `drand_randomness(R)`
+   is the 32-byte hex value that beacon publishes at round `R`. The value
+   is unpredictable until the round emits, so it does not exist when the
+   roster, the pairing, the eligibility list, and the excluded-store list
+   are all chosen. (Substitute: the NIST Randomness Beacon pulse at a named
+   future timestamp; the roster commit fixes exactly one source and one
+   round/pulse.)
+5. For each merchant compute
+   `t_i = HMAC-SHA256(seed, lowercase merchant UUID string)`, hex digest.
+6. Within each pair, the merchant with the lexicographically smaller hex
    digest is assigned **treatment** (store memory); the other **control**
-   (throwaway path).
+   (throwaway path). Arms are recorded in the **assignment commit**.
 
 Why this cannot be gamed or re-rolled:
 
-- The key, the mechanism, and the eligibility criteria are frozen in this
-  commit, in git history, before any roster exists.
+- The mechanism and eligibility criteria are frozen in this commit, in git
+  history, before any roster exists.
 - Merchant UUIDs are engine-minted at install time, before the pilot
   existed; no party chooses them.
-- The snapshot event is the operator's own flip timing, and the published
-  key means digests are computable before the flip. That residual lever
-  is closed by the §2.3 slippage rule, not by the event's objectivity:
-  the roster commit binds itself to one named flip week, so arms are
-  valid for exactly one candidate snapshot and a deferred flip voids the
-  roster instead of redrawing the arms.
+- The seed comes from a public beacon whose value is **unknowable when the
+  roster is committed**. Grinding is therefore impossible: there is no key
+  or snapshot choice that can be searched against a known split, because
+  the split-determining entropy has not been generated yet. The beacon
+  value is externally verifiable (drand signatures / NIST pulses are
+  publicly archived), so the seed cannot be fabricated after the fact.
+- The roster commit binds one roster to one future beacon round; the §2.3
+  slippage rule voids the roster (never reuses the round) if the flip week
+  slips, so a deferred flip cannot redraw the arms.
 - `b_i` and `v_i` come from frozen queries over historical data; the roster
   commit publishes them, so the sort order is auditable.
-- Assignment is a pure function of the committed roster. Re-running it is
-  the audit. There is no randomness to re-roll.
+- Given the committed roster and the public beacon value, assignment is a
+  pure function. Re-running it is the audit.
 
 The W4 allowlist and the Phase-3 (W7) allowlist must equal the treatment
 arm exactly, minus any merchants removed by a registered rollback (§2.5).
@@ -288,9 +318,15 @@ pairs that no duration can buy back: between-merchant variance, not
 attempt count, is the binding constraint.
 
 The formula is evaluated per roster (§4.5): `v = v_bar` of the roster
-under evaluation, the **median** of that roster's merchants' weekly
-accepted volumes (for an even count, the lower middle value;
-conservative), rounded down to one decimal. `p0` is the pooled baseline
+under evaluation, the **harmonic mean** of that roster's merchants' weekly
+accepted volumes (`v_bar = n / sum(1/v_i)` over the roster's `n`
+merchants), rounded down to one decimal. The harmonic mean, not the
+median, is the correct conservative aggregate: per-merchant sampling
+variance enters the power condition through `1/m_i = 1/(v_i*w)`, so the
+pooled `1/m` term is the average of `1/v_i`, whose reciprocal is exactly
+the harmonic mean. Under heterogeneous volumes the median can materially
+overstate power (a roster with a few low-volume merchants needs far more
+duration than its median volume implies). `p0` is the pooled baseline
 conversion over that same roster (total recovered / total denominator,
 §4.3), rounded to four decimals. `p1 = MDE * p0`.
 
@@ -308,8 +344,8 @@ once E4b is live:
 SELECT shopify_store_id, COUNT(*) AS accepted_56d
 FROM recovery_attempt
 WHERE status = 'accepted'
-  AND sent_at >= :snapshot - INTERVAL '56 days'
-  AND sent_at <  :snapshot
+  AND COALESCE(sent_at, created_at) >= :snapshot - INTERVAL '56 days'
+  AND COALESCE(sent_at, created_at) <  :snapshot
 GROUP BY shopify_store_id;
 ```
 
@@ -318,34 +354,54 @@ provider-accepted recovery-email sends over the same window from the send
 pipeline's persisted records (Inkwell send spine; a send counts iff the
 SendGrid API call returned success). `v_i = accepted_56d / 8` (per week).
 
-**Q2 - per-merchant baseline conversion, trailing 56 days.** Episode-level
-proxy until Q1's canonical source has history; the same construct is used
-for every merchant symmetrically, and it feeds only pairing and power
-inputs, never the confirmatory contrast:
+**`sent_at` COALESCE (normative, applies to Q1, Q2, and §3.2).**
+`COALESCE(sent_at, created_at)` implements the §3.1 frozen rule: an
+E4c-reconciled attempt has `sent_at` NULL (engine#192-C writes `sent_at`
+only on direct acceptance), so the attempt's creation timestamp stands in.
+Engine #192-C5 SHOULD persist the creation instant into `sent_at` on
+reconciliation, which turns every COALESCE here into a no-op; until it
+does, the COALESCE is what stops reconciled-accepted rows from silently
+dropping out of these denominators and the §3.2 attribution window. The
+engine-side derivation of the primary metric MUST use the same COALESCE.
+
+**Q2 - per-merchant baseline recovery rate, trailing 56 days.** This must
+estimate the SAME quantity the pilot measures (§3.2): recoveries per
+provider-accepted send, attributed within 7 days of the send. It is
+therefore computed over the accepted-send spine (denominator identical to
+Q1's `accepted_56d`) and anchored at the send time, NOT over all
+abandonment episodes anchored at `checkout_started_at`. An episode-level
+rate would count episodes that never produced an accepted send and orders
+that preceded any email, estimating a different and biased baseline. The
+construct is applied to every merchant symmetrically and feeds only pairing
+and power inputs, never the confirmatory contrast. Canonical once E4b is
+live:
 
 ```sql
-SELECT d.shopify_store_id,
-       COUNT(*) AS episodes_56d,
+SELECT a.shopify_store_id,
+       COUNT(*) AS accepted_56d,
        COUNT(*) FILTER (WHERE EXISTS (
          SELECT 1 FROM orders o
-         WHERE o.shopify_store_id     = d.shopify_store_id
-           AND o.matched_anonymous_id = d.anonymous_id
-           AND o.created_at >  d.checkout_started_at
-           AND o.created_at <= d.checkout_started_at + INTERVAL '7 days'
+         WHERE o.shopify_store_id     = a.shopify_store_id
+           -- a.anonymous_id resolves via the attempt's episode (event_id)
+           AND o.matched_anonymous_id = a.anonymous_id
+           AND o.created_at >  COALESCE(a.sent_at, a.created_at)
+           AND o.created_at <= COALESCE(a.sent_at, a.created_at) + INTERVAL '7 days'
        )) AS recovered_56d
-FROM abandonment_detections d
-WHERE d.checkout_started_at >= :snapshot - INTERVAL '56 days'
-  AND d.checkout_started_at <  :snapshot
-GROUP BY d.shopify_store_id;
+FROM recovery_attempt a
+WHERE a.status = 'accepted'
+  AND COALESCE(a.sent_at, a.created_at) >= :snapshot - INTERVAL '56 days'
+  AND COALESCE(a.sent_at, a.created_at) <  :snapshot
+GROUP BY a.shopify_store_id;
 ```
 
-`b_i = recovered_56d / episodes_56d`; pooled
-`p0 = sum(recovered_56d) / sum(episodes_56d)`, computed separately per
-roster (`p0_A` over roster A, `p0_B` over roster B). Once
-`recovery_attempt` predates the snapshot by 56 days, the attempt-based
-version (denominator = accepted attempts, numerator = recovered per §3.2)
-replaces the episode proxy; the roster commit states which construct was
-used.
+Until `recovery_attempt` predates the snapshot by 56 days, the proxy is the
+same provider-accepted send spine Q1 uses (Inkwell send records; a send
+counts iff the SendGrid API call returned success), with recovery
+attributed within 7 days of the send time and the shopper's `anonymous_id`
+carried from the analysis; the roster commit records the exact join used.
+`b_i = recovered_56d / accepted_56d`; pooled `p0 = sum(recovered_56d) /
+sum(accepted_56d)`, computed separately per roster (`p0_A` over roster A,
+`p0_B` over roster B).
 
 ### 4.4 Sensitivity table
 
@@ -361,7 +417,8 @@ reduce, at `rho_pair = 0.01`):
 | 0.08 | 0.120 | 693 | 7 |
 
 Required duration in weeks at `p0 = 0.05` (illustrative center), by MDE
-tier, pairs `J`, and median weekly accepted volume per merchant `v_bar`.
+tier, pairs `J`, and harmonic-mean weekly accepted volume per merchant
+`v_bar` (§4.2).
 Cells apply `w = max(4, ceil(w_req))`; `>12` means the cap is exceeded and
 the ladder moves on. Computed from the §4.2 formula with
 `rho_pair = 0.01`; constants `B`: 1156.2 (1.5x), 559.9 (1.75x), 340.0
@@ -403,8 +460,8 @@ there. Only the 2.0x tier is feasible at its floor rows (from J = 4 at
 
 Inputs: roster A and roster B (§2.2 volume floors), their sizes `K_A` and
 `K_B`, and per-roster values from §4.3: pooled baselines `p0_A`, `p0_B`
-and median weekly volumes `v_bar_A`, `v_bar_B`, each computed over that
-roster's merchants. Pairs: `J_A = floor(K_A / 2)`,
+and harmonic-mean weekly volumes `v_bar_A`, `v_bar_B` (§4.2), each computed
+over that roster's merchants. Pairs: `J_A = floor(K_A / 2)`,
 `J_B = floor(K_B / 2)`. Each step is evaluated with its own roster's
 values: `p0_A`, `v_bar_A`, `J_A` for the A steps and `p0_B`, `v_bar_B`,
 `J_B` for the B steps (roster B is a superset at a lower volume floor, so
@@ -440,7 +497,8 @@ at enrollment (fixes roster, pairs, and J) and once at Phase-3 enablement.
 The re-run's protocol is frozen: with the roster fixed at enrollment, only
 the steps whose roster equals the enrolled roster are evaluable (keeping
 that roster's week floor and its frozen J); `v_bar` is re-measured as the
-enrolled roster's median over the then-current trailing 56 days; `p0` is
+enrolled roster's harmonic mean (§4.2) over the then-current trailing 56
+days; `p0` is
 **not** re-measured (the enrollment value for the enrolled roster is
 reused); pairing and J never change. If no evaluable step passes, the L7
 outcome applies: Phase 3 does not launch as confirmatory without an
@@ -504,7 +562,7 @@ is committed (the Phase-3 sizing commit, recording `T3`, the re-measured
   any treatment exposure exists) and run once at the §3.2 analysis
   instant.
 
-## 7. Operator fill-in (to be completed in the roster and sizing commits)
+## 7. Operator fill-in (to be completed in the roster, assignment, and sizing commits)
 
 Enrollment (roster commit, merges before the W4 allowlist is populated):
 
@@ -514,14 +572,26 @@ Enrollment (roster commit, merges before the W4 allowlist is populated):
 | SQL actually run for Q1/Q2 | (fill) |
 | K_A, K_B | (fill) |
 | Pooled p0_A, p0_B | (fill) |
-| v_bar_A, v_bar_B | (fill) |
+| v_bar_A, v_bar_B (harmonic mean, §4.2) | (fill) |
 | Ladder step selected | (fill) |
 | J (pairs, from the selected roster) | (fill) |
 | Assertion: no stores beyond the §2.2 frozen exclusion list | (fill) |
 | Intended flip ISO week (§2.3) | (fill) |
+| Beacon source + named future round/pulse R (§2.4) | (fill) |
+| SHA256 of the sorted roster UUID list | (fill) |
 
-Per-merchant roster table: merchant UUID, `accepted_56d`, `episodes_56d`,
-`b_i`, `v_i`, pair index, full HMAC digest, arm.
+Per-merchant roster table (roster commit): merchant UUID, `accepted_56d`,
+`recovered_56d`, `b_i`, `v_i`, pair index. Arms are absent here by design;
+the seed does not exist yet.
+
+Assignment (assignment commit, merges after the beacon reveals, before any
+arm-labeled data is used):
+
+| Input | Value |
+|---|---|
+| Revealed beacon value at round R | (fill) |
+| `seed = SHA256(beacon value)` | (fill) |
+| Per-merchant `HMAC-SHA256(seed, lowercase UUID)` digest + arm | (fill) |
 
 Phase-3 sizing commit (merges before the W7 flag flips): `T3`, re-measured
 `v_bar` for the enrolled roster, the evaluable ladder step selected, final
@@ -542,9 +612,11 @@ The confirmatory status of the pilot is void if any of the following
 happens without an amendment commit permitted by the staged windows at
 the end of this section:
 
-1. The assignment recomputation from the roster commit does not reproduce
-   the committed arms.
-2. The roster, pairing, or arms change after the roster commit.
+1. The assignment recomputation from the roster commit plus the public
+   beacon value at the named round does not reproduce the arms recorded in
+   the assignment commit.
+2. The roster or pairing changes after the roster commit, or the arms
+   change after the assignment commit, or the named beacon round changes.
 3. The W4/W7 allowlist diverges from the treatment arm through
    **unregistered** divergence (a non-treatment merchant on the
    allowlist, or a removal not recorded as a registered rollback per
@@ -574,3 +646,9 @@ that alter no definition in §2, §3, or §6. Every amendment is a visible
 commit to this file stating what changed, why, and what pilot data
 existed when it was made. After Phase-3 enablement, nothing in this
 document changes.
+
+The **assignment commit** (§2.3, §7) is the mechanical second step of the
+randomization, not an amendment: it records the revealed beacon value and
+the arms that value plus the already-frozen roster determine, and adds no
+discretion. It merges after the beacon reveals and before any arm-labeled
+data is used.
