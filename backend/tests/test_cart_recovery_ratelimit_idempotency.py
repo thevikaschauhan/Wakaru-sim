@@ -125,7 +125,7 @@ def test_analyze_same_idempotency_key_runs_pipeline_once(client, monkeypatch):
     monkeypatch.setattr("app.api.cart_recovery.get_redis_connection", lambda: conn)
     calls = []
 
-    def fake_run(cart, on_progress=None):
+    def fake_run(cart, on_progress=None, merchant_id=None):
         calls.append(1)
         return _fake_insight()
 
@@ -166,7 +166,8 @@ def test_analyze_record_failure_still_returns_result(client, monkeypatch):
     conn = fakeredis.FakeStrictRedis()
     monkeypatch.setattr("app.api.cart_recovery.get_redis_connection", lambda: conn)
     monkeypatch.setattr(
-        "app.api.cart_recovery.run_cart_recovery", lambda cart, on_progress=None: _fake_insight()
+        "app.api.cart_recovery.run_cart_recovery",
+        lambda cart, on_progress=None, merchant_id=None: _fake_insight(),
     )
 
     def boom(*a, **k):

@@ -22,6 +22,10 @@ import logging
 import time
 from typing import Callable, Optional
 
+# The exception base, not zep_cloud.ApiError (a Pydantic response model). Zep's
+# typed errors (e.g. NotFoundError, status_code 404) subclass this one.
+from zep_cloud.core.api_error import ApiError
+
 from cart_recovery.email_prompt_builder import AbandonmentInsight, EmailPromptBuilder
 from cart_recovery.recovery_spec import RECOVERY_REQUIREMENT, assess_confidence_heuristic
 from cart_recovery.shopify_formatter import ShopifyCartData, ShopifyFormatter
@@ -29,6 +33,8 @@ from cart_recovery.shopify_formatter import ShopifyCartData, ShopifyFormatter
 from ..config import Config
 from ..models.project import ProjectManager, ProjectStatus
 from ..utils.llm_client import LLMClient
+from ..utils.paths import SENTINEL_MERCHANT_ID
+from . import graph_lifecycle
 from .graph_builder import GraphBuilderService
 from .ontology_generator import OntologyGenerator
 from .report_agent import ReportAgent, ReportManager, ReportStatus
@@ -59,6 +65,7 @@ _TERMINAL_STATUSES = (
 def run_cart_recovery(
     cart: ShopifyCartData,
     on_progress: ProgressCallback = None,
+    merchant_id: str = SENTINEL_MERCHANT_ID,
 ) -> AbandonmentInsight:
     """
     Run the full cart-recovery pipeline in-process and return an
@@ -69,6 +76,11 @@ def run_cart_recovery(
     emits — ``ontology_generated``, ``graph_completed``, ``simulation_ready``,
     ``simulation_completed``, ``generating_report`` — plus ``running`` liveness
     ticks while the OASIS simulation advances.
+
+    ``merchant_id`` attributes the run's Zep scratch graph in the lifecycle
+    ledger (#72). Both live callers pass it (the /analyze handler from
+    ``g.merchant_id``, the RQ job from ``job.meta``); the sentinel default
+    keeps the signature backward-compatible.
     """
     # Fail fast on missing credentials before doing any work (the downstream
     # services raise mid-pipeline otherwise).
@@ -87,13 +99,17 @@ def run_cart_recovery(
     # The pipeline's project/simulation/report dirs under uploads/ are write-only
     # scratch (the insight is returned, never re-read), so they are removed in the
     # finally — on success OR failure — to avoid cross-tenant co-mingling, unbounded
-    # disk growth, and PII at rest (#24 CP2b). ``captured`` carries the simulation_id
-    # back out so a failure after the simulation is created still cleans its dir.
-    captured: dict = {"simulation_id": None}
+    # disk growth, and PII at rest (#24 CP2b). ``captured`` carries the
+    # simulation_id and graph_id back out so a failure after either exists still
+    # cleans it: the simulation dir is removed, and the Zep scratch graph is
+    # deleted inline (#72) with its ledger record closed in the same finally.
+    captured: dict = {"simulation_id": None, "graph_id": None}
     try:
-        return _run_analysis(project, cart, seed_text, on_progress, captured)
+        return _run_analysis(project, cart, seed_text, on_progress, captured, merchant_id)
     finally:
-        _cleanup_artifacts(project.project_id, captured["simulation_id"])
+        _cleanup_artifacts(
+            project.project_id, captured["simulation_id"], captured["graph_id"], merchant_id
+        )
 
 
 def _run_analysis(
@@ -102,13 +118,15 @@ def _run_analysis(
     seed_text: str,
     on_progress: ProgressCallback,
     captured: dict,
+    merchant_id: str,
 ) -> AbandonmentInsight:
     """Run the pipeline body for an already-created ``project``.
 
     Extracted from run_cart_recovery so the caller can wrap it in a try/finally
     that removes the per-analysis scratch (#24 CP2b). ``captured["simulation_id"]``
-    is set the moment the simulation exists so a mid-pipeline failure still gets
-    its directory cleaned up.
+    and ``captured["graph_id"]`` are set the moment each exists so a
+    mid-pipeline failure still gets its directory cleaned up and its Zep graph
+    deleted (#72). ``merchant_id`` attributes the graph in the lifecycle ledger.
     """
     prompt_builder = EmailPromptBuilder()
     project.simulation_requirement = RECOVERY_REQUIREMENT
@@ -139,9 +157,14 @@ def _run_analysis(
 
     def _persist_graph_id(graph_id: str) -> None:
         # Persist graph_id the moment the graph exists, so it survives a failure
-        # in a later step (mirrors the route's mid-build save).
+        # in a later step (mirrors the route's mid-build save). ``captured``
+        # feeds the finally's inline Zep delete (#72), and the ledger "created"
+        # record lands here too - record_created is internally guarded so a
+        # Redis outage degrades to a warning, never a failed analysis.
+        captured["graph_id"] = graph_id
         project.graph_id = graph_id
         ProjectManager.save_project(project)
+        graph_lifecycle.record_created(graph_id, merchant_id)
 
     build_result = builder.build_graph_sync(
         text=seed_text,
@@ -238,16 +261,27 @@ def _run_analysis(
     return insight
 
 
-def _cleanup_artifacts(project_id: str, simulation_id: Optional[str]) -> None:
-    """Best-effort removal of one analysis's scratch dirs (#24 CP2b).
+def _cleanup_artifacts(
+    project_id: str,
+    simulation_id: Optional[str],
+    graph_id: Optional[str] = None,
+    merchant_id: str = SENTINEL_MERCHANT_ID,
+) -> None:
+    """Best-effort removal of one analysis's scratch artifacts (#24 CP2b, #72).
 
-    Three dirs hold a run's artifacts: the project, the simulation (state, config,
-    actions.jsonl, OASIS outputs, and run-state all share one
-    uploads/simulations/<id> tree), and the report. Each removal is guarded so a
-    cleanup error never masks the analysis result or its propagating exception.
-    The report id is resolved first — it is keyed under uploads/reports, linked by
-    simulation_id — so deleting the simulation dir cannot affect the lookup. ids
-    (proj_/sim_/report_) are random hex, not PII, so logging them is safe.
+    Three local dirs hold a run's artifacts: the project, the simulation (state,
+    config, actions.jsonl, OASIS outputs, and run-state all share one
+    uploads/simulations/<id> tree), and the report. A fourth artifact lives in
+    Zep Cloud: the run's throwaway knowledge graph, deleted inline here (#72,
+    fast path) with the lifecycle ledger updated; the W2 sweeper catches any
+    graph this misses. Each removal is guarded so a cleanup error never masks
+    the analysis result or its propagating exception. The report id is resolved
+    first - it is keyed under uploads/reports, linked by simulation_id - so
+    deleting the simulation dir cannot affect the lookup. ids
+    (proj_/sim_/report_/mirofish_) are random hex, not PII, so logging them is
+    safe. The graph is only ever deleted after _run_analysis has returned (the
+    insight is already built; ReportAgent is the last graph reader), so this
+    fast path cannot race its own run.
     """
     report_id = None
     if simulation_id is not None:
@@ -273,6 +307,48 @@ def _cleanup_artifacts(project_id: str, simulation_id: Optional[str]) -> None:
             ReportManager.delete_report(report_id)
         except Exception:
             logger.warning("scratch cleanup: report delete failed for %s", report_id)
+
+    if graph_id is not None:
+        # `deleted` gates ledger closure. It is set both when the delete
+        # succeeds and when Zep reports the graph already gone (404): an
+        # already-absent graph is the successful end state, and leaving the
+        # ledger record live would strand the id in the active/merchant sets
+        # with no TTL (issue-72 TDD V-1). record_deleted runs OUTSIDE the try
+        # so a ledger hiccup is never mislabeled as a Zep delete failure.
+        deleted = False
+        try:
+            GraphBuilderService(api_key=Config.ZEP_API_KEY).delete_graph(graph_id)
+            deleted = True
+        except ApiError as exc:
+            if getattr(exc, "status_code", None) == 404:
+                deleted = True
+            else:
+                # Log only the status code and error type, never the ApiError's
+                # str(): its headers/body can echo response content, and this is a
+                # PII-sensitive path (#72/#24). graph_id + merchant_id attribute it.
+                logger.warning(
+                    "scratch cleanup: zep graph delete failed for %s (m=%s): status=%s type=%s",
+                    graph_id, merchant_id, getattr(exc, "status_code", None), type(exc).__name__,
+                )
+        except Exception:
+            # Best-effort fast path: the W2 sweeper deletes what this misses
+            # within one TTL window, so a Zep hiccup here is a warning, not a
+            # failure. merchant_id is logged for attribution (#24 log style).
+            logger.warning(
+                "scratch cleanup: zep graph delete failed for %s (m=%s)", graph_id, merchant_id
+            )
+        if deleted:
+            try:
+                graph_lifecycle.record_deleted(graph_id, source="inline")
+            except Exception:
+                # Ledger closure is best-effort and MUST NOT raise: this runs in
+                # run_cart_recovery's finally, so an escaping exception (e.g. a
+                # non-Redis decode error on corrupt ledger bytes) would mask the
+                # analysis result or an in-flight pipeline exception. The W2
+                # sweeper reconciles a missed close.
+                logger.warning(
+                    "scratch cleanup: ledger close failed for %s (m=%s)", graph_id, merchant_id
+                )
 
 
 def _wait_for_run(simulation_id: str, on_progress: ProgressCallback):

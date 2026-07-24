@@ -263,7 +263,7 @@ def analyze():
 
     # Run analysis
     try:
-        insight = run_cart_recovery(cart, on_progress=on_progress)
+        insight = run_cart_recovery(cart, on_progress=on_progress, merchant_id=g.merchant_id)
     except Exception as e:
         # The paid work ran but failed: free the idempotency slot so the caller
         # can retry (there is no cached result to replay). This is a positive

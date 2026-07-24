@@ -1,17 +1,21 @@
-"""Issue #24 (CP2b) — per-analysis scratch cleanup.
+"""Issue #24 (CP2b) + issue #72 - per-analysis scratch cleanup.
 
 run_cart_recovery removes the project / simulation / report dirs it writes under
 uploads/ once the insight is produced (success or failure), so PII-bearing
 scratch with no live reader does not co-mingle across tenants or accumulate.
-These tests cover the manager delete primitives and the _cleanup_artifacts
-orchestrator in isolation; the finally-wiring (cleanup fires on success AND
-failure, with the right ids) is exercised in test_cart_recovery_workflow.py.
+Issue #72 adds a fourth guarded cleanup block: the run's throwaway Zep graph is
+deleted inline and its lifecycle-ledger record closed. These tests cover the
+manager delete primitives and the _cleanup_artifacts orchestrator in isolation;
+the finally-wiring (cleanup fires on success AND failure, with the right ids)
+is exercised in test_cart_recovery_workflow.py.
 """
 from types import SimpleNamespace
 
 import app.services.cart_recovery_workflow as wf
 from app.services.report_agent import ReportManager
 from app.services.simulation_manager import SimulationManager
+
+FAKE_GRAPH_ID = "mirofish_0123456789abcdef"
 
 
 # --- manager delete primitives -----------------------------------------------
@@ -98,3 +102,181 @@ def test_cleanup_artifacts_is_best_effort(monkeypatch):
     wf._cleanup_artifacts("proj_x", "sim_x")  # must not raise despite all three failing
 
     assert attempted == ["project", "sim", "report"]
+
+
+# --- #72: fourth guarded block - inline Zep graph delete ----------------------
+
+def _stub_local_deletes(monkeypatch):
+    monkeypatch.setattr(wf.ReportManager, "get_report_by_simulation", lambda sid: None)
+    monkeypatch.setattr(wf.ProjectManager, "delete_project", lambda pid: None)
+    monkeypatch.setattr(wf.SimulationManager, "delete_simulation", lambda sid: None)
+
+
+def test_cleanup_artifacts_deletes_zep_graph_and_closes_ledger(monkeypatch):
+    _stub_local_deletes(monkeypatch)
+    deleted_graphs, ledger = [], []
+
+    class FakeBuilder:
+        def __init__(self, api_key=None):
+            pass
+
+        def delete_graph(self, graph_id):
+            deleted_graphs.append(graph_id)
+
+    monkeypatch.setattr(wf, "GraphBuilderService", FakeBuilder)
+    monkeypatch.setattr(
+        wf.graph_lifecycle, "record_deleted", lambda gid, source: ledger.append((gid, source))
+    )
+
+    wf._cleanup_artifacts("proj_x", "sim_x", FAKE_GRAPH_ID, "merchant-uuid")
+
+    assert deleted_graphs == [FAKE_GRAPH_ID]
+    assert ledger == [(FAKE_GRAPH_ID, "inline")]
+
+
+def test_cleanup_artifacts_zep_delete_failure_is_guarded(monkeypatch):
+    # A real Zep delete failure must neither propagate (the block runs in the
+    # analysis finally) nor close the ledger record of a still-existing graph
+    # (the W2 sweeper needs to find it).
+    _stub_local_deletes(monkeypatch)
+    ledger = []
+
+    class BoomBuilder:
+        def __init__(self, api_key=None):
+            pass
+
+        def delete_graph(self, graph_id):
+            raise OSError("zep unreachable")
+
+    monkeypatch.setattr(wf, "GraphBuilderService", BoomBuilder)
+    monkeypatch.setattr(
+        wf.graph_lifecycle, "record_deleted", lambda gid, source: ledger.append((gid, source))
+    )
+
+    wf._cleanup_artifacts("proj_x", "sim_x", FAKE_GRAPH_ID, "merchant-uuid")  # must not raise
+
+    assert ledger == []
+
+
+def test_cleanup_artifacts_non_404_api_error_keeps_ledger_live(monkeypatch):
+    # A non-404 Zep ApiError is a real failure: the graph may still exist, so
+    # the ledger record stays live for the W2 sweeper to retry.
+    _stub_local_deletes(monkeypatch)
+    ledger = []
+
+    class ServerErrorBuilder:
+        def __init__(self, api_key=None):
+            pass
+
+        def delete_graph(self, graph_id):
+            raise wf.ApiError(status_code=500, body="boom")
+
+    monkeypatch.setattr(wf, "GraphBuilderService", ServerErrorBuilder)
+    monkeypatch.setattr(
+        wf.graph_lifecycle, "record_deleted", lambda gid, source: ledger.append((gid, source))
+    )
+
+    wf._cleanup_artifacts("proj_x", "sim_x", FAKE_GRAPH_ID, "merchant-uuid")  # must not raise
+
+    assert ledger == []
+
+
+def test_cleanup_artifacts_ledger_close_failure_is_guarded(monkeypatch):
+    # record_deleted runs in run_cart_recovery's finally, so it must NOT raise
+    # even on a non-Redis failure (e.g. a decode error on corrupt ledger bytes);
+    # an escaping exception would mask the analysis result or a pipeline
+    # exception. The delete itself succeeds here, so the ledger close is reached.
+    _stub_local_deletes(monkeypatch)
+
+    class FakeBuilder:
+        def __init__(self, api_key=None):
+            pass
+
+        def delete_graph(self, graph_id):
+            pass
+
+    def boom(gid, source):
+        raise ValueError("invalid start byte")  # a non-RedisError, as corrupt UTF-8 would raise
+
+    monkeypatch.setattr(wf, "GraphBuilderService", FakeBuilder)
+    monkeypatch.setattr(wf.graph_lifecycle, "record_deleted", boom)
+
+    # Must not raise.
+    wf._cleanup_artifacts("proj_x", "sim_x", FAKE_GRAPH_ID, "merchant-uuid")
+
+
+def test_cleanup_artifacts_non_404_error_never_logs_response_body(monkeypatch):
+    # A non-404 Zep ApiError must log the status code and type only, never the
+    # ApiError's str() (which includes headers/body that can echo response
+    # content). Reproduces an email marker in the error body. Captures via a
+    # handler on the logger directly (the mirofish logger sets propagate=False,
+    # so caplog only works under the Flask app fixture, which this unit test
+    # does not use).
+    import logging
+
+    _stub_local_deletes(monkeypatch)
+    pii = "pii-marker@example.com"
+
+    class BoomBuilder:
+        def __init__(self, api_key=None):
+            pass
+
+        def delete_graph(self, graph_id):
+            raise wf.ApiError(status_code=500, body=f"upstream error for {pii}")
+
+    monkeypatch.setattr(wf, "GraphBuilderService", BoomBuilder)
+    monkeypatch.setattr(wf.graph_lifecycle, "record_deleted", lambda gid, source: None)
+
+    messages = []
+    handler = logging.Handler()
+    handler.emit = lambda record: messages.append(record.getMessage())
+    logger = logging.getLogger("mirofish.cart_recovery")
+    logger.addHandler(handler)
+    try:
+        wf._cleanup_artifacts("proj_x", "sim_x", FAKE_GRAPH_ID, "merchant-uuid")
+    finally:
+        logger.removeHandler(handler)
+
+    joined = "\n".join(messages)
+    assert pii not in joined, "response body (with PII) leaked into the log"
+    assert "status=500" in joined and "ApiError" in joined
+
+
+def test_cleanup_artifacts_already_deleted_404_closes_ledger(monkeypatch):
+    # An expected 404 (a concurrent cleanup, or a future offboard path, already
+    # removed the graph) is a successful end state, not a failure. The ledger
+    # must be closed so the id leaves the active/merchant sets and does not
+    # linger without a TTL (issue-72 TDD V-1).
+    _stub_local_deletes(monkeypatch)
+    ledger = []
+
+    class GoneBuilder:
+        def __init__(self, api_key=None):
+            pass
+
+        def delete_graph(self, graph_id):
+            raise wf.ApiError(status_code=404, body="graph not found")
+
+    monkeypatch.setattr(wf, "GraphBuilderService", GoneBuilder)
+    monkeypatch.setattr(
+        wf.graph_lifecycle, "record_deleted", lambda gid, source: ledger.append((gid, source))
+    )
+
+    wf._cleanup_artifacts("proj_x", "sim_x", FAKE_GRAPH_ID, "merchant-uuid")
+
+    assert ledger == [(FAKE_GRAPH_ID, "inline")]
+
+
+def test_cleanup_artifacts_without_graph_skips_zep_delete(monkeypatch):
+    # graph_id=None (failure before graph creation, or a legacy 2-arg call):
+    # the Zep client must not even be constructed.
+    _stub_local_deletes(monkeypatch)
+
+    class MustNotConstruct:
+        def __init__(self, api_key=None):
+            raise AssertionError("GraphBuilderService must not be built without a graph_id")
+
+    monkeypatch.setattr(wf, "GraphBuilderService", MustNotConstruct)
+
+    wf._cleanup_artifacts("proj_x", "sim_x", None, "merchant-uuid")
+    wf._cleanup_artifacts("proj_x", "sim_x")  # defaulted legacy signature

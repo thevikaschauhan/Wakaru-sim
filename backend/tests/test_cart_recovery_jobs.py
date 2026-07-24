@@ -72,7 +72,7 @@ PII_PAYLOAD = {
 }
 
 
-def _stub_success(cart, on_progress=None):
+def _stub_success(cart, on_progress=None, merchant_id=None):
     # Emit a PII-free progress tick (mirrors a real workflow stage) so the
     # job.meta progress path is exercised.
     if on_progress is not None:
@@ -216,7 +216,7 @@ def test_finished_job_returns_result_and_progress(client, sync_queue, monkeypatc
 
 
 def test_failed_job_is_pii_safe(client, sync_queue, monkeypatch):
-    def boom(cart, on_progress=None):
+    def boom(cart, on_progress=None, merchant_id=None):
         # The original message embeds PII — it must NOT survive into the job record.
         raise RuntimeError("boom for pii-test@example.com / cust_test_pii")
 
@@ -250,7 +250,7 @@ def test_failed_job_log_record_carries_request_id_job_id_merchant_id(
     reference from a different test's capsys context — caplog sidesteps this
     entirely by capturing LogRecord objects via propagation."""
 
-    def boom(cart, on_progress=None):
+    def boom(cart, on_progress=None, merchant_id=None):
         raise RuntimeError("boom")
 
     monkeypatch.setattr("app.services.cart_recovery_jobs.run_cart_recovery", boom)
@@ -298,7 +298,7 @@ def test_run_analysis_job_returns_result_dict(monkeypatch):
 def test_run_analysis_job_rebuilds_cart_faithfully(monkeypatch):
     captured = {}
 
-    def capture(cart, on_progress=None):
+    def capture(cart, on_progress=None, merchant_id=None):
         captured["cart"] = cart
         return _stub_success(cart, on_progress)
 

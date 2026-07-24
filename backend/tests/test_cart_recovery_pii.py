@@ -42,7 +42,7 @@ def _assert_no_pii(caplog_records):
 
 
 def test_cart_recovery_analyze_emits_no_pii(client, caplog):
-    def fake_analyze(cart, on_progress=None):
+    def fake_analyze(cart, on_progress=None, merchant_id=None):
         # Exercise the on_progress callback so the INFO log line is captured.
         if on_progress is not None:
             on_progress("preparing", "stub progress message")
