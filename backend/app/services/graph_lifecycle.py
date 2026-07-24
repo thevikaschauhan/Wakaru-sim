@@ -55,8 +55,11 @@ def _merchant_key(merchant_id: str) -> str:
 
 
 def _decode(raw) -> Optional[str]:
+    # errors="replace": a corrupt (non-UTF-8) hash value must never raise a
+    # UnicodeDecodeError, which would escape the RedisError guards and abort a
+    # caller mid-flight (e.g. the W2 sweeper's post-delete bookkeeping, F8).
     if isinstance(raw, (bytes, bytearray)):
-        return raw.decode()
+        return bytes(raw).decode("utf-8", "replace")
     return raw
 
 

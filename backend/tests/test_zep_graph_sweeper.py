@@ -375,3 +375,225 @@ def test_cron_checkin_in_progress_then_error_on_raise(monkeypatch):
 
     assert [s for s, _ in rec.calls] == [mq.MonitorStatus.IN_PROGRESS, mq.MonitorStatus.ERROR]
     assert rec.calls[1][1] == "test-check-in-id"
+
+
+# ==========================================================================
+# Codex review fixes (PR #78): F2, F6, F7, F8, F9, F11
+# ==========================================================================
+
+# --------------------------------------------------------------------------
+# F2 - force-delete must enforce SWEEPABLE_RE + cap; never erase store graphs
+# --------------------------------------------------------------------------
+
+def test_force_delete_refuses_non_scratch_id(conn, monkeypatch, captured_messages):
+    """A ``merchant_*`` store graph (#61) named in the force env var is REFUSED,
+    never deleted - the core #72 invariant holds even for the escape hatch."""
+    merchant = "merchant_0123456789abcdef"     # #61 store graph, never sweepable
+    monkeypatch.setenv("ZEP_SWEEP_FORCE_DELETE_IDS", merchant)
+    # Present in the listing and ancient - the old force pass would delete it.
+    api = install_client(monkeypatch, [[FakeGraph(merchant, iso_ago(9999))]])
+
+    stats = sweeper.sweep_orphan_graphs(
+        dry_run=False, ttl_hours=24, page_size=100, max_deletes=200
+    )
+
+    assert api.deleted == []                    # the store graph is NEVER deleted
+    assert merchant not in api.deleted
+    assert stats.matched == 0                   # SWEEPABLE_RE excludes merchant_
+
+
+def test_force_delete_disposes_observed_unknown_age_scratch(
+    conn, monkeypatch, captured_messages
+):
+    """The legitimate escape hatch (§8.5): an unknown-age scratch graph named in
+    the env var IS disposed, even under dry-run (operator explicit per-id)."""
+    gid = scratch_id(90)
+    monkeypatch.setenv("ZEP_SWEEP_FORCE_DELETE_IDS", gid)
+    # Unknown age: unparseable vendor ts, no ledger -> normally fail-closed.
+    api = install_client(monkeypatch, [[FakeGraph(gid, "not-a-timestamp")]])
+
+    stats = sweeper.sweep_orphan_graphs(
+        dry_run=True, ttl_hours=24, page_size=100, max_deletes=200
+    )
+
+    assert api.deleted == [gid]                 # force disposed despite dry-run
+    assert stats.deleted == 1
+
+
+def test_force_delete_bounded_by_cap(conn, monkeypatch, captured_messages):
+    """The force pass is bounded by ``max_deletes`` - a stale/oversized env var
+    can never trigger an unbounded delete storm."""
+    ids = [scratch_id(100 + i) for i in range(3)]
+    monkeypatch.setenv("ZEP_SWEEP_FORCE_DELETE_IDS", ",".join(ids))
+    # All three observed unknown-age this scan (force-eligible), cap is 2.
+    api = install_client(monkeypatch, [[FakeGraph(g, "garbage") for g in ids]])
+
+    stats = sweeper.sweep_orphan_graphs(
+        dry_run=True, ttl_hours=24, page_size=100, max_deletes=2
+    )
+
+    assert len(api.deleted) == 2                # capped, not all three
+    assert stats.deleted == 2
+
+
+# --------------------------------------------------------------------------
+# F6 - an incomplete listing must NOT reconcile; it alerts instead
+# --------------------------------------------------------------------------
+
+def test_incomplete_listing_skips_reconciliation_and_alerts(
+    conn, monkeypatch, captured_messages
+):
+    """When the pages seen do not cover ``total_count``, reconciliation is
+    skipped (an unseen live registry member is NOT removed) and Sentry alerts."""
+    live = scratch_id(120)
+    stale = scratch_id(121)
+    # Only one graph returned but total_count claims two -> pagination fell short.
+    api = install_client(monkeypatch, [[FakeGraph(live, iso_ago(1))]], total_count=2)
+    now = int(time.time())
+    conn.zadd(sweeper._ACTIVE_KEY, {live: now, stale: now})
+
+    stats = sweeper.sweep_orphan_graphs(
+        dry_run=False, ttl_hours=24, page_size=100, max_deletes=200
+    )
+
+    assert stats.listing_incomplete is True
+    assert stats.ledger_drift == 0                                # nothing reconciled
+    assert conn.zscore(sweeper._ACTIVE_KEY, stale) is not None    # unseen member kept
+    assert any("incomplete" in msg for msg, _ in captured_messages)
+
+
+# --------------------------------------------------------------------------
+# F7 - duplicate paginated ids must not waste the cap / double-delete
+# --------------------------------------------------------------------------
+
+def test_duplicate_paginated_ids_dedup_and_dont_waste_cap(
+    conn, monkeypatch, captured_messages
+):
+    """A listing that repeats an id (g1, g2, g1) deletes each DISTINCT graph
+    once and does not let the duplicate evict a real graph from the capped heap."""
+    g1, g2 = scratch_id(110), scratch_id(111)
+    pages = [
+        [FakeGraph(g1, iso_ago(72)), FakeGraph(g2, iso_ago(48))],
+        [FakeGraph(g1, iso_ago(72))],           # g1 repeats on page 2
+    ]
+    api = install_client(monkeypatch, pages)
+
+    stats = sweeper.sweep_orphan_graphs(
+        dry_run=False, ttl_hours=24, page_size=2, max_deletes=2
+    )
+
+    assert api.deleted == [g1, g2]              # each distinct graph, oldest first
+    assert api.deleted.count(g1) == 1           # NOT deleted twice
+    assert stats.matched == 2                   # distinct, not 3
+    assert stats.eligible_total == 2
+
+
+# --------------------------------------------------------------------------
+# F8 - bookkeeping error must not abort a successful vendor deletion
+# --------------------------------------------------------------------------
+
+def test_record_deleted_failure_does_not_abort_sweep(
+    conn, monkeypatch, captured_messages
+):
+    """A ``record_deleted`` raising AFTER a real Zep delete must be contained -
+    the sweep completes and the vendor deletion stays a success, not ``failed``."""
+    gid = scratch_id(80)                        # 48h -> eligible, gets deleted
+    api = install_client(monkeypatch, [[FakeGraph(gid, iso_ago(48))]])
+
+    def boom(graph_id, source):
+        raise RuntimeError("ledger boom")
+    monkeypatch.setattr(gl, "record_deleted", boom)
+
+    try:
+        stats = sweeper.sweep_orphan_graphs(
+            dry_run=False, ttl_hours=24, page_size=100, max_deletes=200
+        )
+    except Exception as exc:  # pragma: no cover - only on an F8 regression
+        pytest.fail(f"F8 regression: bookkeeping error aborted the sweep: {exc!r}")
+
+    assert api.deleted == [gid]                 # the vendor deletion happened
+    assert stats.deleted == 1                   # and stayed a success
+    assert stats.failed == 0                    # never flipped to failed
+
+
+def test_decode_tolerates_invalid_utf8():
+    """``graph_lifecycle._decode`` must not raise ``UnicodeDecodeError`` on a
+    corrupt hash value (which would escape the RedisError guards, F8)."""
+    try:
+        result = gl._decode(b"\xff\xfe\xfd")    # not valid UTF-8
+    except UnicodeDecodeError as exc:  # pragma: no cover - only on an F8 regression
+        pytest.fail(f"F8 regression: _decode raised on invalid UTF-8: {exc!r}")
+    assert isinstance(result, str)              # decoded with replacement, not raised
+
+
+# --------------------------------------------------------------------------
+# F9 - reconciliation must be lifecycle-aware (close hash + merchant set)
+# --------------------------------------------------------------------------
+
+def test_reconciliation_closes_hash_and_merchant_set(
+    conn, monkeypatch, captured_messages
+):
+    """A stale registry entry is closed via the ledger's deletion closure -
+    stamping deleted_at, dropping the merchant-set membership and the active
+    zset entry - not a bare ZREM that leaves the hash / merchant set dangling."""
+    live = scratch_id(130)
+    stale = scratch_id(131)
+    merchant = "11111111-1111-1111-1111-111111111111"
+    gl.record_created(live, merchant)           # full ledger records for both
+    gl.record_created(stale, merchant)
+    # Zep lists only `live`; `stale` is gone from Zep -> drift.
+    api = install_client(monkeypatch, [[FakeGraph(live, iso_ago(1))]])
+
+    stats = sweeper.sweep_orphan_graphs(
+        dry_run=False, ttl_hours=24, page_size=100, max_deletes=200
+    )
+
+    assert stats.ledger_drift == 1
+    # Active zset: stale removed, live kept.
+    assert conn.zscore(sweeper._ACTIVE_KEY, stale) is None
+    assert conn.zscore(sweeper._ACTIVE_KEY, live) is not None
+    # F9: merchant-set membership closed for stale, live retained.
+    assert not conn.sismember(f"zep:merchant:{merchant}:graphs", stale)
+    assert conn.sismember(f"zep:merchant:{merchant}:graphs", live)
+    # F9: hash closed lifecycle-aware (deleted_at + delete_source), not dangling.
+    assert conn.hget(f"zep:graph:{stale}", "deleted_at") is not None
+    assert gl._decode(conn.hget(f"zep:graph:{stale}", "delete_source")) == "sweep"
+
+
+# --------------------------------------------------------------------------
+# F11 - impossible ledger timestamps must fail closed (unknown age)
+# --------------------------------------------------------------------------
+
+def test_ledger_created_at_nonpositive_is_unknown_age(
+    conn, monkeypatch, captured_messages
+):
+    """A ledger ``created_at`` of -1 must NOT compute a huge positive age that
+    makes the graph deletable; it is treated as unknown age (fail-closed)."""
+    gid = scratch_id(140)
+    conn.hset(f"zep:graph:{gid}", "created_at", "-1")   # impossible timestamp
+    api = install_client(monkeypatch, [[FakeGraph(gid, None)]])  # vendor absent
+
+    stats = sweeper.sweep_orphan_graphs(
+        dry_run=False, ttl_hours=24, page_size=100, max_deletes=200
+    )
+
+    assert api.deleted == []                    # kept, never deleted
+    assert stats.skipped_unknown_age == 1
+    assert stats.deleted == 0
+
+
+def test_ledger_created_at_future_is_unknown_age(
+    conn, monkeypatch, captured_messages
+):
+    """A future ledger ``created_at`` is impossible (clock skew / corruption) and
+    is treated as unknown age (counted + retained), not a young graph."""
+    gid = scratch_id(141)
+    conn.hset(f"zep:graph:{gid}", "created_at", str(int(time.time()) + 10_000))
+    api = install_client(monkeypatch, [[FakeGraph(gid, None)]])
+
+    stats = sweeper.sweep_orphan_graphs(
+        dry_run=False, ttl_hours=24, page_size=100, max_deletes=200
+    )
+
+    assert api.deleted == []
+    assert stats.skipped_unknown_age == 1       # unknown, not silently "young"

@@ -131,6 +131,27 @@ def force_delete_ids() -> list[str]:
     return [gid.strip() for gid in raw.split(",") if gid.strip()]
 
 
+def _sweepable_force_ids() -> set[str]:
+    """Operator force ids filtered to scratch ids only (F2 hardening).
+
+    A ``ZEP_SWEEP_FORCE_DELETE_IDS`` entry that is not a ``mirofish_<hex16>``
+    scratch id (a ``merchant_*`` store graph (#61), the ``*_tombstone``, or a
+    typo) is REFUSED and logged loudly, never deleted: the force pass must never
+    bypass the core #72 invariant that only per-cart scratch graphs are
+    sweepable.
+    """
+    ids: set[str] = set()
+    for gid in force_delete_ids():
+        if SWEEPABLE_RE.fullmatch(gid):
+            ids.add(gid)
+        else:
+            logger.warning(
+                "zep_sweep: refusing force-delete of non-scratch id %r "
+                "(only mirofish_<hex16> scratch graphs are sweepable)", gid,
+            )
+    return ids
+
+
 # --------------------------------------------------------------------------
 # Stats
 # --------------------------------------------------------------------------
@@ -150,6 +171,7 @@ class SweepStats:
     oldest_scratch_age_seconds: int = 0
     total_count: int = 0
     ledger_drift: int = 0
+    listing_incomplete: bool = False
 
 
 # --------------------------------------------------------------------------
@@ -199,6 +221,16 @@ def _proven_age_seconds(graph_id: str, created_at, now_ts: float) -> Optional[fl
         return age
     ledger_created = graph_lifecycle.created_at_for(graph_id)
     if ledger_created is not None:
+        # A ledger timestamp that is non-positive or in the future is impossible
+        # (clock skew / corrupt hash) and cannot prove age. Treat it as UNKNOWN
+        # so retention stays fail-closed (F11) — never as a huge positive age
+        # (from e.g. ``created_at=-1``) that would make the graph deletable.
+        if ledger_created <= 0 or ledger_created > now_ts:
+            logger.warning(
+                "zep_sweep: implausible ledger created_at=%r for %s; "
+                "treating age as unknown (fail-closed)", ledger_created, graph_id,
+            )
+            return None
         return now_ts - ledger_created
     return None
 
@@ -220,7 +252,7 @@ def sweep_orphan_graphs(
     """
     now_ts = time.time()
     ttl_seconds = ttl_hours * _SECONDS_PER_HOUR
-    forced = set(force_delete_ids())
+    forced = _sweepable_force_ids()  # F2: reject non-scratch force ids before any delete
     stats = SweepStats()
 
     try:
@@ -239,6 +271,20 @@ def sweep_orphan_graphs(
 
         client = _zep_client()
 
+        # F7: dedup matched ids so a paginated repeat cannot push the same graph
+        # into the heap twice (wasting a cap slot / deleting it twice) or inflate
+        # per-distinct counters. F2: ids observed unknown-age here are the ONLY
+        # force-disposal candidates (§8.5 runbook intent).
+        seen_matched: set[str] = set()
+        unknown_age_seen: set[str] = set()
+
+        # F6: scan-completeness signals. A listing that ends before covering
+        # ``total_count`` (short/empty page mid-way) or whose ``total_count``
+        # shifts between pages is UNCERTAIN — reconciliation must not treat
+        # unseen registry members as stale on partial data.
+        total_count_seen: Optional[int] = None
+        total_count_stable = True
+
         page = 1
         while True:
             response = client.graph.list_all(page_number=page, page_size=page_size)
@@ -248,6 +294,9 @@ def sweep_orphan_graphs(
 
             total_count = getattr(response, "total_count", None)
             if total_count is not None:
+                if total_count_seen is not None and total_count != total_count_seen:
+                    total_count_stable = False
+                total_count_seen = total_count
                 stats.total_count = total_count
 
             for graph in graphs:
@@ -255,17 +304,16 @@ def sweep_orphan_graphs(
                 graph_id = getattr(graph, "graph_id", None)
                 if not isinstance(graph_id, str) or not SWEEPABLE_RE.fullmatch(graph_id):
                     continue
+                if graph_id in seen_matched:  # F7: count/consider each graph once
+                    continue
+                seen_matched.add(graph_id)
                 stats.matched += 1
                 registry_stale.discard(graph_id)
-
-                # Force-disposal ids are handled separately and unconditionally;
-                # keep them out of the age/heap machinery entirely.
-                if graph_id in forced:
-                    continue
 
                 age = _proven_age_seconds(graph_id, getattr(graph, "created_at", None), now_ts)
                 if age is None:
                     stats.skipped_unknown_age += 1
+                    unknown_age_seen.add(graph_id)
                     logger.warning(
                         "zep_sweep: unknown age for %s; retaining (fail-closed)", graph_id
                     )
@@ -306,21 +354,55 @@ def sweep_orphan_graphs(
                 if age > max_undeleted_eligible_age:
                     max_undeleted_eligible_age = age
 
-        # Force-disposal pass: exact ids only, regardless of age or dry-run.
+        # Force-disposal pass (§8.5 unknown-age runbook): dispose ONLY operator-
+        # listed ids that were observed THIS scan as sweepable, unknown-age
+        # scratch graphs — never a store graph (already refused above), never an
+        # in-flight graph with a provable age. Bounded by ``max_deletes`` so a
+        # stale/oversized env var can never trigger an unbounded delete storm.
+        force_budget = max_deletes
         for graph_id in forced:
+            if graph_id not in unknown_age_seen:
+                logger.warning(
+                    "zep_sweep: force id %s not observed as an unknown-age scratch "
+                    "graph this scan; not disposing", graph_id,
+                )
+                continue
+            if force_budget <= 0:
+                logger.warning(
+                    "zep_sweep: force-delete cap (%d) reached; deferring %s",
+                    max_deletes, graph_id,
+                )
+                continue
             logger.warning("zep_sweep: FORCE deleting %s (operator escape hatch)", graph_id)
             if _delete_graph(client, graph_id):
                 stats.deleted += 1
             else:
                 stats.failed += 1
+            force_budget -= 1
 
         # Oldest matched graph that REMAINS after this sweep (Zep-derived metric).
         stats.oldest_scratch_age_seconds = int(max(
             max_non_eligible_age, max_evicted_eligible_age, max_undeleted_eligible_age
         ))
 
-        # Reconcile the diagnostic registry: drop entries whose graph is gone.
-        stats.ledger_drift = _reconcile_registry(conn, registry_stale)
+        # F6: only reconcile the registry against a COMPLETE listing. On a
+        # partial/uncertain scan, unseen members may be live graphs we simply
+        # did not page to — deleting their ledger records would be data loss.
+        # Skip reconciliation and alert instead (see _maybe_alert).
+        listing_complete = total_count_stable and (
+            total_count_seen is None or stats.scanned >= total_count_seen
+        )
+        if listing_complete:
+            # F9: close each stale entry lifecycle-aware (hash + merchant set),
+            # not a bare ZREM that leaves dangling registries behind.
+            stats.ledger_drift = _reconcile_registry(conn, registry_stale)
+        else:
+            stats.listing_incomplete = True
+            logger.warning(
+                "zep_sweep: listing incomplete (scanned=%d total_count=%s stable=%s); "
+                "skipping registry reconciliation to avoid deleting live entries",
+                stats.scanned, total_count_seen, total_count_stable,
+            )
 
     except Exception:
         logger.exception("zep_sweep: sweep aborted by an exception")
@@ -332,10 +414,32 @@ def sweep_orphan_graphs(
     return stats
 
 
+def _record_deleted_guarded(graph_id: str) -> None:
+    """Close the ledger record for a graph whose Zep deletion already succeeded.
+
+    F8: bookkeeping is best-effort and must NEVER abort the sweep nor flip a real
+    vendor deletion to ``failed``. ``record_deleted`` swallows ``RedisError``
+    internally, but a corrupt hash value can still raise (e.g. a decode error);
+    any such failure is contained here and alerted separately, leaving the Zep
+    end-state successful.
+    """
+    try:
+        graph_lifecycle.record_deleted(graph_id, source="sweep")
+    except Exception:
+        logger.exception(
+            "zep_sweep: ledger close failed for %s after a successful Zep delete", graph_id
+        )
+        sentry_sdk.capture_message(
+            f"zep_sweep: ledger bookkeeping failed for {graph_id} after Zep delete",
+            level="warning",
+        )
+
+
 def _delete_graph(client, graph_id: str) -> bool:
     """Delete one graph, per-graph guarded. Returns True on success (incl. an
     already-gone 404, V-1), False on a real failure. Closes the ledger record on
-    success so the id leaves the active/merchant registries."""
+    success so the id leaves the active/merchant registries — bookkeeping is
+    guarded (F8) so it can never abort the sweep after a real deletion."""
     try:
         client.graph.delete(graph_id)
     except ApiError as exc:
@@ -343,14 +447,14 @@ def _delete_graph(client, graph_id: str) -> bool:
         if status == 404:
             # Already deleted (concurrent cleanup / prior sweep) — a success end
             # state, not a failure. Close the ledger so the id does not linger.
-            graph_lifecycle.record_deleted(graph_id, source="sweep")
+            _record_deleted_guarded(graph_id)
             return True
         logger.warning("zep_sweep: delete failed for %s (status=%s)", graph_id, status)
         return False
     except Exception:
         logger.warning("zep_sweep: delete failed for %s", graph_id)
         return False
-    graph_lifecycle.record_deleted(graph_id, source="sweep")
+    _record_deleted_guarded(graph_id)
     return True
 
 
@@ -368,15 +472,24 @@ def _load_registry(conn) -> set:
 
 
 def _reconcile_registry(conn, stale: set) -> int:
-    """Remove registry entries whose graphs no longer exist in Zep. Returns the
-    drift count. Guarded — a Redis outage yields 0 drift, never an exception."""
+    """Close registry entries whose graphs no longer exist in Zep, lifecycle-aware.
+
+    F9: each stale id is closed via the ledger's deletion closure
+    (``record_deleted(id, source="sweep")`` — stamp ``deleted_at`` + 30-day TTL,
+    ZREM from the active zset, SREM from the merchant set) so no dangling
+    ``zep:graph:<id>`` hash (which would otherwise linger with no TTL) or
+    ``zep:merchant:<m>:graphs`` membership is left behind. The active zset is
+    bounded (SCHEMA §4 — dozens in steady state), so a full read + per-id
+    closure is fine; no ZSCAN needed. Gated by the caller on a complete listing
+    (F6). Returns the drift count (ledger entries absent from Zep). Guarded — a
+    Redis outage / bookkeeping error never aborts the sweep."""
     if conn is None or not stale:
         return 0
-    try:
-        conn.zrem(_ACTIVE_KEY, *stale)
-    except RedisError:
-        logger.warning("zep_sweep: registry reconciliation failed (Redis error)")
-        return 0
+    for graph_id in stale:
+        try:
+            graph_lifecycle.record_deleted(graph_id, source="sweep")
+        except Exception:
+            logger.warning("zep_sweep: reconciliation close failed for %s", graph_id)
     return len(stale)
 
 
@@ -384,11 +497,11 @@ def _emit_summary(stats: SweepStats) -> None:
     logger.info(
         "zep_sweep scanned=%d matched=%d eligible_total=%d deleted=%d failed=%d "
         "skipped_dry_run=%d skipped_unknown_age=%d truncated_backlog=%d "
-        "oldest_scratch_age_s=%d total_count=%d ledger_drift=%d",
+        "oldest_scratch_age_s=%d total_count=%d ledger_drift=%d listing_incomplete=%s",
         stats.scanned, stats.matched, stats.eligible_total, stats.deleted,
         stats.failed, stats.skipped_dry_run, stats.skipped_unknown_age,
         stats.truncated_backlog, stats.oldest_scratch_age_seconds,
-        stats.total_count, stats.ledger_drift,
+        stats.total_count, stats.ledger_drift, stats.listing_incomplete,
     )
 
 
@@ -396,6 +509,8 @@ def _maybe_alert(stats: SweepStats, ttl_hours: int) -> None:
     reasons = []
     if stats.failed > 0:
         reasons.append(f"failed={stats.failed}")
+    if stats.listing_incomplete:
+        reasons.append("listing_incomplete (reconciliation skipped)")
     if stats.skipped_unknown_age > 0:
         reasons.append(f"skipped_unknown_age={stats.skipped_unknown_age}")
     if stats.oldest_scratch_age_seconds > 2 * ttl_hours * _SECONDS_PER_HOUR:

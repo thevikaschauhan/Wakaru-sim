@@ -8,22 +8,36 @@ is the revision-2/3 design, proven against real Redis + the pinned RQ version:
 - **Unique occurrence ids** (``zep-graph-sweep-<hex>``): no id is ever reused,
   so re-enqueueing can never overwrite a running job's hash and ``result_ttl=0``
   cleanup can only delete the finished occurrence's own record (the r1 failure).
+- **Generation ownership via the marker** (the duplicate-chain collapse — F1):
+  ``zep:sweep:next`` names the ONE canonical next occurrence. An occurrence may
+  sweep and advance the chain ONLY if its own job id equals the marker (checked
+  atomically at entry). A non-canonical occurrence — a duplicate, whether it
+  overlaps a sibling or (the r-review bug) runs *serially* after one on a single
+  worker — exits WITHOUT sweeping or rescheduling. The lock alone could not do
+  this: with one worker, queued occurrences run one at a time, so a
+  lock-freed-then-reacquired duplicate would sweep and perpetuate a second chain.
 - **Singleton execution lock** ``zep:sweep:lock`` via ``SET NX EX`` (lease >
-  job timeout). A duplicate occurrence that fails to acquire exits without
-  sweeping or rescheduling — declining to reschedule is what collapses duplicate
-  chains back to one. Release is an **atomic Lua compare-and-delete only** (the
-  r2 GET+DELETE had a lease-expiry race that could kill a successor's lock).
+  job timeout) is now only a **secondary concurrency guard** across replicas for
+  the sweep body, not the collapse mechanism. Release is an **atomic Lua
+  compare-and-delete only** (the r2 GET+DELETE had a lease-expiry race that could
+  kill a successor's lock).
 - **Chain-liveness marker** ``zep:sweep:next`` (``EX = 3 × interval``): while an
-  occurrence runs the marker holds *that* occurrence's id (its scheduler set it).
-  The lock holder advances it to the next id + schedules the next occurrence in
-  its ``finally``; an ``on_failure`` callback re-seeds it via compare-and-set
-  (claim when absent OR still equal to the failed occurrence's id) when the
-  occurrence failed but its ``finally`` could not advance the chain; and a boot
-  reconciler re-seeds it (``SET NX``) at worker start. RQ 1.16 runs ``on_failure``
-  inside the (surviving) work-horse handler, *not* on a hard SIGKILL/OOM — that
-  case is caught by the boot reconciler and, definitively, the Sentry Cron miss.
+  occurrence runs the marker holds *that* occurrence's id (its scheduler set it),
+  which is exactly what makes it the canonical generation. The canonical occurrence
+  enqueues its successor and then **CAS-advances** the marker from its own id to
+  the successor id (advance only while it still names us). To avoid a marker that
+  points at a job that was never scheduled (F3), every path enqueues FIRST and
+  only then claims/advances the marker (or, when it claims first, compare-deletes
+  the exact claimed id if the enqueue fails). An ``on_failure`` callback re-seeds
+  the chain via compare-and-set (claim when absent OR still equal to the failed
+  occurrence's id) when the occurrence failed but its ``finally`` could not advance
+  the chain; and a boot reconciler re-seeds it (``SET NX``) at worker start. RQ
+  1.16 runs ``on_failure`` inside the (surviving) work-horse handler, *not* on a
+  hard SIGKILL/OOM — that case is caught by the boot reconciler and, definitively,
+  the Sentry Cron miss.
 - **Independent watcher:** the sweep body is wrapped in a Sentry Cron Monitor
-  check-in, so a missed occurrence alerts from outside the worker — no liveness
+  check-in that upserts a ``monitor_config`` (interval schedule + margins) so
+  Sentry can detect a *missed* occurrence from outside the worker — no liveness
   property is attested solely by the mechanism whose death it must detect.
 """
 from __future__ import annotations
@@ -61,11 +75,24 @@ LOCK_TTL_SECONDS = 360
 _LOCK_KEY = "zep:sweep:lock"
 _NEXT_KEY = "zep:sweep:next"
 
-# Atomic compare-and-delete: delete the lock only if we still own it. A bare
-# GET+DELETE could delete a successor's lock if our lease expired in between.
-_RELEASE_LOCK_LUA = (
+# Atomic compare-and-delete primitive (used for both the lock release and the
+# marker rollback): delete KEYS[1] only if it still equals ARGV[1]. A bare
+# GET+DELETE could delete a successor's key if our value changed in between.
+_COMPARE_DELETE_LUA = (
     "if redis.call('get', KEYS[1]) == ARGV[1] then "
     "return redis.call('del', KEYS[1]) else return 0 end"
+)
+
+# Atomic compare-and-set that ADVANCES the marker: set ``zep:sweep:next`` to the
+# successor id (ARGV[2], ARGV[3] TTL) only while it still equals the caller's own
+# occurrence id (ARGV[1]). Used by the canonical occurrence to hand the chain to
+# its successor. If another path already advanced the marker (on_failure re-seed,
+# boot reconcile), this no-ops and the caller's successor is simply non-canonical
+# and self-collapses — it is never an error.
+_ADVANCE_MARKER_LUA = (
+    "if redis.call('get', KEYS[1]) == ARGV[1] then "
+    "redis.call('set', KEYS[1], ARGV[2], 'EX', ARGV[3]) return 1 "
+    "else return 0 end"
 )
 
 # Atomic compare-and-set for the chain-liveness marker, used by the on_failure
@@ -125,13 +152,37 @@ def _enqueue_occurrence(queue: Queue, occurrence_id: str, delay_minutes: int) ->
 # The sweep occurrence (the RQ job target — importable by path)
 # --------------------------------------------------------------------------
 
+def _sweep_monitor_config() -> dict:
+    """Build the Sentry Cron ``monitor_config`` from the sweep interval (F4).
+
+    Without it Sentry has no schedule to compare check-ins against and therefore
+    **cannot detect a MISSED occurrence** — the whole point of the external
+    watcher. The check-in upserts/versions the monitor in code: an interval
+    schedule derived from ``ZEP_SWEEP_INTERVAL_MINUTES``, a ``checkin_margin``
+    grace of one interval (a starved sweep alerts within interval + grace, still
+    inside the ``3 × interval`` marker TTL), and a ``max_runtime`` bound derived
+    from the per-occurrence job timeout."""
+    interval = sweep_interval_minutes()
+    return {
+        "schedule": {"type": "interval", "value": interval, "unit": "minute"},
+        "checkin_margin": interval,
+        "max_runtime": (SWEEP_JOB_TIMEOUT + 59) // 60,  # ceil(timeout / 60) minutes
+        "timezone": "UTC",
+    }
+
+
 def _run_sweep_with_checkin():
     """Run the sweep wrapped in a Sentry Cron Monitor check-in (in_progress →
     ok on success, error on raise). The missed-check-in alert is raised by
     Sentry's own infrastructure, so sweep death is detected by something the
-    sweep cannot take down with it (TDD §3.2 step 7)."""
+    sweep cannot take down with it (TDD §3.2 step 7). Each check-in carries the
+    ``monitor_config`` so the monitor's schedule is defined in code and Sentry can
+    flag a missed occurrence (F4)."""
+    monitor_config = _sweep_monitor_config()
     check_in_id = capture_checkin(
-        monitor_slug=SWEEP_MONITOR_SLUG, status=MonitorStatus.IN_PROGRESS
+        monitor_slug=SWEEP_MONITOR_SLUG,
+        status=MonitorStatus.IN_PROGRESS,
+        monitor_config=monitor_config,
     )
     started = time.monotonic()
     try:
@@ -147,6 +198,7 @@ def _run_sweep_with_checkin():
             check_in_id=check_in_id,
             status=MonitorStatus.ERROR,
             duration=time.monotonic() - started,
+            monitor_config=monitor_config,
         )
         raise
     capture_checkin(
@@ -154,6 +206,7 @@ def _run_sweep_with_checkin():
         check_in_id=check_in_id,
         status=MonitorStatus.OK,
         duration=time.monotonic() - started,
+        monitor_config=monitor_config,
     )
     return stats
 
@@ -161,11 +214,14 @@ def _run_sweep_with_checkin():
 def run_sweep_occurrence():
     """RQ job body for one sweep occurrence.
 
-    (a) acquire the singleton lock (first action); a duplicate occurrence that
-    cannot acquire exits WITHOUT sweeping or rescheduling; (b) run the sweep
-    inside the cron check-in; (c) in ``finally`` release the lock via atomic Lua
-    compare-and-delete only, and — if we still held it — schedule the next
-    occurrence + refresh the liveness marker.
+    (a) **generation-ownership check** (first action): the occurrence sweeps ONLY
+    if the liveness marker names it — a non-canonical occurrence (a duplicate,
+    concurrent or serial) exits WITHOUT sweeping or rescheduling, which is what
+    collapses duplicate chains back to one (F1); (b) acquire the singleton lock as
+    a secondary concurrency guard across replicas; (c) run the sweep inside the
+    cron check-in; (d) in ``finally`` release the lock via atomic Lua
+    compare-and-delete only, and — if we still held it — schedule the successor +
+    CAS-advance the liveness marker.
     """
     connection = get_redis_connection()
     if connection is None:
@@ -177,11 +233,24 @@ def run_sweep_occurrence():
     job = get_current_job()
     occurrence_id = job.id if job is not None else _new_occurrence_id()
 
+    # Generation ownership (F1) — the collapse mechanism. Only the occurrence the
+    # marker names is the canonical chain generation; any other exits here. This
+    # is checked BEFORE the lock because the lock (freed between serial runs on a
+    # single worker) cannot by itself keep the chain single.
+    if not _is_canonical_generation(connection, occurrence_id):
+        logger.info(
+            "zep_sweep: occurrence %s is not the canonical generation (the "
+            "marker names another or is absent); exiting without sweeping or "
+            "rescheduling (duplicate-chain collapse)",
+            occurrence_id,
+        )
+        return
+
     acquired = connection.set(_LOCK_KEY, occurrence_id, nx=True, ex=LOCK_TTL_SECONDS)
     if not acquired:
         logger.info(
-            "zep_sweep: occurrence %s found the lock held; exiting without "
-            "sweeping or rescheduling (duplicate-chain collapse)",
+            "zep_sweep: canonical occurrence %s found the sweep lock held by a "
+            "concurrent replica; exiting without sweeping or rescheduling",
             occurrence_id,
         )
         return
@@ -190,32 +259,72 @@ def run_sweep_occurrence():
         _run_sweep_with_checkin()
     finally:
         if _release_lock(connection, occurrence_id):
-            _schedule_next(connection)
+            _schedule_next(connection, occurrence_id)
+
+
+def _is_canonical_generation(connection, occurrence_id: str) -> bool:
+    """True iff the chain-liveness marker currently names THIS occurrence — the
+    single atomic read that gives exactly one live generation (F1). Marker absent
+    (chain expired) ⇒ not canonical: the boot reconciler + Sentry monitor re-seed
+    the chain rather than this occurrence resurrecting one it no longer owns. A
+    Redis error fails closed (declines to sweep) — a mistaken sweep is worse than
+    a skipped one the external watcher will surface."""
+    try:
+        marker = connection.get(_NEXT_KEY)
+    except RedisError:
+        logger.warning(
+            "zep_sweep: generation-ownership check failed (Redis error); "
+            "occurrence declines to sweep"
+        )
+        return False
+    if marker is None:
+        return False
+    if isinstance(marker, bytes):
+        marker = marker.decode()
+    return marker == occurrence_id
 
 
 def _release_lock(connection, occurrence_id: str) -> bool:
     """Atomic compare-and-delete. Returns True iff we still owned the lock (so a
     successor that acquired after our lease expired is never touched)."""
     try:
-        return bool(connection.eval(_RELEASE_LOCK_LUA, 1, _LOCK_KEY, occurrence_id))
+        return bool(connection.eval(_COMPARE_DELETE_LUA, 1, _LOCK_KEY, occurrence_id))
     except RedisError:
         logger.warning("zep_sweep: lock release failed (Redis error)")
         return False
 
 
-def _schedule_next(connection) -> None:
-    """Schedule the next occurrence one interval out and refresh the liveness
-    marker (unconditional ``SET`` — the lock holder owns the chain)."""
+def _compare_delete_marker(connection, occurrence_id: str) -> None:
+    """Delete the liveness marker only if it still names ``occurrence_id``. Rolls
+    back a claim whose enqueue then failed, so no marker is ever left pointing at
+    a job that was never scheduled (F3)."""
+    try:
+        connection.eval(_COMPARE_DELETE_LUA, 1, _NEXT_KEY, occurrence_id)
+    except RedisError:
+        logger.warning("zep_sweep: marker rollback failed (Redis error)")
+
+
+def _schedule_next(connection, occurrence_id: str) -> None:
+    """Schedule the successor occurrence, then CAS-advance the liveness marker
+    from our own id to the successor's — the successor becomes the one canonical
+    next generation (F1).
+
+    Enqueue happens FIRST so the marker can never name a job that was not
+    scheduled (F3 phantom marker). A failure to schedule the successor is
+    **RAISED, not swallowed** (F3): it fails the occurrence so ``on_failure``
+    re-seeds the chain. A swallowed schedule error would let the occurrence
+    succeed while the chain silently died. The CAS-advance no-ops (harmlessly) if
+    the marker no longer names us — that is not a scheduling failure."""
     queue = get_maintenance_queue(connection)
     if queue is None:
         return
     interval = sweep_interval_minutes()
-    occurrence_id = _new_occurrence_id()
-    try:
-        _enqueue_occurrence(queue, occurrence_id, interval)
-        connection.set(_NEXT_KEY, occurrence_id, ex=_marker_ttl_seconds())
-    except RedisError:
-        logger.warning("zep_sweep: failed to schedule the next occurrence (Redis error)")
+    successor_id = _new_occurrence_id()
+    _enqueue_occurrence(queue, successor_id, interval)
+    connection.eval(
+        _ADVANCE_MARKER_LUA, 1, _NEXT_KEY,
+        occurrence_id, successor_id, _marker_ttl_seconds(),
+    )
 
 
 def reseed_chain_on_failure(job, connection, *exc_info) -> None:
@@ -247,8 +356,16 @@ def reseed_chain_on_failure(job, connection, *exc_info) -> None:
             return
         queue = get_maintenance_queue(connection)
         if queue is None:
+            _compare_delete_marker(connection, occurrence_id)
             return
-        _enqueue_occurrence(queue, occurrence_id, sweep_interval_minutes())
+        try:
+            _enqueue_occurrence(queue, occurrence_id, sweep_interval_minutes())
+        except Exception:
+            # F3: never leave the marker naming a job we failed to enqueue —
+            # roll back the exact id we just claimed, so the boot reconciler
+            # (which trusts marker presence) will re-seed the chain instead.
+            _compare_delete_marker(connection, occurrence_id)
+            raise
         logger.info("zep_sweep: on_failure re-seeded the occurrence chain")
     except Exception:
         logger.exception("zep_sweep: on_failure re-seed failed")
@@ -270,8 +387,15 @@ def reconcile_chain(connection) -> None:
             return
         queue = get_maintenance_queue(connection)
         if queue is None:
+            _compare_delete_marker(connection, occurrence_id)
             return
-        _enqueue_occurrence(queue, occurrence_id, interval)
+        try:
+            _enqueue_occurrence(queue, occurrence_id, interval)
+        except Exception:
+            # F3: leave no marker pointing at a job that was never enqueued —
+            # roll back the exact claimed id so a later boot re-seeds the chain.
+            _compare_delete_marker(connection, occurrence_id)
+            raise
         logger.info("zep_sweep: boot reconciler seeded a fresh occurrence chain")
     except Exception:
         logger.warning("zep_sweep: boot reconciler failed; chain not seeded")
