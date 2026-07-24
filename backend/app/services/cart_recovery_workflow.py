@@ -323,9 +323,12 @@ def _cleanup_artifacts(
             if getattr(exc, "status_code", None) == 404:
                 deleted = True
             else:
+                # Log only the status code and error type, never the ApiError's
+                # str(): its headers/body can echo response content, and this is a
+                # PII-sensitive path (#72/#24). graph_id + merchant_id attribute it.
                 logger.warning(
-                    "scratch cleanup: zep graph delete failed for %s (m=%s): %s",
-                    graph_id, merchant_id, exc,
+                    "scratch cleanup: zep graph delete failed for %s (m=%s): status=%s type=%s",
+                    graph_id, merchant_id, getattr(exc, "status_code", None), type(exc).__name__,
                 )
         except Exception:
             # Best-effort fast path: the W2 sweeper deletes what this misses
@@ -335,7 +338,17 @@ def _cleanup_artifacts(
                 "scratch cleanup: zep graph delete failed for %s (m=%s)", graph_id, merchant_id
             )
         if deleted:
-            graph_lifecycle.record_deleted(graph_id, source="inline")
+            try:
+                graph_lifecycle.record_deleted(graph_id, source="inline")
+            except Exception:
+                # Ledger closure is best-effort and MUST NOT raise: this runs in
+                # run_cart_recovery's finally, so an escaping exception (e.g. a
+                # non-Redis decode error on corrupt ledger bytes) would mask the
+                # analysis result or an in-flight pipeline exception. The W2
+                # sweeper reconciles a missed close.
+                logger.warning(
+                    "scratch cleanup: ledger close failed for %s (m=%s)", graph_id, merchant_id
+                )
 
 
 def _wait_for_run(simulation_id: str, on_progress: ProgressCallback):

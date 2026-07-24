@@ -302,6 +302,34 @@ def test_scratch_cleanup_fires_on_failure_after_sim(harness, monkeypatch):
     assert cleaned == [("proj_test", "sim_test", FAKE_GRAPH_ID, SENTINEL_MERCHANT_ID)]
 
 
+def test_ledger_close_failure_preserves_paid_result(harness, monkeypatch):
+    # The scratch graph delete succeeds (FakeBuilder) but ledger closure fails
+    # with a non-Redis error. Because _cleanup_artifacts runs in the finally, an
+    # escaping exception would replace the returned insight. The paid result must
+    # survive.
+    def boom(gid, source):
+        raise ValueError("invalid start byte")
+
+    monkeypatch.setattr(wf.graph_lifecycle, "record_deleted", boom)
+    insight = wf.run_cart_recovery(_make_cart())
+    assert insight is not None
+    assert insight.predicted_reason == "stubbed reason"
+
+
+def test_ledger_close_failure_preserves_pipeline_exception(harness, monkeypatch):
+    # A pipeline failure AND a failing ledger close: the caller must see the
+    # ORIGINAL pipeline exception, not the ledger error the finally would
+    # otherwise substitute.
+    harness.state.run_sequence = [RunnerStatus.FAILED]
+
+    def boom(gid, source):
+        raise ValueError("ledger boom")
+
+    monkeypatch.setattr(wf.graph_lifecycle, "record_deleted", boom)
+    with pytest.raises(RuntimeError, match="simulation failed"):
+        wf.run_cart_recovery(_make_cart())
+
+
 def test_scratch_cleanup_fires_on_early_failure_without_sim(harness, monkeypatch):
     # A failure BEFORE the simulation is created cleans the project only (the sim
     # and graph ids are still None).

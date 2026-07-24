@@ -181,6 +181,67 @@ def test_cleanup_artifacts_non_404_api_error_keeps_ledger_live(monkeypatch):
     assert ledger == []
 
 
+def test_cleanup_artifacts_ledger_close_failure_is_guarded(monkeypatch):
+    # record_deleted runs in run_cart_recovery's finally, so it must NOT raise
+    # even on a non-Redis failure (e.g. a decode error on corrupt ledger bytes);
+    # an escaping exception would mask the analysis result or a pipeline
+    # exception. The delete itself succeeds here, so the ledger close is reached.
+    _stub_local_deletes(monkeypatch)
+
+    class FakeBuilder:
+        def __init__(self, api_key=None):
+            pass
+
+        def delete_graph(self, graph_id):
+            pass
+
+    def boom(gid, source):
+        raise ValueError("invalid start byte")  # a non-RedisError, as corrupt UTF-8 would raise
+
+    monkeypatch.setattr(wf, "GraphBuilderService", FakeBuilder)
+    monkeypatch.setattr(wf.graph_lifecycle, "record_deleted", boom)
+
+    # Must not raise.
+    wf._cleanup_artifacts("proj_x", "sim_x", FAKE_GRAPH_ID, "merchant-uuid")
+
+
+def test_cleanup_artifacts_non_404_error_never_logs_response_body(monkeypatch):
+    # A non-404 Zep ApiError must log the status code and type only, never the
+    # ApiError's str() (which includes headers/body that can echo response
+    # content). Reproduces an email marker in the error body. Captures via a
+    # handler on the logger directly (the mirofish logger sets propagate=False,
+    # so caplog only works under the Flask app fixture, which this unit test
+    # does not use).
+    import logging
+
+    _stub_local_deletes(monkeypatch)
+    pii = "pii-marker@example.com"
+
+    class BoomBuilder:
+        def __init__(self, api_key=None):
+            pass
+
+        def delete_graph(self, graph_id):
+            raise wf.ApiError(status_code=500, body=f"upstream error for {pii}")
+
+    monkeypatch.setattr(wf, "GraphBuilderService", BoomBuilder)
+    monkeypatch.setattr(wf.graph_lifecycle, "record_deleted", lambda gid, source: None)
+
+    messages = []
+    handler = logging.Handler()
+    handler.emit = lambda record: messages.append(record.getMessage())
+    logger = logging.getLogger("mirofish.cart_recovery")
+    logger.addHandler(handler)
+    try:
+        wf._cleanup_artifacts("proj_x", "sim_x", FAKE_GRAPH_ID, "merchant-uuid")
+    finally:
+        logger.removeHandler(handler)
+
+    joined = "\n".join(messages)
+    assert pii not in joined, "response body (with PII) leaked into the log"
+    assert "status=500" in joined and "ApiError" in joined
+
+
 def test_cleanup_artifacts_already_deleted_404_closes_ledger(monkeypatch):
     # An expected 404 (a concurrent cleanup, or a future offboard path, already
     # removed the graph) is a successful end state, not a failure. The ledger
