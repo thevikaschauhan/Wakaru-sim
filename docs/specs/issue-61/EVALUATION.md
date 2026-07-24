@@ -78,38 +78,48 @@ enrolled and never enter the analysis. They stay on the throwaway path. A
 later enrollment wave requires a new pre-registration amendment merged
 before any of that wave's data is used.
 
-### 2.3 Enrollment snapshot and roster commit
+### 2.3 Enrollment snapshot, roster commit, and assignment
 
-The snapshot instant is **00:00 UTC on the Monday of the ISO week in which
-the W4 pilot allowlist is first populated with any real merchant**.
-Assignment is a two-commit protocol so that the randomizing entropy does
-not exist when the roster and every input is chosen (§2.4):
+The **baseline snapshot** is a fixed instant named in the roster commit, as
+of which the §4.3 baseline queries are evaluated. It is historical (strictly
+before the roster commit) and is **not** tied to when the pilot later starts.
 
-1. **Roster commit** (merges before the flag flips). Records the snapshot
-   timestamp, the intended flip ISO week, the exact SQL run (§4.3),
-   per-merchant inputs (`accepted_56d`, `recovered_56d`, `b_i`, `v_i`), the
-   deterministic pairing (§2.4 steps 1-3), the **pinned beacon constants**
-   (chain hash + group public key, §2.4), and the **round-selection rule**
-   (§2.4: the first chain round strictly after the recorded
-   allowlist-population instant). It commits to proceeding with whatever that
-   round yields. It does **not** and cannot record the arms: the seeding
-   round is defined to emit *after* the flip, so its value does not yet
-   exist. It publishes `SHA256` of the sorted roster UUID list so the roster
-   is tamper-evident before the beacon emits.
-2. **Assignment commit** (merges after the beacon reveal, before any
-   arm-labeled data is used). Records the revealed beacon value, the seed
-   derived from it, the per-merchant digest, and the resulting arms. Anyone
-   recomputes the arms from (roster commit + public beacon value); a
-   mismatch voids the registration (§9).
+Assignment is an ordered three-step protocol. Its central property: the
+randomizing entropy does not exist when the roster and pairing are fixed, and
+the treatment arm is known **before** the allowlist is populated - so
+population is downstream of the draw and can never be an input to it (the
+earlier "round after allowlist population" rule was circular: populating the
+treatment allowlist needs the arms, which need the round).
 
-**Slippage rule (frozen):** the flip must occur within the named ISO week.
-Because the seeding round is defined to emit *after* the allowlist-population
-instant (§2.4), its value cannot be observed before the flip is executed, so
-a slip exposes no arms to grind. If the flip does not occur within the named
-week, the registration is **void** - not silently re-seeded: enrollment
-requires a **fresh pre-registration** (new snapshot, recomputed roster, a new
-post-population round) merged as an amendment recording the reason. There is
-no path from observing a round's value to obtaining a different value.
+1. **Roster commit, published at `T_pub` (independently timestamped).**
+   Records the baseline snapshot, the exact SQL run (§4.3), per-merchant
+   inputs (`accepted_56d`, `recovered_56d`, `b_i`, `v_i`), the deterministic
+   pairing (§2.4 steps 1-3), the pinned beacon constants (chain hash + group
+   public key, §2.4), `SHA256` of the sorted roster UUID list, and the
+   **seeding round `R`** = the first chain round whose emission time is at
+   least `T_pub + 24 h` (§2.4). `T_pub` is fixed by an independent authority -
+   the git host's push/merge timestamp, plus the commit hash anchored with
+   OpenTimestamps - so it cannot be back-dated after `R` reveals. Because `R`
+   emits at least 24 h after `T_pub`, its value is unknowable when the roster,
+   pairing, and `R` are fixed. The commit does **not** and cannot record the
+   arms.
+2. **Assignment commit (after `R` reveals, before the allowlist is
+   populated).** Fetches and verifies `R` (§2.4), derives the seed and the
+   per-merchant digests, and records the arms. Anyone recomputes the arms from
+   (roster commit + the public value of `R`); a mismatch voids the
+   registration (§9).
+3. **Populate the treatment allowlist** to equal the treatment arm (§2.4) -
+   the pilot start. Because it happens only *after* the arms are public, it
+   can never feed back into the draw.
+
+**Delay / cancel rule (frozen, never redraw):** `R` is fixed at the roster
+commit and is the only seeding round for this registration. If populating the
+allowlist is delayed for any reason, the **same `R` and the same arms** are
+used whenever it happens; a delay never re-selects a round. The only
+alternative to proceeding with `R` is to **cancel the pilot** - a public,
+recorded event; re-running the study then requires a brand-new public
+pre-registration (new snapshot, recomputed roster, a new future `R`). There is
+no in-registration path from observing `R` to a different draw.
 
 ### 2.4 Assignment mechanism (deterministic, auditable, not re-rollable)
 
@@ -131,15 +141,18 @@ no path from observing a round's value to obtaining a different value.
      an immutable constant. A live `/info` that disagrees with either constant
      is an integrity alarm that **voids the registration**, never a value that
      overrides the pinned constant.
-   - **Round `R` (defined relative to the flip, so its value cannot be seen
-     before committing):** `R` is the first chain round whose emission time is
-     strictly after the recorded allowlist-population instant `T_pop`. Round
-     numbering starts at 1 at `genesis_time`, so round `n` emits at
-     `genesis_time + (n - 1) * period`; thus
-     `R = min { n : genesis_time + (n - 1) * period > T_pop }`. The assignment
-     commit records `T_pop` and the resulting `R`. Because `R` emits after
-     `T_pop` (the committing flip act), its value is unknowable when the
-     roster, pairing, eligibility, and excluded-store list are chosen.
+   - **Round `R` (fixed at the roster commit, from its independent
+     timestamp):** `R` is the first chain round whose emission time is at least
+     `T_pub + 24 h`, where `T_pub` is the roster commit's independently recorded
+     publication time (§2.3). Round numbering starts at 1 at `genesis_time`, so
+     round `n` emits at `genesis_time + (n - 1) * period`; thus
+     `R = min { n : genesis_time + (n - 1) * period >= T_pub + 24 h }`. The
+     roster commit records `R`. The 24 h buffer (far larger than the beacon
+     period and any commit-propagation delay) makes it publicly verifiable that
+     `R` had not emitted when the commit published, so its value is unknowable
+     when the roster, pairing, eligibility, and excluded-store list are chosen.
+     The treatment allowlist is populated only *after* `R` reveals and the arms
+     are committed (§2.3), so population is never an input to `R`.
    - **Fetch and verify.** Fetch
      `https://api.drand.sh/{chain_hash}/public/{R}` (`{round, randomness,
      signature}`, hex). Assert `round == R`; verify the BLS `signature` over
@@ -157,9 +170,9 @@ no path from observing a round's value to obtaining a different value.
        value.
    - **Seed bytes:** `seed = hex_decode(randomness)` - the **32 raw bytes**,
      never the 64-character hex ASCII.
-   (Substitute source: the NIST Randomness Beacon v2 pulse first emitted after
-   `T_pop`, verified against the NIST chain certificate pinned here; the same
-   no-replacement-round rule applies.)
+   (Substitute source: the NIST Randomness Beacon v2 pulse first emitted at or
+   after `T_pub + 24 h`, verified against the NIST chain certificate pinned
+   here; the same no-replacement-round rule applies.)
 5. For each merchant compute the digest with every encoding fixed:
    `t_i = HMAC-SHA256(key = seed` (the 32 raw bytes from step 4)`,
    msg = the merchant UUID in canonical lowercase 8-4-4-4-12 form, UTF-8
@@ -183,10 +196,12 @@ Why this cannot be gamed or re-rolled:
   the round's BLS signature is checked against the pinned group public key,
   and `randomness` is recomputed from it), so a substituted or fabricated
   value fails verification and cannot seed the assignment.
-- The seeding round emits only *after* the flip (§2.4), so no arm value is
-  observable before the committing act; a flip-week slip voids the
-  registration and forces a fresh pre-registration, never a silent re-seed.
-  There is no observe-then-redraw path.
+- `R` is fixed at the roster commit and emits at least 24 h after that
+  commit's independently timestamped publication, so its value is unknowable
+  when the roster and pairing are set. Arms are committed *before* the
+  treatment allowlist is populated, so population cannot feed back into the
+  draw. A delay keeps the same `R`; the only alternative is a public
+  cancellation, never a redraw. There is no observe-then-redraw path.
 - `b_i` and `v_i` come from frozen queries over historical data; the roster
   commit publishes them, so the sort order is auditable.
 - Given the committed roster and the public beacon value, assignment is a
@@ -626,25 +641,24 @@ Enrollment (roster commit, merges before the W4 allowlist is populated):
 | Ladder step selected | (fill) |
 | J (pairs, from the selected roster) | (fill) |
 | Assertion: no stores beyond the §2.2 frozen exclusion list | (fill) |
-| Intended flip ISO week (§2.3) | (fill) |
+| Roster publication time `T_pub` (git push/merge; OpenTimestamps anchor) | (fill) |
 | Pinned beacon chain hash + group public key (§2.4) | (fill) |
-| Round-selection rule: first quicknet round after T_pop (§2.4) | (frozen) |
+| Seeding round `R` = first quicknet round with emission >= `T_pub + 24h` (§2.4) | (fill) |
 | SHA256 of the sorted roster UUID list | (fill) |
 
 Per-merchant roster table (roster commit): merchant UUID, `accepted_56d`,
 `recovered_56d`, `b_i`, `v_i`, pair index. Arms are absent here by design;
 the seed does not exist yet.
 
-Assignment (assignment commit, merges after the beacon reveals, before any
-arm-labeled data is used):
+Assignment (assignment commit, merges after `R` reveals and **before** the
+treatment allowlist is populated):
 
 | Input | Value |
 |---|---|
-| Allowlist-population instant `T_pop` (UTC) | (fill) |
-| Derived round `R` = first quicknet round after `T_pop` (§2.4) | (fill) |
 | Round `R` `randomness` + `signature` (hex), and BLS verification evidence | (fill) |
 | `seed = hex_decode(randomness)` (the 32 raw bytes) | (fill) |
 | Per-merchant `HMAC-SHA256(seed_bytes, UTF-8 lowercase UUID)` digest + arm | (fill) |
+| Treatment-allowlist population time (pilot start, recorded after the arms) | (fill) |
 
 Phase-3 sizing commit (merges before the W7 flag flips): `T3`, re-measured
 `v_bar` for the enrolled roster, the evaluable ladder step selected, final
@@ -666,12 +680,14 @@ happens without an amendment commit permitted by the staged windows at
 the end of this section:
 
 1. The assignment recomputation from the roster commit plus the verified
-   public beacon value at round `R` (the first round after `T_pop`, §2.4)
-   does not reproduce the arms recorded in the assignment commit.
+   public beacon value at round `R` (the round fixed in the roster commit,
+   §2.4) does not reproduce the arms recorded in the assignment commit.
 2. The roster or pairing changes after the roster commit; the arms change
    after the assignment commit; the pinned beacon constants (chain hash /
-   group public key) change; or `R` is replaced by any round other than the
-   first one after the recorded `T_pop`.
+   group public key) change; `R` is replaced by any round other than the one
+   fixed in the roster commit (the first with emission >= `T_pub + 24 h`); or
+   the treatment allowlist is populated **before** the assignment commit
+   records the arms.
 3. The W4/W7 allowlist diverges from the treatment arm through
    **unregistered** divergence (a non-treatment merchant on the
    allowlist, or a removal not recorded as a registered rollback per
@@ -702,8 +718,8 @@ commit to this file stating what changed, why, and what pilot data
 existed when it was made. After Phase-3 enablement, nothing in this
 document changes.
 
-The **assignment commit** (§2.3, §7) is the mechanical second step of the
-randomization, not an amendment: it records the revealed beacon value and
-the arms that value plus the already-frozen roster determine, and adds no
-discretion. It merges after the beacon reveals and before any arm-labeled
-data is used.
+The **assignment commit** (§2.3 step 2) is the mechanical second step of the
+randomization, not an amendment: it records the revealed beacon value and the
+arms that value plus the already-frozen roster determine, and adds no
+discretion. It merges after `R` reveals and before the treatment allowlist is
+populated (§2.3 step 3).
