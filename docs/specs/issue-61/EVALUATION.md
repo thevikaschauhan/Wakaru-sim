@@ -117,22 +117,41 @@ deferring the flip can never silently redraw the arms.
 3. Form consecutive pairs (1,2), (3,4), ... If the roster count is odd,
    the last merchant (lowest `b_i`) is not enrolled. Steps 1-3 are fixed at
    the **roster commit** and use no randomness.
-4. **Seed (from a public randomness beacon, revealed after the roster
-   commit).** The roster commit names a future beacon round: a specific
-   [drand](https://drand.love) round `R` (League of Entropy, 30 s cadence)
-   whose scheduled time falls inside the named flip week, after the
-   snapshot. `seed = SHA256(drand_randomness(R))`, where `drand_randomness(R)`
-   is the 32-byte hex value that beacon publishes at round `R`. The value
-   is unpredictable until the round emits, so it does not exist when the
-   roster, the pairing, the eligibility list, and the excluded-store list
-   are all chosen. (Substitute: the NIST Randomness Beacon pulse at a named
-   future timestamp; the roster commit fixes exactly one source and one
-   round/pulse.)
-5. For each merchant compute
-   `t_i = HMAC-SHA256(seed, lowercase merchant UUID string)`, hex digest.
-6. Within each pair, the merchant with the lexicographically smaller hex
-   digest is assigned **treatment** (store memory); the other **control**
-   (throwaway path). Arms are recorded in the **assignment commit**.
+4. **Seed (from a verified public randomness beacon).** The roster commit
+   pins one drand chain and one future round, and records both so any third
+   party can reproduce the arms bit-for-bit:
+   - **Chain:** the League of Entropy mainnet **quicknet** chain (unchained,
+     BLS on BLS12-381, signatures on G1, RFC 9380/9385; 3 s period). The
+     roster commit records the chain hash and the chain's group public key
+     **verbatim** from the chain `/info` endpoint (expected quicknet chain
+     hash `52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971`;
+     the `/info` value recorded at roster time is authoritative if it differs).
+   - **Round `R`:** the round whose expected emission time
+     (`genesis_time + R * period`) falls inside the named flip week, after the
+     snapshot. Its value is unknowable until it emits, so it does not exist
+     when the roster, the pairing, the eligibility list, and the
+     excluded-store list are chosen.
+   - **Fetch and verify (fail closed).**
+     `GET https://api.drand.sh/{chain_hash}/public/{R}` returns
+     `{round, randomness, signature}` as hex. Assert `round == R`; verify the
+     BLS `signature` over the message `SHA256(uint64_be(R))` against the
+     recorded group public key (unchained scheme); assert
+     `randomness == lowercase_hex(SHA256(hex_decode(signature)))`. Any failure
+     voids the round: the roster is redrawn in an amendment naming a fresh
+     future round. No unverified value may seed the assignment.
+   - **Seed bytes:** `seed = hex_decode(randomness)` - the **32 raw bytes**,
+     never the 64-character hex ASCII.
+   (Substitute source: the NIST Randomness Beacon v2 pulse at a named future
+   timestamp, verified against the NIST chain certificate; the roster commit
+   fixes exactly one source, one round/pulse, and its verification key.)
+5. For each merchant compute the digest with every encoding fixed:
+   `t_i = HMAC-SHA256(key = seed` (the 32 raw bytes from step 4)`,
+   msg = the merchant UUID in canonical lowercase 8-4-4-4-12 form, UTF-8
+   encoded)`, taken as its lowercase hex string.
+6. Within each pair, the merchant with the lexicographically smaller `t_i`
+   (lowercase hex) is assigned **treatment** (store memory); the other
+   **control** (throwaway path). Arms are recorded in the **assignment
+   commit**.
 
 Why this cannot be gamed or re-rolled:
 
@@ -144,8 +163,10 @@ Why this cannot be gamed or re-rolled:
   roster is committed**. Grinding is therefore impossible: there is no key
   or snapshot choice that can be searched against a known split, because
   the split-determining entropy has not been generated yet. The beacon
-  value is externally verifiable (drand signatures / NIST pulses are
-  publicly archived), so the seed cannot be fabricated after the fact.
+  value is not merely archived but **cryptographically verified** (step 4:
+  the round's BLS signature is checked against the pinned group public key,
+  and `randomness` is recomputed from it), so a substituted or fabricated
+  value fails verification and cannot seed the assignment.
 - The roster commit binds one roster to one future beacon round; the §2.3
   slippage rule voids the roster (never reuses the round) if the flip week
   slips, so a deferred flip cannot redraw the arms.
@@ -334,18 +355,27 @@ conversion over that same roster (total recovered / total denominator,
 
 The real trailing volume requires production queries the operator must
 run at the snapshot instant (§2.3). Semantics are normative; the SQL below
-is the template (column names per engine migrations 033/034/040); the
+is the template (column names per engine migrations 033/034/040/041); the
 roster commit records the SQL actually run.
 
-**Q1 - per-merchant accepted-send volume, trailing 56 days.** Canonical
+**Baseline send cohort (frozen, right-censoring-safe).** Both queries range
+over the **matured** cohort: provider-accepted sends with
+`COALESCE(sent_at, created_at)` in `[:snapshot - 63 days, :snapshot - 7 days)`.
+That is 56 days of sends, each with a **full 7-day recovery window observed
+before the snapshot**, so the recovery numerator is never right-censored. A
+naive `[:snapshot - 56 days, :snapshot)` window would admit sends in the final
+7 days with an incomplete recovery window, depressing the baseline `p0` and
+perturbing pairing and power. `:snapshot` is the §2.3 instant.
+
+**Q1 - per-merchant accepted-send volume over the baseline cohort.** Canonical
 once E4b is live:
 
 ```sql
 SELECT shopify_store_id, COUNT(*) AS accepted_56d
 FROM recovery_attempt
 WHERE status = 'accepted'
-  AND COALESCE(sent_at, created_at) >= :snapshot - INTERVAL '56 days'
-  AND COALESCE(sent_at, created_at) <  :snapshot
+  AND COALESCE(sent_at, created_at) >= :snapshot - INTERVAL '63 days'
+  AND COALESCE(sent_at, created_at) <  :snapshot - INTERVAL '7 days'
 GROUP BY shopify_store_id;
 ```
 
@@ -364,17 +394,20 @@ does, the COALESCE is what stops reconciled-accepted rows from silently
 dropping out of these denominators and the §3.2 attribution window. The
 engine-side derivation of the primary metric MUST use the same COALESCE.
 
-**Q2 - per-merchant baseline recovery rate, trailing 56 days.** This must
-estimate the SAME quantity the pilot measures (§3.2): recoveries per
+**Q2 - per-merchant baseline recovery rate over the baseline cohort.** This
+must estimate the SAME quantity the pilot measures (§3.2): recoveries per
 provider-accepted send, attributed within 7 days of the send. It is
 therefore computed over the accepted-send spine (denominator identical to
 Q1's `accepted_56d`) and anchored at the send time, NOT over all
 abandonment episodes anchored at `checkout_started_at`. An episode-level
 rate would count episodes that never produced an accepted send and orders
 that preceded any email, estimating a different and biased baseline. The
-construct is applied to every merchant symmetrically and feeds only pairing
-and power inputs, never the confirmatory contrast. Canonical once E4b is
-live:
+shopper's `anonymous_id` is not a `recovery_attempt` column: the attempt
+stores `event_id` (the episode UUIDv7, §4.1), so identity is resolved by
+joining `recovery_attempt.event_id = abandonment_detections.episode_uuid`
+(migration 041) and reading `d.anonymous_id`. The construct is applied to
+every merchant symmetrically and feeds only pairing and power inputs, never
+the confirmatory contrast. Canonical once E4b is live:
 
 ```sql
 SELECT a.shopify_store_id,
@@ -382,15 +415,15 @@ SELECT a.shopify_store_id,
        COUNT(*) FILTER (WHERE EXISTS (
          SELECT 1 FROM orders o
          WHERE o.shopify_store_id     = a.shopify_store_id
-           -- a.anonymous_id resolves via the attempt's episode (event_id)
-           AND o.matched_anonymous_id = a.anonymous_id
+           AND o.matched_anonymous_id = d.anonymous_id
            AND o.created_at >  COALESCE(a.sent_at, a.created_at)
            AND o.created_at <= COALESCE(a.sent_at, a.created_at) + INTERVAL '7 days'
        )) AS recovered_56d
 FROM recovery_attempt a
+JOIN abandonment_detections d ON d.episode_uuid = a.event_id
 WHERE a.status = 'accepted'
-  AND COALESCE(a.sent_at, a.created_at) >= :snapshot - INTERVAL '56 days'
-  AND COALESCE(a.sent_at, a.created_at) <  :snapshot
+  AND COALESCE(a.sent_at, a.created_at) >= :snapshot - INTERVAL '63 days'
+  AND COALESCE(a.sent_at, a.created_at) <  :snapshot - INTERVAL '7 days'
 GROUP BY a.shopify_store_id;
 ```
 
