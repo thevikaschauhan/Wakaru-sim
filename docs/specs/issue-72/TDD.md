@@ -26,6 +26,24 @@
 > **only** (the r2 GET+DELETE fallback had a lease-expiry race). The sweep
 > keeps a bounded candidate heap with streamed metrics instead of collecting
 > every match (§3.2).
+>
+> **Revision 4 (2026-07-24), after the W2 implementation review - the r3
+> healing text overstated the in-band recovery:** two corrections, both
+> verified against the RQ 1.16.2 source in the pinned venv. (1) The
+> `on_failure` re-seed cannot be a bare `SET NX`: while an occurrence runs,
+> `zep:sweep:next` already holds *that occurrence's own id* (the prior
+> occurrence set it), so `SET NX` finds the key present and declines, silently
+> killing the chain. It is now an atomic compare-and-set that claims the marker
+> when it is absent OR still equals the failed occurrence's id (§3.4). (2) RQ
+> 1.16.2 does NOT invoke the failure callback on a hard work-horse SIGKILL/OOM
+> (`monitor_work_horse -> handle_work_horse_killed -> handle_job_failure` moves
+> the job to the failed registry without calling `execute_failure_callback`);
+> the callback fires only for a caught exception or timeout inside the horse.
+> A hard kill is therefore healed by the boot reconciler (after the stale
+> marker's TTL lapses) and, definitively, by the external Sentry Cron miss -
+> which was already the design's stated guarantee. The in-band SIGKILL auto-heal
+> is weaker than r3 implied; the deployable invariant and the ultimate liveness
+> guarantee are unchanged.
 
 ## 1. Verified API surface this design depends on
 
@@ -265,32 +283,47 @@ revision 3 — liveness made independent of the chain):**
   occurrence in the same `finally` (after lock release logic, before exit):
   `maintenance_queue.enqueue_in(timedelta(minutes=interval), sweep_job,
   job_id=new_unique_id)` + refresh `zep:sweep:next`.
-- **Chain-death healing (revision 3 — the r2 story was incomplete: a
-  work-horse SIGKILL/OOM skips `finally` while the worker survives, and the
-  boot reconciler only runs at boot):**
+- **Chain-death healing (revision 4 — corrected against RQ 1.16.2; the r3
+  text overstated the in-band heals):**
   - **RQ failure callback:** occurrences are enqueued with an `on_failure`
-    callback (runs in the *worker* process, which survives horse death) that
-    re-seeds the chain — `SET NX` claim on `zep:sweep:next`, then enqueue a
-    fresh occurrence `interval` out. Covers job exceptions, timeouts, and
-    horse kills that RQ detects.
-  - **Boot reconciler:** unchanged (worker start + marker absent ⇒ enqueue,
-    `SET NX` claim; racing replicas seed once) — now the second line of
-    defense, not the only one.
+    callback that re-seeds the chain when an occurrence *fails* (a caught
+    exception or an RQ timeout) but its own `finally` could not advance the
+    chain (its lock was lost, stolen, or lease-expired, so `_schedule_next`
+    never ran). The re-seed is an **atomic compare-and-set** on
+    `zep:sweep:next`, not a bare `SET NX`: while an occurrence runs the marker
+    already holds *that occurrence's own id*, so `SET NX` would find the key
+    present and decline, killing the chain (the revision-4 bug). The CAS
+    claims when the marker is absent OR still equals the failed occurrence's
+    id, then enqueues one fresh occurrence. **Scope, verified against the RQ
+    1.16.2 source:** the callback runs inside the work-horse's `except` handler
+    (in-process for a `SimpleWorker`); it does NOT fire on a hard work-horse
+    SIGKILL/OOM (`monitor_work_horse -> handle_work_horse_killed ->
+    handle_job_failure` never calls `execute_failure_callback`). A hard kill is
+    therefore not healed here.
+  - **Boot reconciler:** worker start + marker absent ⇒ `SET NX` claim +
+    enqueue (racing replicas seed once). It short-circuits while the marker is
+    present, so after a hard SIGKILL it does not re-seed until the dead
+    occurrence's marker expires (its `EX = 3 × interval` TTL lapses) and a
+    worker then boots. A best-effort heal, not the guarantee.
   - **Independent watcher (the actual guarantee):** the Sentry Cron Monitor
     check-in (§3.2 step 7) alerts on a missed occurrence from outside the
-    worker entirely. Whatever kills the chain — including failure modes the
-    two heals above cannot see (worker wedged, scheduler thread dead,
-    sustained queue starvation) — surfaces as a missed check-in within one
-    interval + grace. **No liveness property is attested solely by the
-    mechanism whose death it must detect.**
+    worker entirely. For the failure modes the two in-band heals cannot cover
+    (hard SIGKILL/OOM, worker wedged, scheduler thread dead, sustained queue
+    starvation) this missed check-in is the operative heal, firing within one
+    interval + grace (well inside the marker TTL). **No liveness property is
+    attested solely by the mechanism whose death it must detect.**
 
-**Proof obligation (revision 2, extended by revision 3):** these mechanics
+**Proof obligation (revision 2, extended by revisions 3-4):** these mechanics
 are covered by integration tests running against **real Redis and the pinned
 RQ version** (§6, tests 12-16) — not asserted from documentation. Pinned
 regressions: scheduling a unique-id occurrence while another runs must never
-mutate the running job's record (r1 failure); a horse-killed occurrence must
-still yield a rescheduled chain via `on_failure` (r2 failure); lock release
-must be atomic under lease expiry (r2 failure).
+mutate the running job's record (r1); the `on_failure` re-seed must claim the
+marker via CAS when it still holds the failed occurrence's own id (r4 — a bare
+`SET NX` silently no-ops there and kills the chain), driven through a real RQ
+worker; lock release must be atomic under lease expiry (r2). The
+`on_failure`-does-not-fire-on-hard-SIGKILL behavior is a documented RQ 1.16.2
+limitation (revision 4), not a bug this code can fix; the boot reconciler and
+the external Sentry Cron miss cover that case.
 
 ### 3.5 Not changed
 
@@ -308,8 +341,8 @@ must be atomic under lease expiry (r2 failure).
 | Worker killed mid-run (SIGKILL, deploy) | No inline delete happens | Same — graph is listed, aged, swept |
 | Vendor `created_at` format changes | Ages unparseable ⇒ ledger corroboration; if both unavailable, graphs are **retained** and `skipped_unknown_age` alerts | Operator runbook; no mass deletion (revision 2) |
 | Redis flushed / unavailable | Ledger writes no-op with warning; marker + lock lost | Boot reconciler restores the chain on worker start; sweep correctness and the orphan-age metric are Zep-derived and unaffected |
-| Occurrence raises / times out | RQ marks it failed | `on_failure` callback (worker process) re-seeds the chain immediately (revision 3) |
-| Work horse SIGKILL/OOM (`finally` skipped, worker survives) | Chain would die silently in r2 | `on_failure` re-seeds when RQ detects horse death; regardless, the **missed Sentry Cron check-in alerts within interval + grace** (revision 3) |
+| Occurrence raises / times out (caught by RQ in the horse) | RQ marks it failed and runs `on_failure` | `on_failure` re-seeds via CAS even when `finally` could not advance the marker because the lock was lost/stolen/expired (revision 4) |
+| Work horse SIGKILL/OOM (`finally` skipped; RQ does NOT run `on_failure`, revision 4) | Chain has no in-band re-seed at kill time | Boot reconciler re-seeds after the dead occurrence's marker TTL (`3 × interval`) lapses and a worker boots; the **missed Sentry Cron check-in alerts within interval + grace** and is the operative heal |
 | Worker wedged / scheduler thread dead / sustained starvation | No occurrences run; nothing in-process can notice | Missed Sentry Cron check-in — the watcher is external to the worker (revision 3) |
 | Duplicate chains (replica race, manual enqueue) | Loser fails the singleton lock, exits without rescheduling | Chains collapse to one within one interval |
 | Lock lease expires mid-sweep, successor acquires | Lua compare-and-delete release no-ops on the successor's lock (revision 3 — GET+DELETE removed for exactly this race) | Successor proceeds; overlap bounded by lease design |
