@@ -140,6 +140,9 @@ def test_all_functions_noop_on_redis_error(monkeypatch):
         def hget(self, *a):
             raise RedisError("boom")
 
+        def hgetall(self, *a):
+            raise RedisError("boom")
+
         def smembers(self, *a):
             raise RedisError("boom")
 

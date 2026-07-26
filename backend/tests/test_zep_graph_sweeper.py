@@ -303,7 +303,10 @@ def test_metrics_registry_reconciliation_removes_stale(
 ):
     live = scratch_id(70)                   # in the listing
     stale = scratch_id(71)                   # in the registry, gone from Zep
-    api = install_client(monkeypatch, [[FakeGraph(live, iso_ago(1))]])
+    # total_count=1 => the single distinct listed id covers the listing, so it is
+    # COMPLETE and reconciliation may run (F1: reconciliation needs a reported,
+    # covered total_count).
+    api = install_client(monkeypatch, [[FakeGraph(live, iso_ago(1))]], total_count=1)
     now = int(time.time())
     conn.zadd(sweeper._ACTIVE_KEY, {live: now, stale: now})
 
@@ -406,17 +409,19 @@ def test_force_delete_disposes_observed_unknown_age_scratch(
     conn, monkeypatch, captured_messages
 ):
     """The legitimate escape hatch (§8.5): an unknown-age scratch graph named in
-    the env var IS disposed, even under dry-run (operator explicit per-id)."""
+    the env var IS disposed in real-deletion mode. (F9: dry-run is a pure
+    inventory now — the escape hatch disposes only when dry_run is off, which is
+    exactly the §8.5 rollout state; see test_force_delete_respects_dry_run.)"""
     gid = scratch_id(90)
     monkeypatch.setenv("ZEP_SWEEP_FORCE_DELETE_IDS", gid)
     # Unknown age: unparseable vendor ts, no ledger -> normally fail-closed.
     api = install_client(monkeypatch, [[FakeGraph(gid, "not-a-timestamp")]])
 
     stats = sweeper.sweep_orphan_graphs(
-        dry_run=True, ttl_hours=24, page_size=100, max_deletes=200
+        dry_run=False, ttl_hours=24, page_size=100, max_deletes=200
     )
 
-    assert api.deleted == [gid]                 # force disposed despite dry-run
+    assert api.deleted == [gid]                 # force disposed in real mode
     assert stats.deleted == 1
 
 
@@ -429,7 +434,7 @@ def test_force_delete_bounded_by_cap(conn, monkeypatch, captured_messages):
     api = install_client(monkeypatch, [[FakeGraph(g, "garbage") for g in ids]])
 
     stats = sweeper.sweep_orphan_graphs(
-        dry_run=True, ttl_hours=24, page_size=100, max_deletes=2
+        dry_run=False, ttl_hours=24, page_size=100, max_deletes=2
     )
 
     assert len(api.deleted) == 2                # capped, not all three
@@ -541,8 +546,9 @@ def test_reconciliation_closes_hash_and_merchant_set(
     merchant = "11111111-1111-1111-1111-111111111111"
     gl.record_created(live, merchant)           # full ledger records for both
     gl.record_created(stale, merchant)
-    # Zep lists only `live`; `stale` is gone from Zep -> drift.
-    api = install_client(monkeypatch, [[FakeGraph(live, iso_ago(1))]])
+    # Zep lists only `live` (total_count=1 => COMPLETE, F1); `stale` is gone
+    # from Zep -> drift, closed lifecycle-aware.
+    api = install_client(monkeypatch, [[FakeGraph(live, iso_ago(1))]], total_count=1)
 
     stats = sweeper.sweep_orphan_graphs(
         dry_run=False, ttl_hours=24, page_size=100, max_deletes=200
@@ -597,3 +603,256 @@ def test_ledger_created_at_future_is_unknown_age(
 
     assert api.deleted == []
     assert stats.skipped_unknown_age == 1       # unknown, not silently "young"
+
+
+# ==========================================================================
+# Re-review fixes (PR #78, second round): F1, F5, F6, F7, F9, F10, F11
+# ==========================================================================
+
+# --------------------------------------------------------------------------
+# F1 - duplicate/empty pages must NOT authorize destructive reconciliation
+# --------------------------------------------------------------------------
+
+def test_duplicate_rows_do_not_falsely_satisfy_total_count(
+    conn, monkeypatch, captured_messages
+):
+    """Reviewer repro: pages ``g1,g2 / g2`` with total_count=3. Raw scanned rows
+    (3) would falsely satisfy the count and treat the listing complete, removing
+    an unseen LIVE registry member (g3). Completeness must use DISTINCT ids
+    (only 2 seen < 3) -> incomplete -> reconciliation SKIPPED, g3 survives."""
+    g1, g2, g3 = scratch_id(200), scratch_id(201), scratch_id(202)
+    pages = [
+        [FakeGraph(g1, iso_ago(1)), FakeGraph(g2, iso_ago(1))],
+        [FakeGraph(g2, iso_ago(1))],             # g2 repeats -> 3 rows, 2 distinct
+    ]
+    api = install_client(monkeypatch, pages, total_count=3)
+    now = int(time.time())
+    conn.zadd(sweeper._ACTIVE_KEY, {g1: now, g2: now, g3: now})   # g3 is live
+
+    stats = sweeper.sweep_orphan_graphs(
+        dry_run=False, ttl_hours=24, page_size=2, max_deletes=200
+    )
+
+    assert stats.listing_incomplete is True                       # 2 distinct < 3
+    assert stats.ledger_drift == 0                                # nothing reconciled
+    assert conn.zscore(sweeper._ACTIVE_KEY, g3) is not None       # live g3 survives
+
+
+def test_empty_first_page_with_nonzero_count_is_incomplete(
+    conn, monkeypatch, captured_messages
+):
+    """Reviewer repro: an empty first page that still reports total_count=5 must
+    be read BEFORE the empty-page break, so the listing is INCOMPLETE and the
+    whole registry is not wiped."""
+    api = install_client(monkeypatch, [[]], total_count=5)       # empty page, count 5
+    now = int(time.time())
+    member = scratch_id(210)
+    conn.zadd(sweeper._ACTIVE_KEY, {member: now})
+
+    stats = sweeper.sweep_orphan_graphs(
+        dry_run=False, ttl_hours=24, page_size=100, max_deletes=200
+    )
+
+    assert stats.total_count == 5                                 # count was read
+    assert stats.listing_incomplete is True
+    assert stats.ledger_drift == 0
+    assert conn.zscore(sweeper._ACTIVE_KEY, member) is not None   # registry untouched
+
+
+# --------------------------------------------------------------------------
+# F5 - the hard delete cap is shared across normal + force passes (not doubled)
+# --------------------------------------------------------------------------
+
+def test_shared_delete_budget_across_normal_and_force_pass(
+    conn, monkeypatch, captured_messages
+):
+    """A MIXED occurrence (heap-eligible + force ids) must perform AT MOST
+    ``max_deletes`` real deletes total - the force pass no longer starts a fresh
+    budget after the normal pass consumed the cap."""
+    old1, old2 = scratch_id(220), scratch_id(221)         # eligible (old), heap
+    f1, f2 = scratch_id(222), scratch_id(223)             # unknown-age force ids
+    monkeypatch.setenv("ZEP_SWEEP_FORCE_DELETE_IDS", f"{f1},{f2}")
+    pages = [[
+        FakeGraph(old1, iso_ago(72)), FakeGraph(old2, iso_ago(48)),
+        FakeGraph(f1, "garbage"), FakeGraph(f2, "garbage"),
+    ]]
+    api = install_client(monkeypatch, pages, total_count=4)
+
+    stats = sweeper.sweep_orphan_graphs(
+        dry_run=False, ttl_hours=24, page_size=100, max_deletes=2
+    )
+
+    assert len(api.deleted) == 2                 # cap 2 shared, NOT 4
+    assert stats.deleted == 2
+
+
+# --------------------------------------------------------------------------
+# F6 - dry-run logs the FULL eligible inventory, not just the capped heap
+# --------------------------------------------------------------------------
+
+def test_dry_run_logs_full_eligible_inventory(conn, monkeypatch, captured_messages):
+    """The runbook's first dry sweep must log EVERY eligible id (the whole
+    backlog), even when it exceeds the per-run cap."""
+    eligible = [scratch_id(230 + i) for i in range(5)]
+    pages = [[FakeGraph(g, iso_ago(48 + i)) for i, g in enumerate(eligible)]]
+    install_client(monkeypatch, pages, total_count=5)
+
+    logged = []
+    real_warning = sweeper.logger.warning
+    def capture(msg, *args, **kw):
+        logged.append(msg % args if args else msg)
+        return real_warning(msg, *args, **kw)
+    monkeypatch.setattr(sweeper.logger, "warning", capture)
+
+    stats = sweeper.sweep_orphan_graphs(
+        dry_run=True, ttl_hours=24, page_size=100, max_deletes=2
+    )
+
+    would_delete = [m for m in logged if "would delete" in m]
+    assert len(would_delete) == 5                # all 5, not the capped 2
+    assert stats.skipped_dry_run == 5
+    for g in eligible:
+        assert any(g in m for m in would_delete)
+
+
+# --------------------------------------------------------------------------
+# F7 - Zep-only (unattributed) drift is counted (bidirectional contract)
+# --------------------------------------------------------------------------
+
+def test_zep_only_graph_counted_as_drift(conn, monkeypatch, captured_messages):
+    """A matched scratch graph present in Zep but absent from the ledger snapshot
+    is Zep-only drift - counted, not silently ignored."""
+    attributed = scratch_id(240)
+    unattributed = scratch_id(241)               # in Zep, never in the ledger
+    now = int(time.time())
+    conn.zadd(sweeper._ACTIVE_KEY, {attributed: now})   # only `attributed` known
+    api = install_client(
+        monkeypatch,
+        [[FakeGraph(attributed, iso_ago(1)), FakeGraph(unattributed, iso_ago(1))]],
+        total_count=2,
+    )
+
+    stats = sweeper.sweep_orphan_graphs(
+        dry_run=False, ttl_hours=24, page_size=100, max_deletes=200
+    )
+
+    assert stats.zep_only_unattributed == 1      # `unattributed` counted
+    assert stats.matched == 2
+
+
+# --------------------------------------------------------------------------
+# F9 - dry-run must not mutate lifecycle state (pure inventory)
+# --------------------------------------------------------------------------
+
+def test_dry_run_does_not_mutate_ledger(conn, monkeypatch, captured_messages):
+    """Reviewer repro: an empty listing under dry_run left an active ledger entry
+    removed + tombstoned. Dry-run must reconcile NOTHING."""
+    stale = scratch_id(250)
+    gl.record_created(stale, "11111111-1111-1111-1111-111111111111")
+    install_client(monkeypatch, [[]], total_count=0)     # empty, complete listing
+
+    stats = sweeper.sweep_orphan_graphs(
+        dry_run=True, ttl_hours=24, page_size=100, max_deletes=200
+    )
+
+    assert stats.ledger_drift == 0                                    # no reconcile
+    assert conn.zscore(sweeper._ACTIVE_KEY, stale) is not None        # entry intact
+    assert conn.hget(f"zep:graph:{stale}", "deleted_at") is None      # not tombstoned
+
+
+# --------------------------------------------------------------------------
+# F10 - a tombstoned ledger record must not corroborate a new incarnation
+# --------------------------------------------------------------------------
+
+def test_tombstoned_ledger_does_not_corroborate_new_graph(
+    conn, monkeypatch, captured_messages
+):
+    """A listed graph with NO vendor time and only a 48h-old TOMBSTONED ledger
+    hash (deleted_at set) must be RETAINED (unknown age), not aged off the dead
+    record and deleted."""
+    gid = scratch_id(260)
+    old = int(time.time()) - 48 * 3600
+    # A tombstoned record: created 48h ago, then deleted (deleted_at present).
+    conn.hset(f"zep:graph:{gid}", mapping={
+        "graph_kind": "scratch", "created_at": str(old),
+        "deleted_at": str(old + 60), "delete_source": "sweep",
+    })
+    api = install_client(monkeypatch, [[FakeGraph(gid, None)]])  # no vendor time
+
+    stats = sweeper.sweep_orphan_graphs(
+        dry_run=False, ttl_hours=24, page_size=100, max_deletes=200
+    )
+
+    assert api.deleted == []                     # NOT deleted off the dead record
+    assert stats.skipped_unknown_age == 1        # fail-closed unknown age
+    assert stats.deleted == 0
+
+
+def test_record_created_clears_tombstone_on_reincarnation(conn):
+    """Re-minting an id must clear deleted_at/delete_source so created_at_for
+    corroborates the NEW incarnation, not the dead one."""
+    gid = scratch_id(261)
+    old = int(time.time()) - 48 * 3600
+    conn.hset(f"zep:graph:{gid}", mapping={
+        "graph_kind": "scratch", "created_at": str(old),
+        "deleted_at": str(old + 60), "delete_source": "sweep",
+    })
+    assert gl.created_at_for(gid) is None        # tombstoned -> no corroboration
+
+    gl.record_created(gid, "11111111-1111-1111-1111-111111111111")
+    assert conn.hget(f"zep:graph:{gid}", "deleted_at") is None   # cleared
+    fresh = gl.created_at_for(gid)
+    assert fresh is not None and fresh >= old    # corroborates the new incarnation
+
+
+# --------------------------------------------------------------------------
+# F11 - the 404-as-success branch is pinned
+# --------------------------------------------------------------------------
+
+def test_delete_404_counts_success_and_closes_ledger(
+    conn, monkeypatch, captured_messages
+):
+    """A Zep delete raising ApiError(status_code=404) is idempotent success
+    (V-1): counted as deleted, ledger closed, NOT failed."""
+    from zep_cloud.core.api_error import ApiError
+
+    gid = scratch_id(270)
+    gl.record_created(gid, "11111111-1111-1111-1111-111111111111")
+
+    class ApiErr404Api(FakeGraphApi):
+        def delete(self, graph_id):
+            self.events.append(("delete", graph_id))
+            raise ApiError(status_code=404, body="already gone")
+
+    api = ApiErr404Api([[FakeGraph(gid, iso_ago(48))]], total_count=1)
+    monkeypatch.setattr(sweeper, "_zep_client", lambda: FakeZep(api))
+
+    stats = sweeper.sweep_orphan_graphs(
+        dry_run=False, ttl_hours=24, page_size=100, max_deletes=200
+    )
+
+    assert stats.deleted == 1                    # 404 counts as success
+    assert stats.failed == 0                     # NOT failed
+    assert conn.hget(f"zep:graph:{gid}", "deleted_at") is not None   # ledger closed
+
+
+def test_delete_non_404_apierror_counts_failed(conn, monkeypatch, captured_messages):
+    """A non-404 ApiError is a real failure - counted as failed, not success."""
+    from zep_cloud.core.api_error import ApiError
+
+    gid = scratch_id(271)
+
+    class ApiErr500Api(FakeGraphApi):
+        def delete(self, graph_id):
+            self.events.append(("delete", graph_id))
+            raise ApiError(status_code=500, body="server error")
+
+    api = ApiErr500Api([[FakeGraph(gid, iso_ago(48))]], total_count=1)
+    monkeypatch.setattr(sweeper, "_zep_client", lambda: FakeZep(api))
+
+    stats = sweeper.sweep_orphan_graphs(
+        dry_run=False, ttl_hours=24, page_size=100, max_deletes=200
+    )
+
+    assert stats.deleted == 0
+    assert stats.failed == 1                     # real failure

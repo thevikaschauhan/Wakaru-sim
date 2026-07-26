@@ -29,28 +29,30 @@ import app.services.maintenance_queue as mq  # noqa: E402
 import app.services.zep_graph_sweeper as sweeper  # noqa: E402
 
 
-_LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1", ""}
-
-
-def _redis_host(url: str) -> str:
-    from urllib.parse import urlparse
-
-    return (urlparse(url).hostname or "").lower()
+# Exact key namespaces this suite creates. Reset deletes ONLY these — NEVER a
+# blanket FLUSHDB and NEVER a bare ``rq:*`` / ``rq:workers*`` wildcard — so a
+# stray ``WAKARU_TEST_REDIS_URL`` pointed at a developer's Redis or a shared/prod
+# endpoint can never destroy unrelated data (re-review F8). The occurrence job
+# ids are ``zep-graph-sweep-<hex>``, so ``rq:job:zep-graph-sweep-*`` scopes our
+# job hashes without touching another app's jobs on the same instance.
+_SUITE_KEY_PATTERNS = (
+    "zep:sweep:*", "zep:graph:*", "zep:scratch:*", "zep:merchant:*",
+    "rq:job:zep-graph-sweep-*",
+    "rq:queue:maintenance", "rq:queue:maintenance:*",
+    "rq:scheduled:maintenance", "rq:scheduled_job_registry:maintenance",
+    "rq:finished:maintenance", "rq:failed:maintenance",
+    "rq:deferred:maintenance", "rq:canceled:maintenance",
+    "rq:started:maintenance", "rq:wip:maintenance",
+    "test:*",
+)
 
 
 def _reset_test_redis(conn, url) -> None:
-    """Reset Redis between tests. ``FLUSHDB`` only when the endpoint is loopback;
-    on any non-loopback (shared/prod) endpoint, REFUSE the blanket flush and
-    delete only the namespaces this suite touches (F10 — a stray
-    ``WAKARU_TEST_REDIS_URL`` pointed at someone else's Redis must never wipe
-    it)."""
-    if _redis_host(url) in _LOOPBACK_HOSTS:
-        conn.flushdb()
-        return
-    for pattern in (
-        "zep:sweep:*", "zep:graph:*", "zep:scratch:*", "zep:merchant:*",
-        "rq:*", "test:*",
-    ):
+    """Reset Redis between tests by deleting ONLY this suite's own namespaces, on
+    ANY endpoint — never ``FLUSHDB``, never a bare ``rq:*`` wildcard (re-review
+    F8). A stray ``WAKARU_TEST_REDIS_URL`` pointed at someone else's Redis must
+    never wipe it; the worst case here is leaving a few of our own keys behind."""
+    for pattern in _SUITE_KEY_PATTERNS:
         keys = list(conn.scan_iter(match=pattern, count=500))
         if keys:
             conn.delete(*keys)
@@ -229,14 +231,17 @@ def test_boot_reconciler_seeds_exactly_one(rconn):
 
 def test_boot_reconciler_loser_does_not_double_seed(rconn):
     queue = mq.get_maintenance_queue(rconn)
-    # Replica 1 wins the SET NX claim first (marker present, no scheduled job).
-    interval = mq.sweep_interval_minutes()
-    rconn.set(mq._NEXT_KEY, "winner-occurrence", nx=True, ex=3 * interval * 60)
+    # A healthy chain: a REAL scheduled occurrence exists and the marker names it
+    # (F4 — reconcile trusts the marker only when its job actually exists).
+    winner = mq._new_occurrence_id()
+    mq._enqueue_occurrence(queue, winner, mq.sweep_interval_minutes())
+    rconn.set(mq._NEXT_KEY, winner, nx=True, ex=mq._marker_ttl_seconds())
+    before = queue.scheduled_job_registry.count      # 1 (winner scheduled)
 
-    # Replica 2's reconcile must not enqueue anything - the claim is taken.
+    # Reconcile must not enqueue anything - the marker names a live job.
     mq.reconcile_chain(rconn)
-    assert queue.scheduled_job_registry.count == 0
-    assert rconn.get(mq._NEXT_KEY) == b"winner-occurrence"
+    assert queue.scheduled_job_registry.count == before
+    assert rconn.get(mq._NEXT_KEY) == winner.encode()
 
 
 # --------------------------------------------------------------------------
@@ -244,10 +249,10 @@ def test_boot_reconciler_loser_does_not_double_seed(rconn):
 # --------------------------------------------------------------------------
 
 def test_non_canonical_occurrence_declines_to_sweep(rconn, monkeypatch):
-    """An occurrence whose id is not the one the marker names must exit at the
-    generation-ownership gate — no sweep, no reschedule, lock never taken — even
-    though the lock is FREE. This is the real serial case the old
-    artificial-pre-held-lock test could not reach."""
+    """A duplicate occurrence — whose id is not the one the marker names, and the
+    marker names a LIVE other occurrence — must exit at the generation gate: no
+    sweep, no reschedule, lock never taken, even though the lock is FREE. This is
+    the real serial case the old artificial-pre-held-lock test could not reach."""
     queue = mq.get_maintenance_queue(rconn)
     swept = []
     monkeypatch.setattr(
@@ -255,19 +260,22 @@ def test_non_canonical_occurrence_declines_to_sweep(rconn, monkeypatch):
         lambda **kw: (swept.append(True), sweeper.SweepStats())[1],
     )
 
-    # The marker names a DIFFERENT occurrence; the lock is free.
-    rconn.set(
-        mq._NEXT_KEY, "some-other-canonical-occurrence", ex=mq._marker_ttl_seconds()
-    )
-    before = queue.scheduled_job_registry.count
+    # The marker names a DIFFERENT, LIVE occurrence (a real scheduled job); the
+    # lock is free. Our occurrence is therefore a true duplicate, not a dead
+    # chain — it exits without sweeping OR re-seeding.
+    canonical = mq._new_occurrence_id()
+    mq._enqueue_occurrence(queue, canonical, mq.sweep_interval_minutes())
+    rconn.set(mq._NEXT_KEY, canonical, ex=mq._marker_ttl_seconds())
+    before = queue.scheduled_job_registry.count          # 1 (canonical scheduled)
 
     # run_sweep_occurrence() outside a job context mints a fresh random id that
-    # cannot equal the marker -> non-canonical -> declines before the lock.
+    # cannot equal the marker -> duplicate (marker names a live other) -> exits.
     mq.run_sweep_occurrence()
 
     assert swept == []                                   # never swept
     assert queue.scheduled_job_registry.count == before  # never rescheduled
     assert rconn.get(mq._LOCK_KEY) is None               # lock never taken
+    assert rconn.get(mq._NEXT_KEY) == canonical.encode() # marker unchanged
 
 
 def test_serialized_duplicate_occurrences_collapse_to_one(rconn, monkeypatch):
@@ -466,12 +474,12 @@ def test_cron_checkin_passes_monitor_config(monkeypatch):
 
 
 # --------------------------------------------------------------------------
-# 20 - F10: the reset fixture never blanket-flushes a non-loopback endpoint
+# 20 - F8: the reset fixture never FLUSHDBs and never touches foreign data
 # --------------------------------------------------------------------------
 
 class _ResetSpyConn:
     """Records which reset primitive the helper invoked, so we can prove it never
-    FLUSHDBs a shared/prod endpoint."""
+    FLUSHDBs any endpoint (re-review F8)."""
 
     def __init__(self):
         self.calls = []
@@ -487,22 +495,189 @@ class _ResetSpyConn:
         self.calls.append(("delete", keys))
 
 
-def test_reset_refuses_flushdb_on_non_loopback_endpoint():
-    """F10: a stray ``WAKARU_TEST_REDIS_URL`` pointing at someone else's (shared
-    or prod) Redis must NEVER be blanket-flushed. Assert the reset helper does
-    NOT call ``flushdb`` for a non-loopback host and scoped-deletes instead.
-    Revert-proof: an unconditional ``flushdb()`` records ``flushdb`` here."""
-    spy = _ResetSpyConn()
-    _reset_test_redis(spy, "redis://redis.internal.example.com:6379/0")
-    assert "flushdb" not in spy.calls, "reset flushed a non-loopback endpoint (F10)"
-    assert any(
-        isinstance(c, tuple) and c[0] == "scan_iter" for c in spy.calls
-    ), "reset did not fall back to scoped key deletion"
+def test_reset_never_flushdb_on_any_endpoint():
+    """re-review F8: the reset helper must NEVER blanket-flush — not on a shared/
+    prod endpoint AND not on loopback (a developer's local Redis is loopback too).
+    It scope-deletes the suite's namespaces instead. Revert-proof: an
+    unconditional ``flushdb()`` records ``flushdb`` here."""
+    for url in (
+        "redis://redis.internal.example.com:6379/0",   # shared/prod
+        "redis://127.0.0.1:6390/0",                      # loopback (dev/test)
+        "redis://localhost:6379/0",                      # loopback alias (CI)
+    ):
+        spy = _ResetSpyConn()
+        _reset_test_redis(spy, url)
+        assert "flushdb" not in spy.calls, f"reset flushed {url} (F8)"
+        assert any(
+            isinstance(c, tuple) and c[0] == "scan_iter" for c in spy.calls
+        ), f"reset did not scope-delete for {url}"
 
 
-def test_reset_flushes_only_loopback():
-    """The guard must not over-refuse: a loopback endpoint (the throwaway test
-    instance) is still fully flushed."""
-    spy = _ResetSpyConn()
-    _reset_test_redis(spy, "redis://127.0.0.1:6390/0")
-    assert spy.calls == ["flushdb"]
+def test_reset_leaves_foreign_keys_intact(rconn):
+    """A key outside the suite's namespaces (another app's data) must SURVIVE a
+    reset — the helper deletes only ``zep:*`` / maintenance-queue / our own job
+    hashes / ``test:*`` (re-review F8)."""
+    rconn.set("someone-elses:key", "keep-me")
+    rconn.set("rq:job:some-other-app-job", "keep-me")     # a foreign RQ job
+    rconn.zadd(sweeper._ACTIVE_KEY, {"mirofish_0123456789abcdef": 1})  # ours
+    rconn.lpush("test:scratch", "ours")                    # ours
+
+    _reset_test_redis(rconn, REDIS_URL)
+
+    assert rconn.get("someone-elses:key") == b"keep-me"    # foreign survives
+    assert rconn.get("rq:job:some-other-app-job") == b"keep-me"
+    assert rconn.zscore(sweeper._ACTIVE_KEY, "mirofish_0123456789abcdef") is None  # ours gone
+    assert not rconn.exists("test:scratch")                # ours gone
+
+
+# --------------------------------------------------------------------------
+# 21 - re-review F2: a lock-release failure must NOT end the chain
+# --------------------------------------------------------------------------
+
+def test_release_failure_still_schedules_successor(rconn, monkeypatch):
+    """re-review F2: after a SUCCESSFUL sweep, a transient Redis error on lock
+    release must NOT swallow the successor scheduling — the chain continues.
+    Revert-proof: gating ``_schedule_next`` on ``_release_lock()`` returning True
+    schedules zero successors when release fails."""
+    queue = mq.get_maintenance_queue(rconn)
+    monkeypatch.setattr(mq, "sweep_orphan_graphs", lambda **kw: sweeper.SweepStats())
+    # Make lock release report failure (as a transient Redis error would).
+    monkeypatch.setattr(mq, "_release_lock", lambda conn, occ: False)
+
+    occ = mq._new_occurrence_id()
+    rconn.set(mq._NEXT_KEY, occ, ex=mq._marker_ttl_seconds())   # occ is canonical
+    _enqueue_now(queue, occ)
+
+    worker = SimpleWorker([queue], connection=rconn)
+    worker.work(burst=True)
+
+    # The sweep ran and, despite the release "failure", scheduled exactly one
+    # successor and advanced the marker.
+    assert queue.scheduled_job_registry.count == 1
+    marker = rconn.get(mq._NEXT_KEY)
+    assert marker is not None and marker.decode() != occ
+
+
+# --------------------------------------------------------------------------
+# 22 - re-review F3: a dead / TTL-starved / phantom chain heals in-band
+# --------------------------------------------------------------------------
+
+def test_dead_chain_marker_absent_reseeds(rconn, monkeypatch):
+    """re-review F3: an occurrence that dequeues after the marker's TTL has
+    lapsed (marker ABSENT) must RE-SEED one fresh chain, not exit silently."""
+    queue = mq.get_maintenance_queue(rconn)
+    swept = []
+    monkeypatch.setattr(
+        mq, "sweep_orphan_graphs",
+        lambda **kw: (swept.append(True), sweeper.SweepStats())[1],
+    )
+    assert not rconn.exists(mq._NEXT_KEY)      # TTL-starved: marker gone
+
+    mq.run_sweep_occurrence()                  # fresh id, marker absent -> dead
+
+    assert swept == []                         # this occurrence did not sweep
+    assert queue.scheduled_job_registry.count == 1   # but re-seeded one chain
+    assert rconn.exists(mq._NEXT_KEY)
+
+
+def test_phantom_marker_occurrence_reseeds(rconn, monkeypatch):
+    """re-review F3/F4: a marker naming a job that no longer exists (phantom from
+    a crash) is a DEAD chain — an occurrence that sees it re-seeds in-band."""
+    queue = mq.get_maintenance_queue(rconn)
+    swept = []
+    monkeypatch.setattr(
+        mq, "sweep_orphan_graphs",
+        lambda **kw: (swept.append(True), sweeper.SweepStats())[1],
+    )
+    # Marker names an id with NO scheduled/queued job -> phantom.
+    rconn.set(mq._NEXT_KEY, "zep-graph-sweep-phantomdeadbeef", ex=mq._marker_ttl_seconds())
+
+    mq.run_sweep_occurrence()
+
+    assert swept == []
+    assert queue.scheduled_job_registry.count == 1     # re-seeded
+    marker = rconn.get(mq._NEXT_KEY).decode()
+    assert marker != "zep-graph-sweep-phantomdeadbeef"  # advanced off the phantom
+    assert marker in set(queue.scheduled_job_registry.get_job_ids())
+
+
+def test_two_dead_chain_occurrences_reseed_exactly_one(rconn, monkeypatch):
+    """Racing dead-chain heals collapse to ONE via the atomic claim — two
+    occurrences finding the marker absent must not create two chains."""
+    queue = mq.get_maintenance_queue(rconn)
+    monkeypatch.setattr(mq, "sweep_orphan_graphs", lambda **kw: sweeper.SweepStats())
+    assert not rconn.exists(mq._NEXT_KEY)
+
+    mq.run_sweep_occurrence()
+    marker_after_first = rconn.get(mq._NEXT_KEY)
+    mq.run_sweep_occurrence()   # marker now names a live job -> duplicate -> exit
+
+    assert queue.scheduled_job_registry.count == 1              # exactly one
+    assert rconn.get(mq._NEXT_KEY) == marker_after_first        # unchanged
+
+
+# --------------------------------------------------------------------------
+# 23 - re-review F4: boot reconcile heals a phantom marker
+# --------------------------------------------------------------------------
+
+def test_reconcile_reseeds_phantom_marker(rconn):
+    """re-review F4: the boot reconciler must re-seed when the marker names a job
+    that does NOT exist (a crash between marker-claim and enqueue left a phantom).
+    Revert-proof: trusting marker PRESENCE alone leaves the phantom forever."""
+    queue = mq.get_maintenance_queue(rconn)
+    rconn.set(mq._NEXT_KEY, "zep-graph-sweep-phantomdeadbeef", ex=mq._marker_ttl_seconds())
+    assert queue.scheduled_job_registry.count == 0
+
+    mq.reconcile_chain(rconn)
+
+    assert queue.scheduled_job_registry.count == 1     # phantom healed
+    marker = rconn.get(mq._NEXT_KEY).decode()
+    assert marker != "zep-graph-sweep-phantomdeadbeef"
+    assert marker in set(queue.scheduled_job_registry.get_job_ids())
+
+
+# --------------------------------------------------------------------------
+# 24 - re-review F3(a): the worker wires a killed-horse handler that re-seeds
+# --------------------------------------------------------------------------
+
+def test_worker_wires_killed_horse_handler_that_reseeds(rconn, monkeypatch):
+    """re-review F3: RQ does NOT run on_failure on a hard work-horse SIGKILL, so
+    the Worker must be constructed with a ``work_horse_killed_handler`` that
+    re-seeds the chain from the surviving parent. Assert (a) worker.main wires the
+    handler into the Worker, and (b) the handler actually re-seeds."""
+    import worker as worker_module
+
+    monkeypatch.setenv("REDIS_URL", REDIS_URL)
+    captured = {}
+
+    class _FakeWorker:
+        def __init__(self, queues, connection=None, log_job_description=None,
+                     work_horse_killed_handler=None):
+            captured["handler"] = work_horse_killed_handler
+
+        def work(self, with_scheduler=None):
+            captured["worked"] = True
+
+    monkeypatch.setattr(worker_module, "create_app", lambda: None)
+    import rq as _rq
+    monkeypatch.setattr(_rq, "Worker", _FakeWorker)
+
+    worker_module.main()
+
+    handler = captured["handler"]
+    assert handler is not None, "Worker built without a work_horse_killed_handler (F3)"
+
+    # The handler, given a (killed) job, re-seeds the chain in the parent process.
+    _reset_test_redis(rconn, REDIS_URL)
+    queue = mq.get_maintenance_queue(rconn)
+    killed = mq._new_occurrence_id()
+    rconn.set(mq._NEXT_KEY, killed, ex=mq._marker_ttl_seconds())   # marker == dead occ
+    handler(_FakeKilledJob(killed), 1234, 9, None)
+
+    assert queue.scheduled_job_registry.count == 1     # re-seeded from the handler
+    assert rconn.get(mq._NEXT_KEY).decode() != killed
+
+
+class _FakeKilledJob:
+    def __init__(self, job_id):
+        self.id = job_id

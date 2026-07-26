@@ -47,7 +47,7 @@ RQ (`rq:*`) namespaces.
 |---|---|---|---|
 | `graph_kind` | literal `scratch` (this spec) or `store` (#61) | `record_created` / #61's `store_record_created` | Lifecycle class. **Revision 2:** #72's `record_created` writes `scratch` and asserts the id matches `^mirofish_[0-9a-f]{16}$`; #61's writer writes `store` and asserts `merchant_*`. Mixed writes are a programming error, not a data state. |
 | `merchant_id` | canonical lowercase UUID string (per `validate_merchant_id`, `paths.py:52`); sentinel `00000000-0000-0000-0000-000000000000` for legacy engine calls | `record_created` | Tenant attribution for offboarding/audit |
-| `created_at` | Unix epoch seconds, integer string | `record_created` | Graph creation time (local clock). Roles: corroboration source for fail-closed deletion eligibility when the vendor timestamp is unparseable (TDD §3.2); diagnostics. Zep's `created_at` remains the primary age source. |
+| `created_at` | Unix epoch seconds, integer string | `record_created` | Graph creation time (local clock). Roles: corroboration source for fail-closed deletion eligibility when the vendor timestamp is unparseable (TDD §3.2); diagnostics. Zep's `created_at` remains the primary age source. **Corroboration reads (`created_at_for`) return None when the record is tombstoned (`deleted_at` set) — a dead incarnation must not age a re-minted id (revision-6 F10) — or when the value is ≤0 / in the future (impossible; revision-5 F11). `record_created` clears `deleted_at`/`delete_source` on re-incarnation.** |
 | `deleted_at` | Unix epoch seconds, integer string; absent while alive | `record_deleted` | Deletion time |
 | `delete_source` | `inline` \| `sweep`; absent while alive | `record_deleted` | Which path deleted it (metric: sweep-share ≈ inline-failure rate) |
 
@@ -65,9 +65,16 @@ sentinel.
 - **Revision 2 — demoted from metric source:** the alertable
   `oldest_scratch_age_seconds` comes from the sweeper's Zep scan (TDD §3.2),
   which survives Redis loss. This zset is a diagnostic (e.g. "what does the
-  ledger *think* is alive") and a drift detector: each sweep reconciles it
-  against the listing and flags disagreements (`ledger_drift` count in the
-  sweep stats).
+  ledger *think* is alive") and a **bidirectional** drift detector (revision-6
+  F7): on a **complete** listing (revision-6 F1 — never on a partial scan, which
+  would delete live entries), each sweep reports drift in both directions —
+  `ledger_drift` counts ledger-only entries (in the zset, absent from Zep) and
+  **closes them lifecycle-aware** (`record_deleted`: stamp `deleted_at` + 30-day
+  TTL, `ZREM`, `SREM` — not a bare `ZREM` that would strand the hash and merchant
+  membership, revision-6 F9); `zep_only_unattributed` counts matched scratch
+  graphs present in Zep but absent from the ledger snapshot (unattributed, e.g.
+  created during a Redis outage). Under **dry-run** the sweep reconciles nothing
+  (pure inventory, revision-6 F9).
 - #61's `merchant_*` graphs never appear here (writer assertion + sweeper
   regex are independent guards).
 
@@ -87,8 +94,8 @@ sentinel.
 
 | Key | Type | Semantics |
 |---|---|---|
-| `zep:sweep:lock` | String, `SET NX EX 360` | **Secondary concurrency guard (revision 5), not the chain-collapse mechanism.** Value = occurrence job id; taken by the canonical occurrence AFTER the generation-ownership check to stop two *concurrent* replicas sweeping the same generation. Released **only** via atomic Lua compare-and-delete on the owning occurrence id (revision 3 — GET+DELETE is not an allowed release: the lease can expire between the two commands and the DELETE would kill a successor's lock). Chain collapse is now done by generation ownership on `zep:sweep:next` (the lock is free between serial occurrences on one worker, so it never collapsed serial duplicates — revision-5 F1). |
-| `zep:sweep:next` | String, `EX = 3 × interval` | Chain-liveness marker **and the single canonical generation** (revision 5); value = the next occurrence's job id. An occurrence sweeps + schedules a successor ONLY if this marker names it; every other occurrence exits (duplicate-chain collapse, serial or concurrent). While an occurrence runs the marker holds *that occurrence's own id* (the prior occurrence set it). Advanced to the successor via an atomic CAS only-if-still-mine after the successor is enqueued (enqueue-first, so the marker never names a job that does not exist — revision-5 F3); on enqueue failure the claimed marker is rolled back via compare-delete. The `on_failure` re-seed uses an **atomic compare-and-set** (claim when the marker is absent OR still equals the failed occurrence's id) - a bare `SET NX` cannot claim it because the running occurrence's id is already present, which would kill the chain (revision 4). Absent ⇒ boot reconciler enqueues (`SET NX` claim, racing replicas seed once); note the reconciler short-circuits while the marker is present, so a hard-SIGKILLed chain is not re-seeded until this TTL lapses. Liveness *alerting* does not depend on this key - the Sentry Cron Monitor is the external watcher (TDD §3.4). |
+| `zep:sweep:lock` | String, `SET NX EX 360` | **Secondary concurrency guard (revision 5), not the chain-collapse mechanism.** Value = occurrence job id; taken by the canonical occurrence AFTER the generation check to stop two *concurrent* replicas sweeping the same generation. Released **only** via atomic Lua compare-and-delete on the owning occurrence id (revision 3). Release is **best-effort** (revision-6 F2): a Redis error releasing the lock must NOT abort successor scheduling — the 360s TTL backstops a missed release. Chain collapse is done by generation disposition on `zep:sweep:next`, not this lock (the lock is free between serial occurrences on one worker, so it never collapsed serial duplicates — revision-5 F1). |
+| `zep:sweep:next` | String, `EX = 3 × interval` | Chain-liveness marker **and the single canonical generation**; value = the next occurrence's job id. On dequeue an occurrence is classified **canonical** (marker == its id → sweep + schedule successor), **duplicate** (marker names another job that still **exists** → exit, collapse), or **dead** (marker absent past TTL, or names a job that no longer **exists** → re-seed one fresh chain in-band, revision-6 F3). While an occurrence runs the marker holds *that occurrence's own id* (the prior occurrence set it). Advanced to the successor via an atomic CAS only-if-still-mine after the successor is enqueued (enqueue-first, so the marker never names a job that does not exist — revision-5 F3); on enqueue failure the claimed marker is rolled back via compare-delete. The `on_failure` re-seed and the killed-horse handler (revision-6 F3) use an **atomic compare-and-set** (claim when the marker is absent OR still equals the failed/killed occurrence's id) — a bare `SET NX` cannot claim it because the running occurrence's id is already present, which would kill the chain (revision 4). The boot reconciler (revision-6 F4) re-seeds unless the marker names a job that still **exists** (it no longer trusts marker presence alone, which left a phantom marker — from a crash between claim and enqueue — unhealed forever). Liveness *alerting* does not depend on this key — the Sentry Cron Monitor is the external watcher (TDD §3.4). |
 
 RQ-owned keys (no new schema, listed for the namespace map):
 `rq:queue:maintenance`, `rq:scheduled:maintenance` (ScheduledJobRegistry
@@ -101,7 +108,9 @@ holding unique `zep-graph-sweep-<hex>` occurrence ids — never a reused id).
 | `on_graph_created` fires mid-build (`cart_recovery_workflow.py:140`) | `HSET zep:graph:<id>` (graph_kind=scratch, merchant_id, created_at) + `ZADD zep:scratch:active` + `SADD zep:merchant:<m>:graphs` — one `MULTI` pipeline, guarded |
 | Inline delete succeeds (`_cleanup_artifacts`) | `HSET deleted_at, delete_source=inline` + `EXPIRE 30d` + `ZREM` + `SREM` — one pipeline, guarded |
 | Sweep delete succeeds | Same, `delete_source=sweep` |
-| Sweep finds registry entry with no matching Zep graph (or vice versa) | Reconcile (`ZREM`/`SREM` stale entries) + `ledger_drift` counted in sweep stats |
+| Sweep finds a ledger-only entry (no matching Zep graph), on a COMPLETE non-dry-run listing | Close it lifecycle-aware via `record_deleted` (stamp `deleted_at` + 30d TTL, `ZREM`, `SREM`) + `ledger_drift` counted (revision-6 F7/F9) |
+| Sweep finds a Zep-only matched scratch graph (in Zep, no ledger entry) | `zep_only_unattributed` counted (bidirectional drift, revision-6 F7); not "restored" (it is transient scratch, swept on age) |
+| Incomplete or dry-run listing | NO reconciliation (revision-6 F1/F9 — a partial scan's unseen members may be live; dry-run mutates nothing) |
 
 ## 4. Sizing
 

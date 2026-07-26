@@ -19,9 +19,16 @@ Design invariants (revision 3):
   timestamp-format regression degrades to retention, not a mass deletion of
   in-flight graphs (V-3). Operator-approved disposal of persistent unknown-age
   orphans is the ``ZEP_SWEEP_FORCE_DELETE_IDS`` escape hatch (§8 runbook).
-- **Bounded memory.** Only a ``max_deletes``-sized heap of the oldest eligible
-  candidates plus running aggregates are retained; the full listing is streamed
-  page-by-page and discarded. The heap never exceeds ``max_deletes`` entries.
+- **Bounded deletion, population-bounded scan memory (revision 5, honest
+  restatement of the r3 claim).** The *deletion* set is a ``max_deletes``-sized
+  heap of the oldest eligible candidates — that never grows with the backlog.
+  The per-scan bookkeeping (distinct-id / seen-matched / unknown-age sets and
+  the active-registry snapshot) is O(distinct scratch graphs), NOT O(1): it is
+  bounded by the scratch-graph population, which is small by design (SCHEMA §4 —
+  dozens in steady state; the sweep exists to keep it small) and ~tens of bytes
+  per id even for a large historical backlog. Dedup, drift, and listing-
+  completeness genuinely need those distinct-id sets, so this is a deliberate,
+  bounded cost, not the false "only a heap is retained" of r3.
 
 The Zep client is obtained through :func:`_zep_client` so unit tests can inject a
 fake without a real API key or network. The public :func:`sweep_orphan_graphs`
@@ -171,6 +178,7 @@ class SweepStats:
     oldest_scratch_age_seconds: int = 0
     total_count: int = 0
     ledger_drift: int = 0
+    zep_only_unattributed: int = 0
     listing_incomplete: bool = False
 
 
@@ -264,10 +272,12 @@ def sweep_orphan_graphs(
         max_non_eligible_age = 0.0      # matched but age <= ttl
         max_evicted_eligible_age = 0.0  # eligible but pushed out of the capped heap
 
-        # Snapshot the scratch registry once; discard ids as they are seen in the
-        # listing. Whatever remains at the end is drift (in ledger, absent in Zep).
+        # Snapshot the scratch registry once. ``registry_stale`` is mutated as ids
+        # are seen (whatever remains = ledger-only drift, in ledger but absent in
+        # Zep). ``registry_snapshot`` is kept immutable for the F7 Zep-only check.
         conn = get_redis_connection()
-        registry_stale = _load_registry(conn)
+        registry_snapshot = _load_registry(conn)
+        registry_stale = set(registry_snapshot)
 
         client = _zep_client()
 
@@ -277,21 +287,27 @@ def sweep_orphan_graphs(
         # force-disposal candidates (§8.5 runbook intent).
         seen_matched: set[str] = set()
         unknown_age_seen: set[str] = set()
+        # F1: completeness is judged over DISTINCT graph ids (all ids, scratch or
+        # not), never raw scanned rows — a listing that repeats rows across pages
+        # must not falsely satisfy ``total_count`` and authorize destructive
+        # reconciliation of a live graph's ledger.
+        distinct_ids_seen: set[str] = set()
 
-        # F6: scan-completeness signals. A listing that ends before covering
-        # ``total_count`` (short/empty page mid-way) or whose ``total_count``
-        # shifts between pages is UNCERTAIN — reconciliation must not treat
-        # unseen registry members as stale on partial data.
+        # F1/F6: scan-completeness signals. A listing that ends before its
+        # DISTINCT ids cover ``total_count``, whose ``total_count`` shifts between
+        # pages, or that never reports ``total_count`` at all is UNCERTAIN —
+        # reconciliation must not treat unseen registry members as stale on
+        # partial data.
         total_count_seen: Optional[int] = None
         total_count_stable = True
 
         page = 1
         while True:
             response = client.graph.list_all(page_number=page, page_size=page_size)
-            graphs = getattr(response, "graphs", None)
-            if not graphs:
-                break
 
+            # F1: read total_count on EVERY response — BEFORE the empty-page break
+            # — so an empty first page carrying a nonzero count still marks the
+            # listing incomplete instead of silently wiping the whole registry.
             total_count = getattr(response, "total_count", None)
             if total_count is not None:
                 if total_count_seen is not None and total_count != total_count_seen:
@@ -299,15 +315,27 @@ def sweep_orphan_graphs(
                 total_count_seen = total_count
                 stats.total_count = total_count
 
+            graphs = getattr(response, "graphs", None)
+            if not graphs:
+                break
+
             for graph in graphs:
                 stats.scanned += 1
                 graph_id = getattr(graph, "graph_id", None)
-                if not isinstance(graph_id, str) or not SWEEPABLE_RE.fullmatch(graph_id):
+                if not isinstance(graph_id, str):
+                    continue
+                distinct_ids_seen.add(graph_id)  # F1: completeness over distinct ids
+                if not SWEEPABLE_RE.fullmatch(graph_id):
                     continue
                 if graph_id in seen_matched:  # F7: count/consider each graph once
                     continue
                 seen_matched.add(graph_id)
                 stats.matched += 1
+                # F7: a matched scratch graph absent from the ledger snapshot is
+                # Zep-only drift (in Zep, unattributed) — counted, not silently
+                # ignored (the SCHEMA drift contract is bidirectional).
+                if graph_id not in registry_snapshot:
+                    stats.zep_only_unattributed += 1
                 registry_stale.discard(graph_id)
 
                 age = _proven_age_seconds(graph_id, getattr(graph, "created_at", None), now_ts)
@@ -321,6 +349,15 @@ def sweep_orphan_graphs(
 
                 if age > ttl_seconds:
                     stats.eligible_total += 1
+                    if dry_run:
+                        # F6: log the FULL eligible inventory as it streams. The
+                        # runbook's first dry sweep must show the whole backlog,
+                        # not just the capped heap subset the delete pass sees.
+                        stats.skipped_dry_run += 1
+                        logger.warning(
+                            "zep_sweep dry-run: would delete %s (age=%ds > ttl=%dh)",
+                            graph_id, int(age), ttl_hours,
+                        )
                     heapq.heappush(heap, (age, graph_id))
                     if len(heap) > max_deletes:
                         evicted_age, _ = heapq.heappop(heap)
@@ -334,19 +371,30 @@ def sweep_orphan_graphs(
 
         stats.truncated_backlog = stats.eligible_total - len(heap)
 
-        # Delete oldest-first (the heap is a min-heap, so reverse-sort by age).
-        # No deletion happened during pagination (that would shift pages).
+        # --- Deletion passes. In dry-run these are a PURE inventory: nothing is
+        # deleted and no ledger state is mutated (F9); the full eligible backlog
+        # was already logged as it streamed (F6). ---
         max_undeleted_eligible_age = 0.0
+        # F5: ONE delete-attempt budget shared across the normal AND force passes,
+        # so the per-occurrence hard cap can never be doubled (the force pass used
+        # to start a fresh budget). Bounds real Zep delete calls per occurrence.
+        delete_budget = max_deletes
+
+        # Normal age-based pass: delete oldest-first (min-heap, so reverse-sort by
+        # age). No deletion happened during pagination (that would shift pages).
         for age, graph_id in sorted(heap, key=lambda entry: entry[0], reverse=True):
             if dry_run:
-                stats.skipped_dry_run += 1
-                logger.warning(
-                    "zep_sweep dry-run: would delete %s (age=%ds > ttl=%dh)",
-                    graph_id, int(age), ttl_hours,
-                )
+                # Inventory already logged in the scan; nothing is deleted, so
+                # every eligible graph remains and feeds oldest-remaining.
                 if age > max_undeleted_eligible_age:
                     max_undeleted_eligible_age = age
                 continue
+            if delete_budget <= 0:
+                # Cap reached; the rest of the backlog drains next cycle.
+                if age > max_undeleted_eligible_age:
+                    max_undeleted_eligible_age = age
+                continue
+            delete_budget -= 1
             if _delete_graph(client, graph_id):
                 stats.deleted += 1
             else:
@@ -357,9 +405,9 @@ def sweep_orphan_graphs(
         # Force-disposal pass (§8.5 unknown-age runbook): dispose ONLY operator-
         # listed ids that were observed THIS scan as sweepable, unknown-age
         # scratch graphs — never a store graph (already refused above), never an
-        # in-flight graph with a provable age. Bounded by ``max_deletes`` so a
-        # stale/oversized env var can never trigger an unbounded delete storm.
-        force_budget = max_deletes
+        # in-flight graph with a provable age. Shares ``delete_budget`` (F5) and
+        # respects dry-run (F9 — the escape hatch disposes in real-deletion mode
+        # only; a dry sweep just logs intent and mutates nothing).
         for graph_id in forced:
             if graph_id not in unknown_age_seen:
                 logger.warning(
@@ -367,42 +415,54 @@ def sweep_orphan_graphs(
                     "graph this scan; not disposing", graph_id,
                 )
                 continue
-            if force_budget <= 0:
+            if dry_run:
                 logger.warning(
-                    "zep_sweep: force-delete cap (%d) reached; deferring %s",
+                    "zep_sweep dry-run: would FORCE delete %s (operator escape hatch)",
+                    graph_id,
+                )
+                continue
+            if delete_budget <= 0:
+                logger.warning(
+                    "zep_sweep: delete cap (%d) reached; deferring force id %s",
                     max_deletes, graph_id,
                 )
                 continue
+            delete_budget -= 1
             logger.warning("zep_sweep: FORCE deleting %s (operator escape hatch)", graph_id)
             if _delete_graph(client, graph_id):
                 stats.deleted += 1
             else:
                 stats.failed += 1
-            force_budget -= 1
 
         # Oldest matched graph that REMAINS after this sweep (Zep-derived metric).
         stats.oldest_scratch_age_seconds = int(max(
             max_non_eligible_age, max_evicted_eligible_age, max_undeleted_eligible_age
         ))
 
-        # F6: only reconcile the registry against a COMPLETE listing. On a
-        # partial/uncertain scan, unseen members may be live graphs we simply
-        # did not page to — deleting their ledger records would be data loss.
-        # Skip reconciliation and alert instead (see _maybe_alert).
-        listing_complete = total_count_stable and (
-            total_count_seen is None or stats.scanned >= total_count_seen
+        # F1/F6: only reconcile the registry against a COMPLETE listing — one
+        # whose DISTINCT ids cover a stable ``total_count`` that Zep actually
+        # reported. On a partial/uncertain scan (short/empty page, shifting or
+        # absent total_count), unseen members may be live graphs we simply did
+        # not page to; deleting their ledger records would be data loss. Skip
+        # reconciliation and alert instead. F9: dry-run never reconciles either
+        # (pure inventory, no ledger mutation).
+        listing_complete = (
+            total_count_stable
+            and total_count_seen is not None
+            and len(distinct_ids_seen) >= total_count_seen
         )
-        if listing_complete:
+        if not listing_complete:
+            stats.listing_incomplete = True
+            logger.warning(
+                "zep_sweep: listing incomplete (distinct_seen=%d total_count=%s "
+                "stable=%s); skipping registry reconciliation to avoid deleting "
+                "live entries",
+                len(distinct_ids_seen), total_count_seen, total_count_stable,
+            )
+        elif not dry_run:
             # F9: close each stale entry lifecycle-aware (hash + merchant set),
             # not a bare ZREM that leaves dangling registries behind.
             stats.ledger_drift = _reconcile_registry(conn, registry_stale)
-        else:
-            stats.listing_incomplete = True
-            logger.warning(
-                "zep_sweep: listing incomplete (scanned=%d total_count=%s stable=%s); "
-                "skipping registry reconciliation to avoid deleting live entries",
-                stats.scanned, total_count_seen, total_count_stable,
-            )
 
     except Exception:
         logger.exception("zep_sweep: sweep aborted by an exception")
@@ -497,11 +557,13 @@ def _emit_summary(stats: SweepStats) -> None:
     logger.info(
         "zep_sweep scanned=%d matched=%d eligible_total=%d deleted=%d failed=%d "
         "skipped_dry_run=%d skipped_unknown_age=%d truncated_backlog=%d "
-        "oldest_scratch_age_s=%d total_count=%d ledger_drift=%d listing_incomplete=%s",
+        "oldest_scratch_age_s=%d total_count=%d ledger_drift=%d "
+        "zep_only_unattributed=%d listing_incomplete=%s",
         stats.scanned, stats.matched, stats.eligible_total, stats.deleted,
         stats.failed, stats.skipped_dry_run, stats.skipped_unknown_age,
         stats.truncated_backlog, stats.oldest_scratch_age_seconds,
-        stats.total_count, stats.ledger_drift, stats.listing_incomplete,
+        stats.total_count, stats.ledger_drift, stats.zep_only_unattributed,
+        stats.listing_incomplete,
     )
 
 

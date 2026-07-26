@@ -49,7 +49,7 @@ from uuid import uuid4
 
 from redis.exceptions import RedisError
 from rq import Queue, get_current_job
-from rq.job import Callback
+from rq.job import Callback, Job
 from sentry_sdk.crons import MonitorStatus, capture_checkin
 
 from .job_queue import FAILURE_TTL_SECONDS, get_redis_connection
@@ -214,14 +214,16 @@ def _run_sweep_with_checkin():
 def run_sweep_occurrence():
     """RQ job body for one sweep occurrence.
 
-    (a) **generation-ownership check** (first action): the occurrence sweeps ONLY
-    if the liveness marker names it — a non-canonical occurrence (a duplicate,
-    concurrent or serial) exits WITHOUT sweeping or rescheduling, which is what
-    collapses duplicate chains back to one (F1); (b) acquire the singleton lock as
-    a secondary concurrency guard across replicas; (c) run the sweep inside the
-    cron check-in; (d) in ``finally`` release the lock via atomic Lua
-    compare-and-delete only, and — if we still held it — schedule the successor +
-    CAS-advance the liveness marker.
+    (a) **generation disposition** (first action): compare the occurrence's id to
+    the liveness marker. Only the marker-named (canonical) occurrence sweeps; a
+    duplicate whose marker names another LIVE occurrence exits (collapse); a
+    ``dead`` disposition — marker absent (TTL-starved) or naming a job that no
+    longer exists (phantom) — RE-SEEDS one fresh chain in-band (F3) rather than
+    dying silently, then exits without sweeping. (b) The canonical occurrence
+    takes the singleton lock as a secondary concurrency guard across replicas;
+    (c) runs the sweep inside the cron check-in; (d) in ``finally`` releases the
+    lock (best-effort) and, **on sweep SUCCESS regardless of the release
+    outcome** (F2), schedules the successor + CAS-advances the marker.
     """
     connection = get_redis_connection()
     if connection is None:
@@ -233,19 +235,35 @@ def run_sweep_occurrence():
     job = get_current_job()
     occurrence_id = job.id if job is not None else _new_occurrence_id()
 
-    # Generation ownership (F1) — the collapse mechanism. Only the occurrence the
-    # marker names is the canonical chain generation; any other exits here. This
-    # is checked BEFORE the lock because the lock (freed between serial runs on a
-    # single worker) cannot by itself keep the chain single.
-    if not _is_canonical_generation(connection, occurrence_id):
+    disposition, marker_value = _generation_disposition(connection, occurrence_id)
+    if disposition == "duplicate":
         logger.info(
-            "zep_sweep: occurrence %s is not the canonical generation (the "
-            "marker names another or is absent); exiting without sweeping or "
-            "rescheduling (duplicate-chain collapse)",
-            occurrence_id,
+            "zep_sweep: occurrence %s is a duplicate (marker names live %s); "
+            "exiting without sweeping or rescheduling (chain collapse)",
+            occurrence_id, marker_value,
         )
         return
+    if disposition == "declined":
+        # Redis error on the ownership read — fail closed: neither sweep nor
+        # re-seed (a mistaken action is worse than a skip the Sentry monitor
+        # will surface).
+        return
+    if disposition == "dead":
+        # Chain lost: marker absent (queued past the 3xinterval TTL) or naming a
+        # job that no longer exists (phantom from a crash). Re-seed exactly one
+        # fresh chain in-band (F3) — the atomic claim collapses racing occurrences
+        # to one — and exit without sweeping; the fresh successor sweeps next.
+        try:
+            if _reseed_if_marker_is(connection, marker_value):
+                logger.info(
+                    "zep_sweep: occurrence %s found the chain dead (marker=%s); "
+                    "re-seeded a fresh chain", occurrence_id, marker_value,
+                )
+        except Exception:
+            logger.exception("zep_sweep: dead-chain re-seed failed")
+        return
 
+    # disposition == "canonical": this is the one live generation — sweep.
     acquired = connection.set(_LOCK_KEY, occurrence_id, nx=True, ex=LOCK_TTL_SECONDS)
     if not acquired:
         logger.info(
@@ -255,33 +273,66 @@ def run_sweep_occurrence():
         )
         return
 
+    swept_ok = False
     try:
         _run_sweep_with_checkin()
+        swept_ok = True
     finally:
-        if _release_lock(connection, occurrence_id):
+        # Release is best-effort: the 360s lock TTL backstops a missed release,
+        # and the successor runs an interval (>> lease) later. F2: schedule the
+        # successor whenever the sweep SUCCEEDED, decoupled from the release
+        # result — a transient Redis error on release must NOT silently end the
+        # chain. On sweep FAILURE we do not schedule here; the exception
+        # propagates and ``on_failure`` re-seeds.
+        _release_lock(connection, occurrence_id)
+        if swept_ok:
             _schedule_next(connection, occurrence_id)
 
 
-def _is_canonical_generation(connection, occurrence_id: str) -> bool:
-    """True iff the chain-liveness marker currently names THIS occurrence — the
-    single atomic read that gives exactly one live generation (F1). Marker absent
-    (chain expired) ⇒ not canonical: the boot reconciler + Sentry monitor re-seed
-    the chain rather than this occurrence resurrecting one it no longer owns. A
-    Redis error fails closed (declines to sweep) — a mistaken sweep is worse than
-    a skipped one the external watcher will surface."""
+def _job_exists(connection, job_id: str) -> bool:
+    """Whether an RQ job hash for ``job_id`` still exists (scheduled or running).
+    A scheduled occurrence's hash exists until it runs and ``result_ttl=0``
+    clears it. On any uncertainty, returns True so the caller does NOT re-seed
+    (avoids creating a duplicate chain)."""
+    if not job_id:
+        return False
+    try:
+        return Job.exists(job_id, connection=connection)
+    except Exception:
+        return True
+
+
+def _generation_disposition(connection, occurrence_id: str):
+    """Classify this occurrence against the chain-liveness marker (F1/F3).
+
+    Returns ``(disposition, marker_value)`` where disposition is:
+    - ``"canonical"`` — the marker names THIS occurrence: the one live generation.
+    - ``"duplicate"`` — the marker names ANOTHER occurrence whose job still
+      exists: a true duplicate (replica race / manual enqueue) → exit, collapse.
+    - ``"dead"`` — the marker is absent (chain expired past its TTL) OR names a
+      job that no longer exists (phantom from a crash): the chain is lost and
+      must be re-seeded in-band.
+    - ``"declined"`` — a Redis error on the read: fail closed (do nothing).
+    """
     try:
         marker = connection.get(_NEXT_KEY)
     except RedisError:
         logger.warning(
-            "zep_sweep: generation-ownership check failed (Redis error); "
-            "occurrence declines to sweep"
+            "zep_sweep: generation check failed (Redis error); occurrence declines"
         )
-        return False
+        return "declined", None
     if marker is None:
-        return False
+        return "dead", None
     if isinstance(marker, bytes):
         marker = marker.decode()
-    return marker == occurrence_id
+    if marker == occurrence_id:
+        return "canonical", marker
+    # The marker names a different occurrence. It is a real duplicate only if
+    # that occurrence's job still exists; otherwise the marker is a phantom and
+    # the chain is dead.
+    if _job_exists(connection, marker):
+        return "duplicate", marker
+    return "dead", marker
 
 
 def _release_lock(connection, occurrence_id: str) -> bool:
@@ -347,55 +398,57 @@ def reseed_chain_on_failure(job, connection, *exc_info) -> None:
     """
     try:
         failed_id = job.id if job is not None else ""
-        occurrence_id = _new_occurrence_id()
-        claimed = connection.eval(
-            _RESEED_MARKER_LUA, 1, _NEXT_KEY,
-            failed_id, occurrence_id, _marker_ttl_seconds(),
-        )
-        if not claimed:
-            return
-        queue = get_maintenance_queue(connection)
-        if queue is None:
-            _compare_delete_marker(connection, occurrence_id)
-            return
-        try:
-            _enqueue_occurrence(queue, occurrence_id, sweep_interval_minutes())
-        except Exception:
-            # F3: never leave the marker naming a job we failed to enqueue —
-            # roll back the exact id we just claimed, so the boot reconciler
-            # (which trusts marker presence) will re-seed the chain instead.
-            _compare_delete_marker(connection, occurrence_id)
-            raise
-        logger.info("zep_sweep: on_failure re-seeded the occurrence chain")
+        if _reseed_if_marker_is(connection, failed_id):
+            logger.info("zep_sweep: on_failure re-seeded the occurrence chain")
     except Exception:
         logger.exception("zep_sweep: on_failure re-seed failed")
 
 
-def reconcile_chain(connection) -> None:
-    """Boot reconciler (worker start): if the liveness marker is absent, seed
-    exactly one occurrence. ``SET NX`` is the claim, so racing replicas seed
-    once. Guarded so a Redis hiccup cannot crash worker boot."""
+def _reseed_if_marker_is(connection, expected_id) -> bool:
+    """Atomically claim the liveness marker when it is ABSENT or still equals
+    ``expected_id``, then enqueue exactly one fresh occurrence and point the
+    marker at it. Rolls back (compare-delete) the claimed id if the enqueue
+    fails, so the marker never names a job that was not scheduled (F3/F4).
+    Returns True iff it seeded. The claim is atomic, so racing re-seeders (on
+    failure / dead-chain heal / boot reconcile) collapse to exactly one chain.
+
+    ``expected_id`` is ``""``/``None`` to claim only an absent marker, or the
+    exact id the marker must still hold (a failed occurrence's own id, or a
+    phantom id naming a job that no longer exists)."""
+    occurrence_id = _new_occurrence_id()
+    claimed = connection.eval(
+        _RESEED_MARKER_LUA, 1, _NEXT_KEY,
+        expected_id or "", occurrence_id, _marker_ttl_seconds(),
+    )
+    if not claimed:
+        return False
+    queue = get_maintenance_queue(connection)
+    if queue is None:
+        _compare_delete_marker(connection, occurrence_id)
+        return False
     try:
-        if connection.exists(_NEXT_KEY):
-            return
-        interval = sweep_interval_minutes()
-        occurrence_id = _new_occurrence_id()
-        claimed = connection.set(
-            _NEXT_KEY, occurrence_id, nx=True, ex=_marker_ttl_seconds()
-        )
-        if not claimed:
-            return
-        queue = get_maintenance_queue(connection)
-        if queue is None:
-            _compare_delete_marker(connection, occurrence_id)
-            return
-        try:
-            _enqueue_occurrence(queue, occurrence_id, interval)
-        except Exception:
-            # F3: leave no marker pointing at a job that was never enqueued —
-            # roll back the exact claimed id so a later boot re-seeds the chain.
-            _compare_delete_marker(connection, occurrence_id)
-            raise
-        logger.info("zep_sweep: boot reconciler seeded a fresh occurrence chain")
+        _enqueue_occurrence(queue, occurrence_id, sweep_interval_minutes())
+    except Exception:
+        _compare_delete_marker(connection, occurrence_id)
+        raise
+    return True
+
+
+def reconcile_chain(connection) -> None:
+    """Boot reconciler (worker start): re-seed the chain unless the marker names
+    a job that still EXISTS (F4). The r1 version trusted marker *presence* alone,
+    so a crash between the marker claim and the enqueue left a phantom marker
+    that no later boot would ever heal. Now: a healthy chain (marker present AND
+    its job exists) is left alone; an absent marker OR a phantom one (names a
+    non-existent job) is re-seeded via the atomic claim (racing replicas seed
+    once). Guarded so a Redis hiccup cannot crash worker boot."""
+    try:
+        marker = connection.get(_NEXT_KEY)
+        if isinstance(marker, bytes):
+            marker = marker.decode()
+        if marker is not None and _job_exists(connection, marker):
+            return  # healthy chain — marker names a real scheduled/running job
+        if _reseed_if_marker_is(connection, marker):
+            logger.info("zep_sweep: boot reconciler seeded a fresh occurrence chain")
     except Exception:
         logger.warning("zep_sweep: boot reconciler failed; chain not seeded")

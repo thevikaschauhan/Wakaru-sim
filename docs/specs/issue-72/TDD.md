@@ -68,6 +68,39 @@
 > (≤0/future) fail closed to unknown-age (F11). CI now runs the real-Redis
 > scheduler suite against a Redis service container (F5). Every fix is pinned by
 > a revert-proofed test; the deployable invariant (ships dry-run) is unchanged.
+>
+> **Revision 6 (2026-07-26), after the second external review round of PR #78
+> (11 further findings, all confirmed):** the r5 fixes closed the headline gaps
+> but the reviewer found deeper liveness and deletion-safety holes, all now
+> fixed and revert-proofed. **Scheduler:** (F2) a lock-release Redis error on
+> the success path silently ended the chain — successor scheduling is now
+> decoupled from the release result (schedule on sweep SUCCESS regardless; the
+> 360s lock TTL backstops a missed release). (F3) generation ownership was too
+> blunt — a *non-canonical* occurrence always exited, so a TTL-starved chain
+> (marker expired) or a phantom marker died silently; the gate now classifies
+> **canonical / duplicate / dead**, and a **dead** disposition (marker absent, or
+> naming a job that no longer exists) RE-SEEDS one fresh chain in-band via the
+> atomic claim. A **`work_horse_killed_handler`** on the Worker (rq 1.16.2
+> supports it; runs in the surviving parent) re-seeds on a hard SIGKILL/OOM that
+> skips `on_failure` — so the hard-kill heal is now in-band, not only the Sentry
+> miss. (F4) the boot reconciler trusted marker *presence*, leaving a phantom
+> marker (crash between claim and enqueue) unhealed forever; it now re-seeds
+> unless the marker names a job that still **exists**. **Sweeper:** (F1)
+> listing-completeness is judged over **distinct** graph ids covering a
+> `total_count` that Zep actually reported (read before the empty-page break), so
+> duplicate rows / an empty first page can no longer authorize destructive
+> reconciliation; an absent `total_count` ⇒ incomplete (skip). (F5) the normal
+> and force passes now share **one** delete budget so the per-occurrence cap
+> cannot be doubled. (F6) dry-run logs the **full** eligible inventory (not the
+> capped heap) and the "bounded memory" claim is restated honestly (the deletion
+> heap is capped; per-scan id sets are bounded by the small scratch population).
+> (F7) Zep-only (unattributed) drift is now counted (bidirectional contract).
+> (F9) dry-run is a **pure inventory** — no ledger reconciliation, no force
+> deletion, no mutation. (F10) a **tombstoned** ledger record (deleted_at set)
+> no longer corroborates a re-minted id's age, and `record_created` clears the
+> tombstone on re-incarnation. (F11) the 404-as-success delete branch is pinned
+> by a focused test. Deployable invariant (ships dry-run; #72 closes at OP1)
+> unchanged.
 
 ## 1. Verified API surface this design depends on
 
@@ -293,22 +326,29 @@ revision 3 — liveness made independent of the chain):**
 - **Chain-liveness marker:** `zep:sweep:next` (SCHEMA §2.4) is set to the
   scheduled occurrence's id with `EX = 3 × interval` every time an occurrence
   is scheduled. Its absence means the chain is dead.
-- **Generation ownership is the collapse mechanism (revision 5 — corrects the
-  r2/r3 claim that the lock collapses chains):** the job body's FIRST action is
-  a single atomic read of `zep:sweep:next`; an occurrence sweeps and schedules
-  a successor ONLY if the marker names it (`marker == occurrence_id`). Any other
-  occurrence — a duplicate from a replica race or manual enqueue, whether it
-  runs concurrently OR serially after the canonical one released the lock —
-  exits **without sweeping and without rescheduling**. Because the marker names
-  exactly one occurrence (`reconcile_chain` `SET NX` + `_schedule_next`
-  CAS-advance both keep it single), this collapses duplicate chains back to one
-  regardless of timing. Marker absent (chain expired) ⇒ not canonical: the boot
-  reconciler + Sentry monitor re-seed rather than a stray occurrence
-  resurrecting a chain it no longer owns. A Redis error on the check fails
-  closed (declines to sweep). **The r2/r3 text that the singleton lock collapses
-  chains was wrong: on a single worker the lock is free between serial
-  occurrences, so two queued duplicates would both sweep and both schedule
-  successors — permanent duplicate chains (caught in review as F1).**
+- **Generation disposition is the collapse mechanism (revision 5, refined in
+  revision 6 — corrects the r2/r3 claim that the lock collapses chains):** the
+  job body's FIRST action is a single atomic read of `zep:sweep:next`, which
+  classifies the occurrence:
+  - **canonical** (`marker == occurrence_id`) — the one live generation: sweep,
+    then schedule the successor.
+  - **duplicate** (marker names ANOTHER occurrence whose job still **exists**) —
+    a replica race or manual enqueue, concurrent OR serial: exit **without
+    sweeping or rescheduling**. This is the collapse.
+  - **dead** (marker absent — chain expired past its `3 × interval` TTL — OR
+    naming a job that no longer exists, a phantom from a crash): **re-seed one
+    fresh chain in-band** via the atomic claim, then exit without sweeping (the
+    fresh successor sweeps next). Revision 6: r5 exited silently here, so a
+    TTL-starved or phantom chain died with no in-band heal.
+  - **declined** (Redis error on the read): fail closed — neither sweep nor
+    re-seed; the Sentry monitor surfaces a persistent problem.
+  Because the marker names exactly one occurrence (`reconcile_chain` `SET NX` +
+  `_schedule_next` CAS-advance + the atomic re-seed claim all keep it single),
+  duplicate chains collapse to one regardless of timing. **The r2/r3 text that
+  the singleton lock collapses chains was wrong: on a single worker the lock is
+  free between serial occurrences, so two queued duplicates would both sweep and
+  both schedule successors — permanent duplicate chains (caught in review as
+  the first-round F1).**
 - **Singleton execution lock (now a secondary concurrency guard, not the
   collapse mechanism):** after the generation check, the canonical occurrence
   takes `SET zep:sweep:lock <occurrence_id> NX EX 360` (lease > job_timeout) to
@@ -319,15 +359,21 @@ revision 3 — liveness made independent of the chain):**
   removed — the lease can expire between GET and DELETE and the DELETE would
   then kill a successor's lock; non-atomic release is not an allowed
   implementation).
-- **Self-perpetuation (revision 5 — enqueue-first, then CAS-advance):** the
-  canonical occurrence schedules the successor in the same `finally` (after it
-  released its lock). It **enqueues the successor FIRST**, then CAS-advances
-  `zep:sweep:next` from its own id to the successor's (`_ADVANCE_MARKER_LUA`,
-  only-if-still-mine) — never publishing a marker before the job it names
-  exists (F3 phantom-marker fix). A failure to enqueue the successor is
-  **raised, not swallowed** (revision 5, F3): the occurrence fails so
-  `on_failure` re-seeds the chain; a swallowed schedule error would let the
-  occurrence report success while the chain silently died.
+- **Self-perpetuation (revision 5 enqueue-first/CAS-advance; revision 6 F2 —
+  decoupled from lock release):** in the `finally`, the canonical occurrence
+  first releases its lock (**best-effort** — a Redis error on release is *not*
+  fatal; the 360s lock TTL backstops a missed release and the successor runs an
+  interval later). It then schedules the successor **whenever the sweep
+  SUCCEEDED, regardless of the release result** (revision 6 F2 — r5 gated
+  scheduling on a successful release, so a transient release error silently
+  ended the chain). Scheduling **enqueues the successor FIRST**, then
+  CAS-advances `zep:sweep:next` from its own id to the successor's
+  (`_ADVANCE_MARKER_LUA`, only-if-still-mine) — never publishing a marker before
+  the job it names exists. A failure to enqueue the successor is **raised, not
+  swallowed** (F3): the occurrence fails so `on_failure` re-seeds; a swallowed
+  schedule error would let the occurrence report success while the chain died.
+  (On sweep FAILURE the successor is not scheduled here — the exception
+  propagates and `on_failure` heals.)
 - **Chain-death healing (revision 4 — corrected against RQ 1.16.2; the r3
   text overstated the in-band heals):**
   - **RQ failure callback:** occurrences are enqueued with an `on_failure`
@@ -343,20 +389,31 @@ revision 3 — liveness made independent of the chain):**
     1.16.2 source:** the callback runs inside the work-horse's `except` handler
     (in-process for a `SimpleWorker`); it does NOT fire on a hard work-horse
     SIGKILL/OOM (`monitor_work_horse -> handle_work_horse_killed ->
-    handle_job_failure` never calls `execute_failure_callback`). A hard kill is
-    therefore not healed here.
-  - **Boot reconciler:** worker start + marker absent ⇒ `SET NX` claim +
-    enqueue (racing replicas seed once). It short-circuits while the marker is
-    present, so after a hard SIGKILL it does not re-seed until the dead
-    occurrence's marker expires (its `EX = 3 × interval` TTL lapses) and a
-    worker then boots. A best-effort heal, not the guarantee.
-  - **Independent watcher (the actual guarantee):** the Sentry Cron Monitor
+    handle_job_failure` never calls `execute_failure_callback`) — that case is
+    the killed-horse handler's job (next bullet).
+  - **Killed-horse handler (revision 6, F3 — the hard-kill in-band heal):** the
+    Worker is constructed with a `work_horse_killed_handler` (rq 1.16.2 supports
+    it; `handle_work_horse_killed` invokes it in the SURVIVING parent process).
+    On a hard SIGKILL/OOM it re-seeds the chain with the same atomic CAS as
+    `on_failure`. So a hard kill IS healed in-band now (r4/r5 left it to the
+    marker-TTL + next boot). Firing for a non-sweep (analyze) killed job is a
+    harmless no-op when the marker already names a live sweep occurrence.
+  - **Dead-chain heal on dequeue (revision 6, F3):** an occurrence that dequeues
+    to find the chain **dead** (marker absent past its TTL, or a phantom marker)
+    re-seeds one fresh chain itself (the `dead` disposition above), rather than
+    exiting silently. Covers TTL-starvation the callbacks cannot see.
+  - **Boot reconciler (revision 6, F4 — validates job existence):** worker start
+    re-seeds unless the marker names a job that still **exists**. r5 trusted
+    marker *presence*, so a phantom marker (a crash between the marker claim and
+    the enqueue) was never healed by any later boot; now an absent OR phantom
+    marker is re-seeded via the atomic claim (racing replicas seed once).
+  - **Independent watcher (the ultimate guarantee):** the Sentry Cron Monitor
     check-in (§3.2 step 7) alerts on a missed occurrence from outside the
-    worker entirely. For the failure modes the two in-band heals cannot cover
-    (hard SIGKILL/OOM, worker wedged, scheduler thread dead, sustained queue
-    starvation) this missed check-in is the operative heal, firing within one
-    interval + grace (well inside the marker TTL). **No liveness property is
-    attested solely by the mechanism whose death it must detect.**
+    worker entirely. For anything the in-band heals cannot cover (worker wedged,
+    scheduler thread dead, sustained queue starvation) this missed check-in is
+    the operative heal, firing within one interval + grace (well inside the
+    marker TTL). **No liveness property is attested solely by the mechanism
+    whose death it must detect.**
 
 **Proof obligation (revision 2, extended by revisions 3-4):** these mechanics
 are covered by integration tests running against **real Redis and the pinned

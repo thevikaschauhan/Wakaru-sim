@@ -87,6 +87,14 @@ def record_created(graph_id: str, merchant_id: str) -> None:
             "merchant_id": merchant_id,
             "created_at": str(created_at),
         })
+        # A graph id can be re-minted after a prior incarnation was deleted (uuid
+        # collision is astronomically unlikely, but a tombstoned hash could still
+        # linger inside its 30-day TTL). Clear the tombstone fields so the new
+        # incarnation starts a clean lifecycle and ``created_at_for`` corroborates
+        # THIS creation, not the dead record's (F10). Also drop the 30-day
+        # deleted-record TTL so the live hash has no expiry.
+        pipe.hdel(_graph_key(graph_id), "deleted_at", "delete_source")
+        pipe.persist(_graph_key(graph_id))
         pipe.zadd(_ACTIVE_KEY, {graph_id: created_at})
         pipe.sadd(_merchant_key(merchant_id), graph_id)
         pipe.execute()
@@ -136,10 +144,24 @@ def created_at_for(graph_id: str) -> Optional[int]:
         logger.warning("graph lifecycle: Redis unavailable; no created_at for %s", graph_id)
         return None
     try:
-        raw = _decode(conn.hget(_graph_key(graph_id), "created_at"))
+        record = conn.hgetall(_graph_key(graph_id))
     except RedisError:
         logger.warning("graph lifecycle: created_at_for failed for %s (Redis error)", graph_id)
         return None
+    if not record:
+        return None
+    record = {_decode(k): _decode(v) for k, v in record.items()}
+    # F10: a TOMBSTONED record (deleted_at set) belongs to a prior, deleted
+    # incarnation of this id — it must not corroborate the age of a graph the
+    # sweeper is currently listing. Fail closed to unknown-age so a re-minted id
+    # is never aged off a dead record and wrongly deleted.
+    if record.get("deleted_at") is not None:
+        logger.warning(
+            "graph lifecycle: created_at for %s is on a tombstoned record; "
+            "not corroborating (fail-closed)", graph_id,
+        )
+        return None
+    raw = record.get("created_at")
     if raw is None:
         return None
     try:
