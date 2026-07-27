@@ -673,23 +673,76 @@ def test_worker_wires_killed_horse_handler_that_reseeds(rconn, monkeypatch):
 
     worker_module.main()
 
-    handler = captured["handler"]
-    assert handler is not None, "Worker built without a work_horse_killed_handler (F3)"
-
-    # The handler, given a (killed) job, re-seeds the chain in the parent process.
-    _reset_test_redis(rconn, REDIS_URL)
-    queue = mq.get_maintenance_queue(rconn)
-    killed = mq._new_occurrence_id()
-    rconn.set(mq._NEXT_KEY, killed, ex=mq._marker_ttl_seconds())   # marker == dead occ
-    handler(_FakeKilledJob(killed), 1234, 9, None)
-
-    assert queue.scheduled_job_registry.count == 1     # re-seeded from the handler
-    assert rconn.get(mq._NEXT_KEY).decode() != killed
+    # The wired handler must be the committed module-level function (not an
+    # anonymous closure) so its behavior is under test (revision-8 F3). The real
+    # end-to-end SIGKILL dispatch is exercised by
+    # test_real_worker_sigkill_dispatches_handler_and_reseeds below.
+    assert captured["handler"] is mq.on_work_horse_killed
 
 
 class _FakeKilledJob:
     def __init__(self, job_id):
         self.id = job_id
+
+
+def _sigkill_self_sweep(**kwargs):
+    """Stand-in sweep body that hard-kills its own work-horse (bypasses on_failure,
+    exactly like an OOM). Module-level so rq can resolve it after fork."""
+    import os
+    import signal
+    os.kill(os.getpid(), signal.SIGKILL)
+
+
+def test_real_worker_sigkill_dispatches_handler_and_reseeds(rconn, monkeypatch):
+    """re-review F3 (committed regression for the REAL killed-horse path): drive a
+    genuine forking rq ``Worker`` whose sweep occurrence hard-SIGKILLs its own
+    work-horse. RQ must invoke the wired ``on_work_horse_killed`` in the surviving
+    parent, which re-seeds the chain and frees the dead occurrence's lease — no
+    fake Worker, no direct handler call. Revert-proof: build the Worker WITHOUT
+    work_horse_killed_handler and the chain stays dead (0 successors)."""
+    queue = mq.get_maintenance_queue(rconn)
+    # A canonical occurrence: marker names it, so it takes the lock then dies
+    # mid-sweep (SIGKILL skips on_failure). The monkeypatched sweep body is
+    # inherited by the forked horse (copy-on-write).
+    monkeypatch.setattr(mq, "sweep_orphan_graphs", _sigkill_self_sweep)
+    occ = mq._new_occurrence_id()
+    rconn.set(mq._NEXT_KEY, occ, ex=mq._marker_ttl_seconds())
+    _enqueue_now(queue, occ)
+
+    worker = Worker(
+        [queue], connection=rconn,
+        work_horse_killed_handler=mq.on_work_horse_killed,
+    )
+    worker.work(burst=True)
+
+    # The horse was killed (job failed, on_failure never ran), yet the parent
+    # handler re-seeded exactly one successor and advanced the marker off the
+    # dead occurrence; its stale lease was released.
+    assert Job.fetch(occ, connection=rconn).is_failed
+    assert queue.scheduled_job_registry.count == 1
+    marker = rconn.get(mq._NEXT_KEY)
+    assert marker is not None and marker.decode() != occ
+    assert rconn.get(mq._LOCK_KEY) is None      # dead lease freed by the handler
+
+
+def test_killed_non_sweep_job_does_not_enqueue_orphan(rconn):
+    """re-review F2: the killed-horse handler fires for ANY killed job, but a
+    killed NON-sweep job (a paid analysis) must NOT enqueue a sweep occurrence.
+    Because the re-seed is enqueue-first, an unguarded handler would enqueue an
+    orphan before its CAS lost — churn under repeated analysis failures. Revert-
+    proof: drop the sweep-occurrence guard and scheduled count goes 1 -> 2."""
+    queue = mq.get_maintenance_queue(rconn)
+    # A healthy sweep chain already exists.
+    live = mq._new_occurrence_id()
+    mq._enqueue_occurrence(queue, live, mq.sweep_interval_minutes())
+    rconn.set(mq._NEXT_KEY, live, ex=mq._marker_ttl_seconds())
+    before = queue.scheduled_job_registry.count      # 1 (the live sweep chain)
+
+    # A killed ANALYZE job (id has no sweep-occurrence prefix) reaches the handler.
+    mq.on_work_horse_killed(_FakeKilledJob("analyze-job-abc123"), 4321, 9, None)
+
+    assert queue.scheduled_job_registry.count == before   # NO orphan enqueued
+    assert rconn.get(mq._NEXT_KEY).decode() == live        # marker untouched
 
 
 # --------------------------------------------------------------------------

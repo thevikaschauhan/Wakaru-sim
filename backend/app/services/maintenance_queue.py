@@ -134,8 +134,23 @@ def get_maintenance_queue(connection=None):
     return Queue(MAINTENANCE_QUEUE_NAME, connection=conn)
 
 
+# Every sweep occurrence's job id starts with this; the killed-horse / on_failure
+# re-seed keys off it so a killed NON-sweep job (a paid analysis) never triggers a
+# sweep re-seed (which, being enqueue-first, would otherwise enqueue an orphan
+# occurrence before its CAS lost — wasteful churn under repeated analysis
+# failures, revision-8 F2).
+_OCCURRENCE_ID_PREFIX = "zep-graph-sweep-"
+
+
 def _new_occurrence_id() -> str:
-    return f"zep-graph-sweep-{uuid4().hex}"
+    return f"{_OCCURRENCE_ID_PREFIX}{uuid4().hex}"
+
+
+def _is_sweep_occurrence(job) -> bool:
+    """True iff ``job`` is a sweep occurrence (its id carries the occurrence
+    prefix). ``None`` (a direct/testing call with no job) counts as a sweep
+    re-seed; a non-sweep job (a killed paid analysis) does not."""
+    return job is None or str(getattr(job, "id", "")).startswith(_OCCURRENCE_ID_PREFIX)
 
 
 def _marker_ttl_seconds() -> int:
@@ -436,10 +451,17 @@ def reseed_chain_on_failure(job, connection, *exc_info) -> None:
     floor, so without this the successor would find a stale lock and skip a sweep
     cycle. The compare-delete only clears the lock if the dead occurrence still
     owned it (a live sibling's lock is never touched — harmless no-op otherwise).
-    This callback is invoked both by RQ's ``on_failure`` path and by the worker's
-    ``work_horse_killed_handler`` (a hard horse kill), so both paths free the
-    dead lease.
+    This callback is invoked both by RQ's ``on_failure`` path (only attached to
+    sweep occurrences) and by the worker's ``work_horse_killed_handler`` (which
+    fires for ANY killed horse). It therefore **only acts for a sweep occurrence**
+    (revision-8 F2): a killed non-sweep job (a paid analysis) must not trigger a
+    re-seed — because the re-seed is enqueue-first, it would otherwise enqueue an
+    orphan sweep occurrence before its CAS lost, churning Redis/the worker under
+    repeated analysis failures. A non-sweep job also never owned the sweep lock,
+    so there is nothing to release.
     """
+    if not _is_sweep_occurrence(job):
+        return
     try:
         failed_id = job.id if job is not None else ""
         # Free the dead occurrence's stale lease so the successor can sweep
@@ -449,6 +471,31 @@ def reseed_chain_on_failure(job, connection, *exc_info) -> None:
             logger.info("zep_sweep: on_failure re-seeded the occurrence chain")
     except Exception:
         logger.exception("zep_sweep: on_failure re-seed failed")
+
+
+def on_work_horse_killed(job, retpid, ret_val, rusage) -> None:
+    """RQ ``work_horse_killed_handler`` — runs in the SURVIVING parent worker
+    process on a hard work-horse SIGKILL/OOM (which skips ``on_failure``).
+
+    Delegates to :func:`reseed_chain_on_failure`, which (revision-8 F2) acts ONLY
+    for a killed SWEEP occurrence — so a killed paid-analysis horse does not
+    enqueue an orphan sweep occurrence. Module-level (not a worker closure) so the
+    real killed-horse path has a committed regression test (revision-8 F3);
+    ``worker.py`` wires it into the ``Worker`` constructor. It fetches its own
+    Redis connection (the handler signature carries none) and guards so a hiccup
+    can never crash the parent — the Sentry Cron monitor catches a still-dead
+    chain independently."""
+    if not _is_sweep_occurrence(job):
+        return
+    try:
+        connection = get_redis_connection()
+        if connection is not None:
+            reseed_chain_on_failure(job, connection)
+    except Exception:
+        logger.warning(
+            "zep_sweep: killed-horse re-seed failed; the Sentry Cron monitor will "
+            "surface a dead chain"
+        )
 
 
 def _reseed_if_marker_is(connection, expected_id) -> bool:

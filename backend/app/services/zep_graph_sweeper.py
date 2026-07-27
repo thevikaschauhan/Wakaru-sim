@@ -449,8 +449,13 @@ def sweep_orphan_graphs(
                 client, registry_stale
             )
             # F9: close each confirmed-gone entry lifecycle-aware (hash + merchant
-            # set), not a bare ZREM that leaves dangling registries behind.
-            stats.ledger_drift = _reconcile_registry(conn, confirmed_gone)
+            # set), not a bare ZREM that leaves dangling registries behind. F1
+            # (revision 8): the close is generation-bound to each id's snapshot
+            # created_at, so a same-id re-`record_created` between the 404 confirm
+            # and the close is never wrongly tombstoned.
+            stats.ledger_drift = _reconcile_registry(
+                conn, confirmed_gone, registry_snapshot
+            )
 
     except Exception:
         logger.exception("zep_sweep: sweep aborted by an exception")
@@ -506,17 +511,21 @@ def _delete_graph(client, graph_id: str) -> bool:
     return True
 
 
-def _load_registry(conn) -> set:
-    """Snapshot the scratch registry members (diagnostic). Empty on a Redis
-    outage — reconciliation is a diagnostic, never load-bearing."""
+def _load_registry(conn) -> dict:
+    """Snapshot the scratch registry as ``{graph_id: created_at_epoch}`` (the zset
+    score is the creation epoch). The score is the per-entry GENERATION token used
+    to generation-bind the reconciliation close (F1, revision 8) — a same-id
+    re-`record_created` re-ZADDs a new score, so a close keyed to the snapshot
+    score cannot tombstone the newer incarnation. Empty on a Redis outage —
+    reconciliation is a diagnostic, never load-bearing."""
     if conn is None:
-        return set()
+        return {}
     try:
-        members = conn.zrange(_ACTIVE_KEY, 0, -1)
+        members = conn.zrange(_ACTIVE_KEY, 0, -1, withscores=True)
     except RedisError:
         logger.warning("zep_sweep: could not read scratch registry (Redis error)")
-        return set()
-    return {graph_lifecycle._decode(m) for m in members}
+        return {}
+    return {graph_lifecycle._decode(m): int(score) for m, score in members}
 
 
 def _confirm_stale_gone(client, stale: set) -> tuple[set, int]:
@@ -571,27 +580,32 @@ def _confirm_stale_gone(client, stale: set) -> tuple[set, int]:
     return confirmed_gone, unconfirmed
 
 
-def _reconcile_registry(conn, confirmed_gone: set) -> int:
-    """Close ledger entries CONFIRMED gone from Zep, lifecycle-aware.
+def _reconcile_registry(conn, confirmed_gone: set, snapshot: dict) -> int:
+    """Close ledger entries CONFIRMED gone from Zep, lifecycle-aware and
+    generation-bound.
 
     F1: ``confirmed_gone`` is the set of stale ids each AUTHORITATIVELY confirmed
     absent by ``_confirm_stale_gone`` via a per-graph ``graph.get`` 404 — never
     inferred from listing completeness — so no live-but-unlisted graph can be
     closed here.
-    F9: each id is closed via the ledger's deletion closure
-    (``record_deleted(id, source="sweep")`` — stamp ``deleted_at`` + 30-day TTL,
-    ZREM from the active zset, SREM from the merchant set) so no dangling
-    ``zep:graph:<id>`` hash (which would otherwise linger with no TTL) or
-    ``zep:merchant:<m>:graphs`` membership is left behind. The active zset is
-    bounded (SCHEMA §4 — dozens in steady state), so a full read + per-id
-    closure is fine; no ZSCAN needed. Returns the drift count (confirmed-gone
-    ledger entries). Guarded — a Redis outage / bookkeeping error never aborts
-    the sweep."""
+    F1 (revision 8): each close is GENERATION-BOUND to the id's snapshot
+    ``created_at`` (``snapshot[id]``, the zset score) — ``record_deleted`` only
+    tombstones while the hash's ``created_at`` still equals it, so a same-id
+    ``record_created`` between the confirm and the close (a re-incarnation) is
+    never wrongly tombstoned or pulled from the active/merchant registries.
+    F9: the close is lifecycle-aware (stamp ``deleted_at`` + 30-day TTL, ZREM
+    from the active zset, SREM from the merchant set), leaving no dangling hash
+    or merchant membership. The active zset is bounded (SCHEMA §4), so a full
+    read + per-id closure is fine; no ZSCAN needed. Returns the drift count.
+    Guarded — a Redis outage / bookkeeping error never aborts the sweep."""
     if conn is None or not confirmed_gone:
         return 0
     for graph_id in confirmed_gone:
         try:
-            graph_lifecycle.record_deleted(graph_id, source="sweep")
+            graph_lifecycle.record_deleted(
+                graph_id, source="sweep",
+                expected_created_at=snapshot.get(graph_id),
+            )
         except Exception:
             logger.warning("zep_sweep: reconciliation close failed for %s", graph_id)
     return len(confirmed_gone)

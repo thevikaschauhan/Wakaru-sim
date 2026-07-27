@@ -70,7 +70,7 @@ class FakeGraphApi:
     ApiError (an uncertain confirm)."""
 
     def __init__(self, pages, fail_ids=None, total_count=None,
-                 get_exists_ids=None, get_error_ids=None):
+                 get_exists_ids=None, get_error_ids=None, get_side_effect=None):
         self._pages = pages
         self.fail_ids = set(fail_ids or [])
         self.total_count = total_count
@@ -80,6 +80,10 @@ class FakeGraphApi:
         self._present_ids.discard(None)
         self._get_exists_ids = set(get_exists_ids or [])
         self._get_error_ids = set(get_error_ids or [])
+        # {graph_id: callable()} — invoked INSIDE get() before its disposition, so
+        # a test can deterministically inject a race (e.g. re-incarnate the id in
+        # Redis at the exact confirm moment) between the 404 confirm and the close.
+        self._get_side_effect = dict(get_side_effect or {})
         self.events = []   # ("list", page) | ("delete", id) | ("get", id)
         self.deleted = []
 
@@ -91,6 +95,8 @@ class FakeGraphApi:
 
     def get(self, graph_id):
         self.events.append(("get", graph_id))
+        if graph_id in self._get_side_effect:
+            self._get_side_effect[graph_id]()
         if graph_id in self._get_error_ids:
             raise ApiError(status_code=500, body="get boom")
         if graph_id in self._get_exists_ids or graph_id in self._present_ids:
@@ -110,10 +116,11 @@ class FakeZep:
 
 
 def install_client(monkeypatch, pages, fail_ids=None, total_count=None,
-                   get_exists_ids=None, get_error_ids=None):
+                   get_exists_ids=None, get_error_ids=None, get_side_effect=None):
     api = FakeGraphApi(
         pages, fail_ids=fail_ids, total_count=total_count,
         get_exists_ids=get_exists_ids, get_error_ids=get_error_ids,
+        get_side_effect=get_side_effect,
     )
     monkeypatch.setattr(sweeper, "_zep_client", lambda: FakeZep(api))
     return api
@@ -332,12 +339,16 @@ def test_metrics_registry_reconciliation_removes_stale(
 ):
     live = scratch_id(70)                   # in the listing
     stale = scratch_id(71)                   # in the registry, gone from Zep
+    merchant = "11111111-1111-1111-1111-111111111111"
     # F1: `stale` is absent from the listing, so reconciliation confirms it via
     # graph.get, which 404s (not in any page) -> genuinely gone -> closed. No
-    # total_count / listing-completeness inference is involved.
+    # total_count / listing-completeness inference is involved. Both entries are
+    # created via record_created so their active-zset score matches the hash
+    # created_at (the generation token the F1/rev-8 close binds to — a bare zadd
+    # would have no hash created_at and the generation-bound close would skip).
+    gl.record_created(live, merchant)
+    gl.record_created(stale, merchant)
     api = install_client(monkeypatch, [[FakeGraph(live, iso_ago(1))]])
-    now = int(time.time())
-    conn.zadd(sweeper._ACTIVE_KEY, {live: now, stale: now})
 
     stats = sweeper.sweep_orphan_graphs(
         dry_run=False, ttl_hours=24, page_size=100, max_deletes=200
@@ -346,6 +357,43 @@ def test_metrics_registry_reconciliation_removes_stale(
     assert stats.ledger_drift == 1
     assert conn.zscore(sweeper._ACTIVE_KEY, stale) is None   # reconciled away
     assert conn.zscore(sweeper._ACTIVE_KEY, live) is not None  # still live
+
+
+def test_reconcile_does_not_tombstone_reincarnated_same_id(
+    conn, monkeypatch, captured_messages
+):
+    """F1 (revision 8): a same-id record_created that races in BETWEEN the 404
+    confirm and the ledger close must NOT be tombstoned. The close is
+    generation-bound to the snapshot created_at, so a re-incarnation (new
+    created_at) is left live. Reproduces the reviewer's exact sequence."""
+    gid = scratch_id(72)
+    merchant = "11111111-1111-1111-1111-111111111111"
+    gl.record_created(gid, merchant)              # generation the sweep snapshots
+    snapshot_created_at = gl.created_at_for(gid)
+
+    def reincarnate():
+        # The create path re-mints the SAME id with a NEW generation right as the
+        # sweep confirms the old one gone (between graph.get and the close).
+        conn.hset(f"zep:graph:{gid}", mapping={
+            "created_at": str(snapshot_created_at + 1000), "graph_kind": "scratch",
+            "merchant_id": merchant,
+        })
+        conn.hdel(f"zep:graph:{gid}", "deleted_at", "delete_source")
+        conn.zadd(sweeper._ACTIVE_KEY, {gid: snapshot_created_at + 1000})
+
+    # gid is absent from the listing -> confirmed via graph.get; the side effect
+    # re-incarnates it, then get 404s (the OLD generation is gone).
+    install_client(monkeypatch, [[]], total_count=0, get_side_effect={gid: reincarnate})
+
+    stats = sweeper.sweep_orphan_graphs(
+        dry_run=False, ttl_hours=24, page_size=100, max_deletes=200
+    )
+
+    # The re-incarnated (live) generation survives: still active, not tombstoned,
+    # still enumerable for its merchant.
+    assert conn.hget(f"zep:graph:{gid}", "deleted_at") is None
+    assert conn.zscore(sweeper._ACTIVE_KEY, gid) is not None
+    assert gid.encode() in conn.smembers(f"zep:merchant:{merchant}:graphs")
 
 
 # --------------------------------------------------------------------------

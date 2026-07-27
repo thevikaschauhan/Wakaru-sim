@@ -114,9 +114,10 @@ holding unique `zep-graph-sweep-<hex>` occurrence ids — never a reused id).
 | `on_graph_created` fires mid-build (`cart_recovery_workflow.py:140`) | `HSET zep:graph:<id>` (graph_kind=scratch, merchant_id, created_at) + `ZADD zep:scratch:active` + `SADD zep:merchant:<m>:graphs` — one `MULTI` pipeline, guarded |
 | Inline delete succeeds (`_cleanup_artifacts`) | `HSET deleted_at, delete_source=inline` + `EXPIRE 30d` + `ZREM` + `SREM` — one pipeline, guarded |
 | Sweep delete succeeds | Same, `delete_source=sweep` |
-| Sweep finds a ledger-only entry (no matching Zep graph), on a COMPLETE non-dry-run listing | Close it lifecycle-aware via `record_deleted` (stamp `deleted_at` + 30d TTL, `ZREM`, `SREM`) + `ledger_drift` counted (revision-6 F7/F9) |
+| Sweep finds a ledger-only entry (in the active zset, absent from the listing), non-dry-run | Confirm it via a per-graph `graph.get` **404** before closing (revision-7 F1 — never inferred from listing completeness), then close it **generation-bound** to the snapshot `created_at` (revision-8 F1 — `record_deleted(..., expected_created_at=score)` under a WATCH; a same-id `record_created` racing in is left live) — lifecycle-aware (`deleted_at` + 30d TTL, `ZREM`, `SREM`) + `ledger_drift` counted |
+| Sweep finds a stale-looking entry whose `graph.get` still returns / errors | Kept (fail-closed) + `reconcile_unconfirmed` counted — the listing dropped a page / under-reported (revision-7 F1) |
 | Sweep finds a Zep-only matched scratch graph (in Zep, no ledger entry) | `zep_only_unattributed` counted (bidirectional drift, revision-6 F7); not "restored" (it is transient scratch, swept on age) |
-| Incomplete or dry-run listing | NO reconciliation (revision-6 F1/F9 — a partial scan's unseen members may be live; dry-run mutates nothing) |
+| Dry-run listing | NO confirmation and NO reconciliation (revision-6 F9 — dry-run is a pure inventory, mutates nothing) |
 
 ## 4. Sizing
 

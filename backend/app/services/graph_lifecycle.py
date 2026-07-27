@@ -27,7 +27,7 @@ import re
 import time
 from typing import Optional
 
-from redis.exceptions import RedisError
+from redis.exceptions import RedisError, WatchError
 
 from .job_queue import get_redis_connection
 
@@ -61,6 +61,17 @@ def _decode(raw) -> Optional[str]:
     if isinstance(raw, (bytes, bytearray)):
         return bytes(raw).decode("utf-8", "replace")
     return raw
+
+
+def _as_int(raw: Optional[str]) -> Optional[int]:
+    """Parse a decoded hash value to int, or None if absent/malformed (never
+    raises — a corrupt created_at must fail closed, not abort the caller)."""
+    if raw is None:
+        return None
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return None
 
 
 def record_created(graph_id: str, merchant_id: str) -> None:
@@ -102,7 +113,9 @@ def record_created(graph_id: str, merchant_id: str) -> None:
         logger.warning("graph lifecycle: record_created failed for %s (Redis error)", graph_id)
 
 
-def record_deleted(graph_id: str, source: str) -> None:
+def record_deleted(
+    graph_id: str, source: str, expected_created_at: Optional[int] = None
+) -> None:
     """Close a graph's ledger record after its Zep deletion succeeded.
 
     ``source`` is ``"inline"`` (the analysis finally) or ``"sweep"`` (the W2
@@ -111,19 +124,68 @@ def record_deleted(graph_id: str, source: str) -> None:
     created during a Redis outage) gets its hash written here with
     ``merchant_id`` absent, which is explicitly distinguishable from the
     sentinel merchant id.
+
+    ``expected_created_at`` GENERATION-BINDS the close (F1, revision 8). The
+    sweep's registry reconciliation decides "this id is gone" from a snapshot,
+    then confirms + closes it later; a same-id ``record_created`` in between
+    (a re-incarnation — ``created_at`` refreshed, tombstone cleared, re-ZADDed)
+    would otherwise be wrongly tombstoned and pulled from the active/merchant
+    registries. When ``expected_created_at`` is given, the close runs under a
+    Redis ``WATCH`` and only proceeds while the hash's ``created_at`` still
+    equals it AND no ``deleted_at`` is set — so it tombstones ONLY the exact
+    generation that was confirmed gone, never a newer one. The inline/sweep
+    delete paths pass ``None`` (they act on a graph seen in this same scan, so no
+    snapshot staleness) and keep the original unconditional close.
     """
     conn = get_redis_connection()
     if conn is None:
         logger.warning("graph lifecycle: Redis unavailable; skipping record_deleted for %s", graph_id)
         return
+    key = _graph_key(graph_id)
     try:
-        merchant_id = _decode(conn.hget(_graph_key(graph_id), "merchant_id"))
+        if expected_created_at is not None:
+            with conn.pipeline() as pipe:
+                while True:
+                    try:
+                        pipe.watch(key)
+                        cur_created = _decode(pipe.hget(key, "created_at"))
+                        cur_deleted = _decode(pipe.hget(key, "deleted_at"))
+                        # A newer incarnation (created_at moved) or an
+                        # already-closed record ⇒ NOT the generation we confirmed
+                        # gone; leave it untouched.
+                        if (cur_created is None
+                                or cur_deleted is not None
+                                or _as_int(cur_created) != int(expected_created_at)):
+                            pipe.unwatch()
+                            logger.info(
+                                "graph lifecycle: skipping generation-bound close of "
+                                "%s (created_at now %r, deleted_at %r != expected %r)",
+                                graph_id, cur_created, cur_deleted, expected_created_at,
+                            )
+                            return
+                        merchant_id = _decode(pipe.hget(key, "merchant_id"))
+                        pipe.multi()
+                        pipe.hset(key, mapping={
+                            "deleted_at": str(int(time.time())),
+                            "delete_source": source,
+                        })
+                        pipe.expire(key, DELETED_RECORD_TTL_SECONDS)
+                        pipe.zrem(_ACTIVE_KEY, graph_id)
+                        if merchant_id is not None:
+                            pipe.srem(_merchant_key(merchant_id), graph_id)
+                        pipe.execute()
+                        return
+                    except WatchError:
+                        # A concurrent write to the hash raced us; re-check the
+                        # generation rather than blindly closing.
+                        continue
+        merchant_id = _decode(conn.hget(key, "merchant_id"))
         pipe = conn.pipeline()
-        pipe.hset(_graph_key(graph_id), mapping={
+        pipe.hset(key, mapping={
             "deleted_at": str(int(time.time())),
             "delete_source": source,
         })
-        pipe.expire(_graph_key(graph_id), DELETED_RECORD_TTL_SECONDS)
+        pipe.expire(key, DELETED_RECORD_TTL_SECONDS)
         pipe.zrem(_ACTIVE_KEY, graph_id)
         if merchant_id is not None:
             pipe.srem(_merchant_key(merchant_id), graph_id)

@@ -125,6 +125,28 @@
 > SCHEMA §2.2/§2.4) corrected to match. Deployable invariant unchanged; no
 > operator config change (the lock fix is self-healing at every supported
 > interval, so the 5-min floor stands).
+>
+> **Revision 8 (2026-07-28), after the FOURTH external review round (4 medium,
+> all confirmed):** the r7 fixes were sound but left three edges plus stale docs.
+> **(F1) The 404 confirm and the ledger close were not generation-bound:** the
+> confirm result carried a bare id, so a same-id `record_created` racing in
+> between the `graph.get` 404 and `record_deleted` would tombstone the NEW
+> generation (pull it from the active/merchant registries). Fixed by
+> generation-binding the close — `_load_registry` snapshots each id's
+> `created_at` (the zset score), and `record_deleted(..., expected_created_at=)`
+> runs under a Redis WATCH that tombstones ONLY while the hash's `created_at`
+> still equals the snapshot (a re-incarnation, new `created_at`, is left live).
+> **(F2) A killed non-sweep job enqueued a maintenance orphan:** the killed-horse
+> handler fired for every kill and (enqueue-first) enqueued a sweep occurrence
+> before its CAS lost — churn under repeated paid-analysis failures. The re-seed
+> now acts ONLY for a killed SWEEP occurrence (id-prefix gate). **(F3) The real
+> killed-horse path had no committed regression:** the handler is now a
+> module-level `on_work_horse_killed` (not a worker closure) and a forking-Worker
+> self-SIGKILL test drives the genuine RQ dispatch (no fake Worker / direct call).
+> **(F4) Docs:** TDD §3.4/§4 proof-obligation + failure-mode table and SCHEMA
+> §2.2/§3 write-path corrected to the current (in-band killed-horse heal;
+> per-graph-confirm + generation-bound reconciliation) behavior. Deployable
+> invariant unchanged.
 
 ## 1. Verified API surface this design depends on
 
@@ -482,10 +504,13 @@ regressions: scheduling a unique-id occurrence while another runs must never
 mutate the running job's record (r1); the `on_failure` re-seed must claim the
 marker via CAS when it still holds the failed occurrence's own id (r4 — a bare
 `SET NX` silently no-ops there and kills the chain), driven through a real RQ
-worker; lock release must be atomic under lease expiry (r2). The
-`on_failure`-does-not-fire-on-hard-SIGKILL behavior is a documented RQ 1.16.2
-limitation (revision 4), not a bug this code can fix; the boot reconciler and
-the external Sentry Cron miss cover that case.
+worker; lock release must be atomic under lease expiry (r2). RQ 1.16.2 does not
+run `on_failure` on a hard work-horse SIGKILL/OOM — **revisions 6-8 heal that
+in-band via the `work_horse_killed_handler`** (`maintenance_queue.on_work_horse_killed`,
+which runs in the surviving parent, re-seeds, and frees the dead lease); a
+committed forking-worker self-SIGKILL test exercises the real dispatch
+(revision-8 F3). The boot reconciler and the external Sentry Cron miss remain
+the outer backstops.
 
 ### 3.5 Not changed
 
@@ -504,7 +529,7 @@ the external Sentry Cron miss cover that case.
 | Vendor `created_at` format changes | Ages unparseable ⇒ ledger corroboration; if both unavailable, graphs are **retained** and `skipped_unknown_age` alerts | Operator runbook; no mass deletion (revision 2) |
 | Redis flushed / unavailable | Ledger writes no-op with warning; marker + lock lost | Boot reconciler restores the chain on worker start; sweep correctness and the orphan-age metric are Zep-derived and unaffected |
 | Occurrence raises / times out (caught by RQ in the horse) | RQ marks it failed and runs `on_failure` | `on_failure` re-seeds via CAS even when `finally` could not advance the marker because the lock was lost/stolen/expired (revision 4) |
-| Work horse SIGKILL/OOM (`finally` skipped; RQ does NOT run `on_failure`, revision 4) | Chain has no in-band re-seed at kill time | Boot reconciler re-seeds after the dead occurrence's marker TTL (`3 × interval`) lapses and a worker boots; the **missed Sentry Cron check-in alerts within interval + grace** and is the operative heal |
+| Work horse SIGKILL/OOM (`finally` skipped; RQ does NOT run `on_failure`) | The `work_horse_killed_handler` fires in the surviving parent (revisions 6-8) | `on_work_horse_killed` re-seeds the chain in-band AND frees the dead occurrence's stale lease (only for a killed SWEEP occurrence — a killed analysis enqueues nothing, revision-8 F2); the boot reconciler + missed Sentry Cron check-in remain outer backstops |
 | Worker wedged / scheduler thread dead / sustained starvation | No occurrences run; nothing in-process can notice | Missed Sentry Cron check-in — the watcher is external to the worker (revision 3) |
 | Duplicate chains (replica race, manual enqueue), concurrent OR serial | Only the marker-named generation sweeps + reschedules; every other occurrence exits at the generation check (revision 5, F1 — the lock alone did not collapse serial duplicates on a single worker) | Chains collapse to one within one interval |
 | Successor enqueue fails after a sweep | `_schedule_next` raises (not swallowed); the marker is not left pointing at a non-existent job (revision 5, F3) | The occurrence fails ⇒ `on_failure` re-seeds the chain |
@@ -561,9 +586,14 @@ proof obligation, extended by revision 3):
 12. `test_unique_occurrence_ids_never_touch_running_job` — start occurrence A
     (long-running stub), schedule occurrence B; assert A's job hash is
     unmodified and A completes + cleans only its own record.
-13. `test_on_failure_reseeds_chain` — occurrence raises (and separately: its
-    horse is killed); the `on_failure` callback enqueues exactly one fresh
-    occurrence and refreshes the marker. (Revision 3.)
+13. `test_on_failure_reseeds_chain` — occurrence raises; the `on_failure`
+    callback enqueues exactly one fresh occurrence and refreshes the marker.
+    A hard work-horse SIGKILL (which skips `on_failure`) is covered separately by
+    `test_real_worker_sigkill_dispatches_handler_and_reseeds` — a real forking
+    Worker whose horse SIGKILLs itself, asserting the wired
+    `on_work_horse_killed` re-seeds + frees the dead lease — plus
+    `test_killed_non_sweep_job_does_not_enqueue_orphan` (a killed analysis
+    enqueues nothing, revision-8 F2). (Revisions 3/6/8.)
 14. `test_boot_reconciler` — marker expired, no scheduled occurrence; worker
     boot re-seeds exactly one (two reconcilers racing seed exactly one —
     `SET NX` claim).
