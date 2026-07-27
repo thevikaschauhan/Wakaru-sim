@@ -88,6 +88,31 @@ def test_record_deleted_without_created_writes_orphan_record(conn):
     assert 0 < conn.ttl(f"zep:graph:{GRAPH_B}") <= gl.DELETED_RECORD_TTL_SECONDS
 
 
+def test_record_deleted_generation_bound_skips_a_reincarnated_id(conn):
+    # F1 (revision 8): the sweep confirms an id gone from a SNAPSHOT, then closes
+    # it later. If a same-id record_created re-incarnates it in between (a new
+    # created_at / cleared tombstone), the generation-bound close must NOT
+    # tombstone the live new generation.
+    gl.record_created(GRAPH_A, MERCHANT)
+    snapshot_created_at = gl.created_at_for(GRAPH_A)   # the generation we "confirmed gone"
+
+    # Re-incarnation: same id, a DIFFERENT created_at (a later occurrence).
+    conn.hset(f"zep:graph:{GRAPH_A}", "created_at", str(snapshot_created_at + 500))
+    conn.zadd("zep:scratch:active", {GRAPH_A: snapshot_created_at + 500})
+
+    # Close bound to the OLD generation must skip: the live new generation stays
+    # active, un-tombstoned, still enumerable for its merchant.
+    gl.record_deleted(GRAPH_A, source="sweep", expected_created_at=snapshot_created_at)
+    assert conn.hget(f"zep:graph:{GRAPH_A}", "deleted_at") is None      # not tombstoned
+    assert conn.zscore("zep:scratch:active", GRAPH_A) is not None       # still active
+    assert GRAPH_A.encode() in conn.smembers(f"zep:merchant:{MERCHANT}:graphs")
+
+    # A close bound to the CURRENT generation DOES proceed.
+    gl.record_deleted(GRAPH_A, source="sweep", expected_created_at=snapshot_created_at + 500)
+    assert conn.hget(f"zep:graph:{GRAPH_A}", "deleted_at") is not None  # now closed
+    assert conn.zscore("zep:scratch:active", GRAPH_A) is None
+
+
 # --- readers -------------------------------------------------------------------
 
 def test_created_at_for_roundtrip_and_missing(conn):
@@ -138,6 +163,9 @@ def test_all_functions_noop_on_redis_error(monkeypatch):
             raise RedisError("boom")
 
         def hget(self, *a):
+            raise RedisError("boom")
+
+        def hgetall(self, *a):
             raise RedisError("boom")
 
         def smembers(self, *a):
