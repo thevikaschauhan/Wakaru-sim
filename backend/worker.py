@@ -70,11 +70,15 @@ def main() -> None:
         # F3: a hard work-horse SIGKILL/OOM skips RQ's on_failure callback
         # (it moves the job to the failed registry WITHOUT running
         # execute_failure_callback), so a killed sweep occurrence would leave the
-        # chain dead. This handler runs in the SURVIVING parent worker process
-        # (rq wires it via handle_work_horse_killed) and re-seeds the chain via
-        # the same atomic marker CAS as on_failure. It fires for ANY killed
-        # horse; a non-sweep (analyze) job's re-seed is a harmless no-op when the
-        # marker already names a live sweep occurrence.
+        # chain dead AND its singleton lock held (a stale lease that outlives the
+        # interval floor). This handler runs in the SURVIVING parent worker process
+        # (rq wires it via handle_work_horse_killed) and calls the same
+        # reseed_chain_on_failure as on_failure, which re-seeds the chain via the
+        # atomic marker CAS AND compare-deletes the dead occurrence's own lock so
+        # the successor can sweep immediately. It fires for ANY killed horse; a
+        # non-sweep (analyze) job's re-seed is a harmless no-op when the marker
+        # already names a live sweep occurrence, and the lock compare-delete keyed
+        # to a non-sweep id can never touch the sweep lock.
         try:
             conn = get_redis_connection()
             if conn is not None:
@@ -93,7 +97,8 @@ def main() -> None:
     # description (the enqueue side already pins a PII-free one — issue #7).
     # analyze FIRST so a queued paid analysis always dequeues ahead of a sweep;
     # with_scheduler=True runs RQ's built-in scheduler for the sweep occurrences.
-    # work_horse_killed_handler re-seeds the sweep chain on a hard horse kill (F3).
+    # work_horse_killed_handler re-seeds the sweep chain AND frees the dead
+    # occurrence's stale lock on a hard horse kill (F3).
     worker = Worker(
         [ANALYZE_QUEUE_NAME, MAINTENANCE_QUEUE_NAME],
         connection=connection,

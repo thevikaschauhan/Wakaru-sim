@@ -14,6 +14,7 @@ from datetime import datetime, timedelta, timezone
 
 import fakeredis
 import pytest
+from zep_cloud.core.api_error import ApiError
 
 import app.services.graph_lifecycle as gl
 import app.services.maintenance_queue as mq
@@ -56,14 +57,30 @@ class FakeListResponse:
 
 
 class FakeGraphApi:
-    """Records the interleaving of list/delete calls so tests can assert both the
-    no-delete-during-pagination rule and oldest-first deletion order."""
+    """Records the interleaving of list/delete/get calls so tests can assert the
+    no-delete-during-pagination rule, oldest-first deletion order, and the F1
+    authoritative per-graph reconciliation confirm.
 
-    def __init__(self, pages, fail_ids=None, total_count=None):
+    ``get(graph_id)`` models Zep's ``graph.get``: an id present in ANY page
+    "exists" (returns a stub Graph); an id absent from every page 404s (genuinely
+    gone) — so a stale ledger id the listing never returns 404s by default and a
+    reconciliation close still happens. Two knobs override this per id:
+    ``get_exists_ids`` forces "still exists" (simulating a dropped-page listing
+    gap / under-reported total_count), and ``get_error_ids`` forces a non-404
+    ApiError (an uncertain confirm)."""
+
+    def __init__(self, pages, fail_ids=None, total_count=None,
+                 get_exists_ids=None, get_error_ids=None):
         self._pages = pages
         self.fail_ids = set(fail_ids or [])
         self.total_count = total_count
-        self.events = []   # ("list", page_number) | ("delete", graph_id)
+        self._present_ids = {
+            getattr(g, "graph_id", None) for page in pages for g in page
+        }
+        self._present_ids.discard(None)
+        self._get_exists_ids = set(get_exists_ids or [])
+        self._get_error_ids = set(get_error_ids or [])
+        self.events = []   # ("list", page) | ("delete", id) | ("get", id)
         self.deleted = []
 
     def list_all(self, page_number, page_size):
@@ -71,6 +88,14 @@ class FakeGraphApi:
         idx = page_number - 1
         graphs = self._pages[idx] if 0 <= idx < len(self._pages) else []
         return FakeListResponse(graphs, total_count=self.total_count)
+
+    def get(self, graph_id):
+        self.events.append(("get", graph_id))
+        if graph_id in self._get_error_ids:
+            raise ApiError(status_code=500, body="get boom")
+        if graph_id in self._get_exists_ids or graph_id in self._present_ids:
+            return FakeGraph(graph_id, None)
+        raise ApiError(status_code=404, body="graph gone")
 
     def delete(self, graph_id):
         self.events.append(("delete", graph_id))
@@ -84,8 +109,12 @@ class FakeZep:
         self.graph = graph_api
 
 
-def install_client(monkeypatch, pages, fail_ids=None, total_count=None):
-    api = FakeGraphApi(pages, fail_ids=fail_ids, total_count=total_count)
+def install_client(monkeypatch, pages, fail_ids=None, total_count=None,
+                   get_exists_ids=None, get_error_ids=None):
+    api = FakeGraphApi(
+        pages, fail_ids=fail_ids, total_count=total_count,
+        get_exists_ids=get_exists_ids, get_error_ids=get_error_ids,
+    )
     monkeypatch.setattr(sweeper, "_zep_client", lambda: FakeZep(api))
     return api
 
@@ -303,10 +332,10 @@ def test_metrics_registry_reconciliation_removes_stale(
 ):
     live = scratch_id(70)                   # in the listing
     stale = scratch_id(71)                   # in the registry, gone from Zep
-    # total_count=1 => the single distinct listed id covers the listing, so it is
-    # COMPLETE and reconciliation may run (F1: reconciliation needs a reported,
-    # covered total_count).
-    api = install_client(monkeypatch, [[FakeGraph(live, iso_ago(1))]], total_count=1)
+    # F1: `stale` is absent from the listing, so reconciliation confirms it via
+    # graph.get, which 404s (not in any page) -> genuinely gone -> closed. No
+    # total_count / listing-completeness inference is involved.
+    api = install_client(monkeypatch, [[FakeGraph(live, iso_ago(1))]])
     now = int(time.time())
     conn.zadd(sweeper._ACTIVE_KEY, {live: now, stale: now})
 
@@ -442,29 +471,14 @@ def test_force_delete_bounded_by_cap(conn, monkeypatch, captured_messages):
 
 
 # --------------------------------------------------------------------------
-# F6 - an incomplete listing must NOT reconcile; it alerts instead
+# F1/F6 - reconciliation is now authoritative per-graph (graph.get), NOT a
+# listing-completeness inference. The r3 completeness-gate tests
+# (test_incomplete_listing_skips_reconciliation_and_alerts,
+# test_duplicate_rows_do_not_falsely_satisfy_total_count,
+# test_empty_first_page_with_nonzero_count_is_incomplete) tested the removed
+# ``listing_incomplete`` gate and are superseded by the r3 reconciliation tests
+# further below (test_reconcile_* and test_sweep_memory_*).
 # --------------------------------------------------------------------------
-
-def test_incomplete_listing_skips_reconciliation_and_alerts(
-    conn, monkeypatch, captured_messages
-):
-    """When the pages seen do not cover ``total_count``, reconciliation is
-    skipped (an unseen live registry member is NOT removed) and Sentry alerts."""
-    live = scratch_id(120)
-    stale = scratch_id(121)
-    # Only one graph returned but total_count claims two -> pagination fell short.
-    api = install_client(monkeypatch, [[FakeGraph(live, iso_ago(1))]], total_count=2)
-    now = int(time.time())
-    conn.zadd(sweeper._ACTIVE_KEY, {live: now, stale: now})
-
-    stats = sweeper.sweep_orphan_graphs(
-        dry_run=False, ttl_hours=24, page_size=100, max_deletes=200
-    )
-
-    assert stats.listing_incomplete is True
-    assert stats.ledger_drift == 0                                # nothing reconciled
-    assert conn.zscore(sweeper._ACTIVE_KEY, stale) is not None    # unseen member kept
-    assert any("incomplete" in msg for msg, _ in captured_messages)
 
 
 # --------------------------------------------------------------------------
@@ -546,9 +560,10 @@ def test_reconciliation_closes_hash_and_merchant_set(
     merchant = "11111111-1111-1111-1111-111111111111"
     gl.record_created(live, merchant)           # full ledger records for both
     gl.record_created(stale, merchant)
-    # Zep lists only `live` (total_count=1 => COMPLETE, F1); `stale` is gone
-    # from Zep -> drift, closed lifecycle-aware.
-    api = install_client(monkeypatch, [[FakeGraph(live, iso_ago(1))]], total_count=1)
+    # Zep lists only `live`; `stale` is absent from the listing and its
+    # graph.get 404s (F1: authoritatively confirmed gone) -> drift, closed
+    # lifecycle-aware.
+    api = install_client(monkeypatch, [[FakeGraph(live, iso_ago(1))]])
 
     stats = sweeper.sweep_orphan_graphs(
         dry_run=False, ttl_hours=24, page_size=100, max_deletes=200
@@ -610,53 +625,11 @@ def test_ledger_created_at_future_is_unknown_age(
 # ==========================================================================
 
 # --------------------------------------------------------------------------
-# F1 - duplicate/empty pages must NOT authorize destructive reconciliation
+# F1 - reconciliation is authoritative per-graph. The r2 completeness-gate F1
+# tests moved into the r3 block at the end of this file
+# (test_reconcile_* + test_sweep_memory_independent_of_nonscratch_population),
+# which pin the graph.get confirmation directly.
 # --------------------------------------------------------------------------
-
-def test_duplicate_rows_do_not_falsely_satisfy_total_count(
-    conn, monkeypatch, captured_messages
-):
-    """Reviewer repro: pages ``g1,g2 / g2`` with total_count=3. Raw scanned rows
-    (3) would falsely satisfy the count and treat the listing complete, removing
-    an unseen LIVE registry member (g3). Completeness must use DISTINCT ids
-    (only 2 seen < 3) -> incomplete -> reconciliation SKIPPED, g3 survives."""
-    g1, g2, g3 = scratch_id(200), scratch_id(201), scratch_id(202)
-    pages = [
-        [FakeGraph(g1, iso_ago(1)), FakeGraph(g2, iso_ago(1))],
-        [FakeGraph(g2, iso_ago(1))],             # g2 repeats -> 3 rows, 2 distinct
-    ]
-    api = install_client(monkeypatch, pages, total_count=3)
-    now = int(time.time())
-    conn.zadd(sweeper._ACTIVE_KEY, {g1: now, g2: now, g3: now})   # g3 is live
-
-    stats = sweeper.sweep_orphan_graphs(
-        dry_run=False, ttl_hours=24, page_size=2, max_deletes=200
-    )
-
-    assert stats.listing_incomplete is True                       # 2 distinct < 3
-    assert stats.ledger_drift == 0                                # nothing reconciled
-    assert conn.zscore(sweeper._ACTIVE_KEY, g3) is not None       # live g3 survives
-
-
-def test_empty_first_page_with_nonzero_count_is_incomplete(
-    conn, monkeypatch, captured_messages
-):
-    """Reviewer repro: an empty first page that still reports total_count=5 must
-    be read BEFORE the empty-page break, so the listing is INCOMPLETE and the
-    whole registry is not wiped."""
-    api = install_client(monkeypatch, [[]], total_count=5)       # empty page, count 5
-    now = int(time.time())
-    member = scratch_id(210)
-    conn.zadd(sweeper._ACTIVE_KEY, {member: now})
-
-    stats = sweeper.sweep_orphan_graphs(
-        dry_run=False, ttl_hours=24, page_size=100, max_deletes=200
-    )
-
-    assert stats.total_count == 5                                 # count was read
-    assert stats.listing_incomplete is True
-    assert stats.ledger_drift == 0
-    assert conn.zscore(sweeper._ACTIVE_KEY, member) is not None   # registry untouched
 
 
 # --------------------------------------------------------------------------
@@ -746,18 +719,22 @@ def test_zep_only_graph_counted_as_drift(conn, monkeypatch, captured_messages):
 
 def test_dry_run_does_not_mutate_ledger(conn, monkeypatch, captured_messages):
     """Reviewer repro: an empty listing under dry_run left an active ledger entry
-    removed + tombstoned. Dry-run must reconcile NOTHING."""
+    removed + tombstoned. Dry-run must reconcile NOTHING - and (F1/F9) must not
+    even CONSULT graph.get to confirm a stale id, since it mutates nothing."""
     stale = scratch_id(250)
     gl.record_created(stale, "11111111-1111-1111-1111-111111111111")
-    install_client(monkeypatch, [[]], total_count=0)     # empty, complete listing
+    api = install_client(monkeypatch, [[]], total_count=0)     # empty listing
 
     stats = sweeper.sweep_orphan_graphs(
         dry_run=True, ttl_hours=24, page_size=100, max_deletes=200
     )
 
     assert stats.ledger_drift == 0                                    # no reconcile
+    assert stats.reconcile_unconfirmed == 0                           # no confirm pass
     assert conn.zscore(sweeper._ACTIVE_KEY, stale) is not None        # entry intact
     assert conn.hget(f"zep:graph:{stale}", "deleted_at") is None      # not tombstoned
+    # F9: dry-run is a pure inventory - no per-graph confirm was issued.
+    assert not any(e[0] == "get" for e in api.events)
 
 
 # --------------------------------------------------------------------------
@@ -856,3 +833,117 @@ def test_delete_non_404_apierror_counts_failed(conn, monkeypatch, captured_messa
 
     assert stats.deleted == 0
     assert stats.failed == 1                     # real failure
+
+
+# ==========================================================================
+# Third-round external review fixes (PR #78): F1 + F6 reconciliation redesign.
+# Reconciliation confirms each stale ledger id GONE via a per-graph graph.get
+# 404 before closing it - it never infers "gone" from listing completeness, and
+# it retains no O(all-listed-ids) structure. These supersede the r2
+# completeness-gate tests (listing_incomplete / distinct_ids_seen), now removed.
+# ==========================================================================
+
+def test_reconcile_confirms_gone_before_closing(
+    conn, monkeypatch, captured_messages
+):
+    """A ledger entry absent from the listing whose graph.get 404s is
+    AUTHORITATIVELY confirmed gone and IS closed: ledger_drift == 1, hash
+    tombstoned, and the confirm (graph.get) actually happened."""
+    live = scratch_id(320)                        # in the listing, young, kept
+    gone = scratch_id(321)                         # in the ledger, 404s on get
+    merchant = "11111111-1111-1111-1111-111111111111"
+    gl.record_created(live, merchant)
+    gl.record_created(gone, merchant)
+    api = install_client(monkeypatch, [[FakeGraph(live, iso_ago(1))]])
+
+    stats = sweeper.sweep_orphan_graphs(
+        dry_run=False, ttl_hours=24, page_size=100, max_deletes=200
+    )
+
+    assert ("get", gone) in api.events            # authoritatively confirmed
+    assert stats.ledger_drift == 1
+    assert stats.reconcile_unconfirmed == 0
+    assert conn.zscore(sweeper._ACTIVE_KEY, gone) is None             # closed
+    assert conn.hget(f"zep:graph:{gone}", "deleted_at") is not None   # tombstoned
+    assert conn.zscore(sweeper._ACTIVE_KEY, live) is not None         # live kept
+
+
+def test_reconcile_keeps_entry_that_still_exists_in_zep(
+    conn, monkeypatch, captured_messages
+):
+    """F1 REGRESSION: a ledger entry absent from the listing (simulating an
+    under-reported total_count / a dropped page) but whose graph.get RETURNS the
+    graph is a LIVE entry the listing missed - it must NOT be closed; it is
+    surfaced as reconcile_unconfirmed and alerted. Revert-proof: the old
+    listing-completeness close would tombstone this live entry (ledger_drift=1)."""
+    live_seen = scratch_id(330)                   # in the listing
+    missed = scratch_id(331)                       # in the ledger, but still EXISTS
+    api = install_client(
+        monkeypatch, [[FakeGraph(live_seen, iso_ago(1))]],
+        total_count=1, get_exists_ids=[missed],
+    )
+    now = int(time.time())
+    conn.zadd(sweeper._ACTIVE_KEY, {live_seen: now, missed: now})
+
+    stats = sweeper.sweep_orphan_graphs(
+        dry_run=False, ttl_hours=24, page_size=100, max_deletes=200
+    )
+
+    # (ledger_drift first: on a revert to the completeness gate this is 1, so the
+    # assertion trips before any new-field access.)
+    assert stats.ledger_drift == 0                                   # nothing closed
+    assert stats.reconcile_unconfirmed == 1                          # gap surfaced
+    assert conn.zscore(sweeper._ACTIVE_KEY, missed) is not None      # LIVE entry kept
+    assert conn.zscore(sweeper._ACTIVE_KEY, live_seen) is not None
+    assert any("reconcile_unconfirmed" in msg for msg, _ in captured_messages)
+
+
+def test_reconcile_uncertain_get_error_fails_closed(
+    conn, monkeypatch, captured_messages
+):
+    """graph.get raising a NON-404 error is UNCERTAIN: the entry is NOT closed
+    (fail-closed) and is counted unconfirmed."""
+    live = scratch_id(340)
+    uncertain = scratch_id(341)                    # in ledger, get raises a 500
+    api = install_client(
+        monkeypatch, [[FakeGraph(live, iso_ago(1))]],
+        total_count=1, get_error_ids=[uncertain],
+    )
+    now = int(time.time())
+    conn.zadd(sweeper._ACTIVE_KEY, {live: now, uncertain: now})
+
+    stats = sweeper.sweep_orphan_graphs(
+        dry_run=False, ttl_hours=24, page_size=100, max_deletes=200
+    )
+
+    assert stats.ledger_drift == 0                                   # NOT closed
+    assert stats.reconcile_unconfirmed == 1
+    assert conn.zscore(sweeper._ACTIVE_KEY, uncertain) is not None   # kept fail-closed
+
+
+def test_sweep_memory_independent_of_nonscratch_population(
+    conn, monkeypatch, captured_messages
+):
+    """F6: per-scan bookkeeping is O(distinct SCRATCH graphs), not O(all listed
+    ids). A listing dominated by 500 non-scratch (merchant_*) ids retains only
+    the distinct-scratch set (size == the scratch count); no per-all-ids set is
+    kept. Revert-proof: reintroducing ``distinct_ids_seen`` (the reverted design)
+    re-adds an id set that grows with the non-scratch population."""
+    import inspect
+
+    scratch = [scratch_id(300), scratch_id(301)]                 # 2 distinct scratch
+    non_scratch = [f"merchant_{i:016x}" for i in range(500)]     # 500 store graphs
+    graphs = [FakeGraph(g, iso_ago(1)) for g in non_scratch + scratch]
+    install_client(monkeypatch, [graphs], total_count=len(graphs))
+
+    stats = sweeper.sweep_orphan_graphs(
+        dry_run=True, ttl_hours=24, page_size=1000, max_deletes=200
+    )
+
+    # The sweep completes; the retained scratch set (== stats.matched) is keyed
+    # to the DISTINCT SCRATCH count, NOT the 500 non-scratch ids.
+    assert stats.scanned == 502
+    assert stats.matched == len(scratch)
+    # Revert-proof teeth: the O(all-distinct-ids) structure is gone from the scan.
+    src = inspect.getsource(sweeper.sweep_orphan_graphs)
+    assert "distinct_ids_seen" not in src

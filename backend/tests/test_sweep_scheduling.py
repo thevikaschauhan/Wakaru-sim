@@ -23,7 +23,7 @@ pytestmark = pytest.mark.skipif(
 import redis  # noqa: E402
 from redis.exceptions import RedisError  # noqa: E402
 from rq import SimpleWorker, Worker  # noqa: E402
-from rq.job import Callback, Job  # noqa: E402
+from rq.job import Callback, Job, JobStatus  # noqa: E402
 
 import app.services.maintenance_queue as mq  # noqa: E402
 import app.services.zep_graph_sweeper as sweeper  # noqa: E402
@@ -127,16 +127,23 @@ def test_on_failure_reseeds_chain_direct(rconn):
     assert registry.count == 0
     assert not rconn.exists(mq._NEXT_KEY)
 
-    # Marker absent -> reseed claims it and enqueues exactly one occurrence.
+    # Marker absent -> reseed enqueues one occurrence and CAS-sets the marker to it.
     mq.reseed_chain_on_failure(None, rconn)
     assert registry.count == 1
     marker = rconn.get(mq._NEXT_KEY)
     assert marker is not None
+    assert marker.decode() in set(registry.get_job_ids())
 
-    # Marker present -> SET NX no-ops; no second occurrence (idempotent).
+    # A second on_failure re-seed does NOT advance or replace the canonical marker
+    # (no second chain takes ownership). Under the enqueue-FIRST ordering (F4) the
+    # CAS-losing reseeder enqueues a fresh occurrence, then its CAS no-ops because
+    # the marker already names the winner; that leaves a harmless ORPHAN scheduled
+    # job which self-collapses (as a duplicate) when it runs. The marker — the
+    # single source of chain identity — stays pinned to the one canonical winner.
     mq.reseed_chain_on_failure(None, rconn)
-    assert registry.count == 1
-    assert rconn.get(mq._NEXT_KEY) == marker
+    assert rconn.get(mq._NEXT_KEY) == marker              # canonical unchanged
+    assert marker.decode() in set(registry.get_job_ids())  # winner still scheduled
+    assert registry.count == 2                             # + one self-collapsing orphan
 
 
 def test_on_failure_reseeds_chain_via_real_worker(rconn, monkeypatch):
@@ -386,12 +393,14 @@ def test_lock_release_issues_single_atomic_eval(rconn):
 # --------------------------------------------------------------------------
 
 def test_no_phantom_marker_when_enqueue_fails(rconn, monkeypatch):
-    """F3: the re-seed and boot-reconcile paths must never leave a live marker
+    """F3/F4: the re-seed and boot-reconcile paths must never leave a live marker
     pointing at a job that was never enqueued. A phantom marker is fatal — the
-    boot reconciler trusts marker presence and would never re-seed, so the chain
+    boot reconciler trusts a live marker and would never re-seed, so the chain
     stays permanently dead. Inject an enqueue failure and assert NO marker and NO
-    scheduled job survive on either path. Revert-proof: the marker-before-enqueue
-    ordering leaves the claimed marker behind (``exists`` is True)."""
+    scheduled job survive on either path. Under the enqueue-FIRST ordering (F4) an
+    enqueue failure structurally cannot set the marker (the CAS runs only after a
+    successful enqueue); the exact enqueue/marker ORDER is pinned separately by
+    ``test_reseed_enqueues_before_setting_marker``."""
     queue = mq.get_maintenance_queue(rconn)
 
     def boom(*args, **kwargs):
@@ -681,3 +690,171 @@ def test_worker_wires_killed_horse_handler_that_reseeds(rconn, monkeypatch):
 class _FakeKilledJob:
     def __init__(self, job_id):
         self.id = job_id
+
+
+# --------------------------------------------------------------------------
+# 25 - r3 (stale lock): a canonical occurrence that finds the lock held by a
+#      dead prior occurrence still keeps the chain alive
+# --------------------------------------------------------------------------
+
+def test_canonical_lock_held_still_reschedules(rconn, monkeypatch):
+    """r3 HIGH (stale lock): the min sweep interval (300s floor) is SHORTER than
+    the lock TTL (360s), so a canonical successor can dequeue while a DEAD prior
+    occurrence's lease still lingers. It must NOT exit empty (that leaves the chain
+    permanently dead) — it schedules the successor + advances the marker WITHOUT
+    sweeping this cycle, so the chain self-heals once the stale lease clears.
+    Being canonical means the marker was already advanced to us, which only a
+    prior occurrence's completion / post-death re-seed does; a still-running holder
+    would keep the marker on itself. So the lock holder is provably dead and
+    rescheduling is safe. Revert-proof: the old ``return`` leaves 0 successors and
+    the marker stuck on the dead occurrence."""
+    queue = mq.get_maintenance_queue(rconn)
+    swept = []
+    monkeypatch.setattr(
+        mq, "sweep_orphan_graphs",
+        lambda **kw: (swept.append(True), sweeper.SweepStats())[1],
+    )
+
+    # A stale lease from a dead prior occurrence still holds the lock.
+    dead_occ = mq._new_occurrence_id()
+    rconn.set(mq._LOCK_KEY, dead_occ, ex=mq.LOCK_TTL_SECONDS)
+
+    # occ_a is the canonical successor (the marker names it) and dequeues now.
+    occ_a = mq._new_occurrence_id()
+    rconn.set(mq._NEXT_KEY, occ_a, ex=mq._marker_ttl_seconds())
+    _enqueue_now(queue, occ_a)
+
+    worker = SimpleWorker([queue], connection=rconn)
+    worker.work(burst=True)
+
+    assert swept == []                                    # lock held -> did not sweep
+    assert queue.scheduled_job_registry.count == 1        # but scheduled the successor
+    marker = rconn.get(mq._NEXT_KEY)
+    assert marker is not None
+    successor = marker.decode()
+    assert successor != occ_a                             # marker advanced off occ_a
+    assert successor in set(queue.scheduled_job_registry.get_job_ids())
+    # The stale lock is left untouched here (its TTL clears before the successor
+    # runs); the killed-horse / on_failure path is what actively frees it.
+    assert rconn.get(mq._LOCK_KEY) == dead_occ.encode()
+    # occ_a itself finished cleanly (it did the safe reschedule, not a failure).
+    assert occ_a not in queue.failed_job_registry.get_job_ids()
+
+
+# --------------------------------------------------------------------------
+# 26 - r3 (stale lock): the killed-horse / on_failure re-seed frees the dead
+#      occurrence's own lock (compare-delete keyed to its id)
+# --------------------------------------------------------------------------
+
+def test_killed_horse_handler_releases_dead_lock(rconn):
+    """r3 HIGH (stale lock): when an occurrence is hard-killed (or fails), the
+    re-seed path must also RELEASE the dead occurrence's lock so the successor can
+    sweep immediately instead of skipping a cycle behind a stale lease. The release
+    is a compare-delete keyed to the dead id: it frees the lock only if that
+    occurrence still owned it, and never touches a live sibling's lock. Revert-
+    proof: without the release the dead occurrence's lock survives."""
+    queue = mq.get_maintenance_queue(rconn)
+
+    dead = mq._new_occurrence_id()
+    rconn.set(mq._LOCK_KEY, dead, ex=mq.LOCK_TTL_SECONDS)          # dead occ holds the lock
+    rconn.set(mq._NEXT_KEY, dead, ex=mq._marker_ttl_seconds())     # marker names the dead occ
+
+    mq.reseed_chain_on_failure(_FakeKilledJob(dead), rconn)
+
+    # The dead occurrence's own lease was compare-deleted, and exactly one fresh
+    # chain re-seeded, advanced off the dead id.
+    assert rconn.get(mq._LOCK_KEY) is None
+    assert queue.scheduled_job_registry.count == 1
+    marker = rconn.get(mq._NEXT_KEY)
+    assert marker is not None and marker.decode() != dead
+
+    # Keying proof: the release is a compare-delete on the killed id, so it must
+    # NOT touch a lock owned by a DIFFERENT (live) occurrence.
+    live_owner = mq._new_occurrence_id()
+    rconn.set(mq._LOCK_KEY, live_owner, ex=mq.LOCK_TTL_SECONDS)
+    mq.reseed_chain_on_failure(_FakeKilledJob(dead), rconn)
+    assert rconn.get(mq._LOCK_KEY) == live_owner.encode()          # live lock survives
+
+
+# --------------------------------------------------------------------------
+# 27 - r3 (_job_is_live): a marker naming a TERMINAL occurrence is a dead chain
+# --------------------------------------------------------------------------
+
+def test_terminal_job_marker_is_reseeded(rconn):
+    """r3 HIGH (_job_is_live): RQ retains a FAILED / CANCELED job's hash
+    (failure_ttl, the canceled registry), so ``Job.exists`` reads a dead
+    occurrence as still present. A marker naming a TERMINAL occurrence must be
+    treated as a DEAD chain and re-seeded, not mistaken for a live duplicate.
+    Revert-proof: with the old hash-presence check the terminal hash reads as live
+    and the chain is NOT re-seeded (stays dead for the hash's retained lifetime)."""
+    queue = mq.get_maintenance_queue(rconn)
+    terminal = mq._new_occurrence_id()
+    job = _enqueue_now(queue, terminal)      # a real job hash
+    job.set_status(JobStatus.FAILED)         # terminal, but the hash is retained
+
+    # The retained hash still "exists" (why the old check misread it as live), but
+    # the occurrence is NOT in a runnable state.
+    assert Job.exists(terminal, connection=rconn)
+    assert mq._job_is_live(rconn, terminal) is False
+
+    rconn.set(mq._NEXT_KEY, terminal, ex=mq._marker_ttl_seconds())
+    mq.reconcile_chain(rconn)
+
+    # The terminal occurrence is NOT a live chain -> reconcile re-seeded exactly one
+    # fresh occurrence and advanced the marker off the dead terminal id.
+    marker = rconn.get(mq._NEXT_KEY)
+    assert marker is not None
+    successor = marker.decode()
+    assert successor != terminal
+    assert successor in set(queue.scheduled_job_registry.get_job_ids())
+
+
+# --------------------------------------------------------------------------
+# 28 - r3 (F4): the re-seed enqueues the occurrence BEFORE it sets the marker
+# --------------------------------------------------------------------------
+
+def test_reseed_enqueues_before_setting_marker(rconn):
+    """r3 F4: the re-seed must ENQUEUE the fresh occurrence BEFORE it CAS-sets the
+    marker, so a hard process death between the two steps can never leave a phantom
+    marker (one naming a job that was never enqueued). Assert that at the instant
+    the marker-CAS EVAL runs, the job it will name ALREADY exists. Revert-proof:
+    the old claim-FIRST ordering sets the marker before the enqueue, so the named
+    job does not yet exist when the CAS runs."""
+    observed = {}
+
+    class OrderingConn:
+        """Delegates to the real connection but records, at the moment the reseed
+        marker-CAS EVAL runs, whether the occurrence it will name already exists
+        and what the marker held (proving this CAS is the one that sets it)."""
+
+        def __init__(self, inner):
+            self._inner = inner
+
+        def __getattr__(self, name):
+            attr = getattr(self._inner, name)
+            if name == "eval" and callable(attr):
+                def wrapped(script, numkeys, *args):
+                    if script == mq._RESEED_MARKER_LUA and args and args[0] == mq._NEXT_KEY:
+                        occ = args[2]
+                        occ = occ.decode() if isinstance(occ, bytes) else occ
+                        observed["job_exists_at_cas"] = Job.exists(
+                            occ, connection=self._inner
+                        )
+                        observed["marker_at_cas"] = self._inner.get(mq._NEXT_KEY)
+                    return attr(script, numkeys, *args)
+
+                return wrapped
+            return attr
+
+    assert not rconn.exists(mq._NEXT_KEY)
+    seeded = mq._reseed_if_marker_is(OrderingConn(rconn), None)
+
+    assert seeded is True
+    assert observed.get("job_exists_at_cas") is True, (
+        "marker CAS ran before the occurrence was enqueued (phantom-marker window)"
+    )
+    assert observed.get("marker_at_cas") is None   # this CAS is the one that set it
+    marker = rconn.get(mq._NEXT_KEY)
+    assert marker is not None
+    scheduled = set(mq.get_maintenance_queue(rconn).scheduled_job_registry.get_job_ids())
+    assert marker.decode() in scheduled

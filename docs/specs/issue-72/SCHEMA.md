@@ -66,15 +66,21 @@ sentinel.
   `oldest_scratch_age_seconds` comes from the sweeper's Zep scan (TDD §3.2),
   which survives Redis loss. This zset is a diagnostic (e.g. "what does the
   ledger *think* is alive") and a **bidirectional** drift detector (revision-6
-  F7): on a **complete** listing (revision-6 F1 — never on a partial scan, which
-  would delete live entries), each sweep reports drift in both directions —
-  `ledger_drift` counts ledger-only entries (in the zset, absent from Zep) and
-  **closes them lifecycle-aware** (`record_deleted`: stamp `deleted_at` + 30-day
-  TTL, `ZREM`, `SREM` — not a bare `ZREM` that would strand the hash and merchant
-  membership, revision-6 F9); `zep_only_unattributed` counts matched scratch
-  graphs present in Zep but absent from the ledger snapshot (unattributed, e.g.
-  created during a Redis outage). Under **dry-run** the sweep reconciles nothing
-  (pure inventory, revision-6 F9).
+  F7): each sweep reports drift in both directions. `ledger_drift` counts
+  ledger-only entries (in the zset, absent from the listing) — but each is
+  **closed only after an authoritative per-graph `graph.get` 404 confirms it is
+  genuinely gone (revision-7 F1)**, then closed lifecycle-aware (`record_deleted`:
+  stamp `deleted_at` + 30-day TTL, `ZREM`, `SREM` — not a bare `ZREM` that would
+  strand the hash and merchant membership, revision-6 F9). A stale-looking entry
+  that `graph.get` shows still EXISTS (the listing dropped a page / Zep
+  under-reported `total_count`) or cannot confirm is KEPT and counted
+  `reconcile_unconfirmed` — the r6 completeness gate (`distinct_ids_seen >=
+  total_count`) that could close a live entry under an under-count is removed
+  (revision-7 F1), which also drops the O(all-listed-ids) set (revision-7 F6 —
+  scan memory is now O(distinct scratch graphs)). `zep_only_unattributed` counts
+  matched scratch graphs present in Zep but absent from the ledger snapshot.
+  Under **dry-run** the sweep confirms/reconciles nothing (pure inventory,
+  revision-6 F9).
 - #61's `merchant_*` graphs never appear here (writer assertion + sweeper
   regex are independent guards).
 
@@ -94,8 +100,8 @@ sentinel.
 
 | Key | Type | Semantics |
 |---|---|---|
-| `zep:sweep:lock` | String, `SET NX EX 360` | **Secondary concurrency guard (revision 5), not the chain-collapse mechanism.** Value = occurrence job id; taken by the canonical occurrence AFTER the generation check to stop two *concurrent* replicas sweeping the same generation. Released **only** via atomic Lua compare-and-delete on the owning occurrence id (revision 3). Release is **best-effort** (revision-6 F2): a Redis error releasing the lock must NOT abort successor scheduling — the 360s TTL backstops a missed release. Chain collapse is done by generation disposition on `zep:sweep:next`, not this lock (the lock is free between serial occurrences on one worker, so it never collapsed serial duplicates — revision-5 F1). |
-| `zep:sweep:next` | String, `EX = 3 × interval` | Chain-liveness marker **and the single canonical generation**; value = the next occurrence's job id. On dequeue an occurrence is classified **canonical** (marker == its id → sweep + schedule successor), **duplicate** (marker names another job that still **exists** → exit, collapse), or **dead** (marker absent past TTL, or names a job that no longer **exists** → re-seed one fresh chain in-band, revision-6 F3). While an occurrence runs the marker holds *that occurrence's own id* (the prior occurrence set it). Advanced to the successor via an atomic CAS only-if-still-mine after the successor is enqueued (enqueue-first, so the marker never names a job that does not exist — revision-5 F3); on enqueue failure the claimed marker is rolled back via compare-delete. The `on_failure` re-seed and the killed-horse handler (revision-6 F3) use an **atomic compare-and-set** (claim when the marker is absent OR still equals the failed/killed occurrence's id) — a bare `SET NX` cannot claim it because the running occurrence's id is already present, which would kill the chain (revision 4). The boot reconciler (revision-6 F4) re-seeds unless the marker names a job that still **exists** (it no longer trusts marker presence alone, which left a phantom marker — from a crash between claim and enqueue — unhealed forever). Liveness *alerting* does not depend on this key — the Sentry Cron Monitor is the external watcher (TDD §3.4). |
+| `zep:sweep:lock` | String, `SET NX EX 360` | **Secondary concurrency guard, not the chain-collapse mechanism.** Value = occurrence job id; taken by the canonical occurrence AFTER the generation check to stop two *concurrent* replicas sweeping the same generation. Released via atomic Lua compare-and-delete on the owning occurrence id (revision 3), from BOTH the normal `finally` (best-effort — revision-6 F2, a release error must not abort successor scheduling) AND the `on_failure`/killed-horse re-seed, which **actively frees a dead occurrence's lease keyed to its id (revision-7)** so a hard SIGKILL/OOM does not leave the lease blocking the successor. **`LOCK_TTL`(360s) OUTLIVES the 300s interval floor**, so a canonical occurrence can find a stale lease still held; it does NOT exit empty (revision-7 — that killed the chain at the floor) but reschedules the successor (the holder is provably dead, since a live holder would still own the marker). TTL is a backstop; correctness no longer depends on it being shorter than the floor. Chain collapse is done by generation disposition on `zep:sweep:next`, not this lock. |
+| `zep:sweep:next` | String, `EX = 3 × interval` | Chain-liveness marker **and the single canonical generation**; value = the next occurrence's job id. On dequeue an occurrence is classified **canonical** (marker == its id → sweep + schedule successor), **duplicate** (marker names another occurrence that is still **live** → exit, collapse), or **dead** (marker absent past TTL, names a job that no longer exists, OR names a job in a **terminal** state → re-seed one fresh chain in-band). **Liveness is an RQ runnable-state check (`_job_is_live`: status ∈ {queued, started, deferred, scheduled}), NOT hash presence (revision-7 F3)** — RQ retains a FAILED/CANCELED job's hash, so a terminal occurrence must classify as dead (re-seed), not a live duplicate. While an occurrence runs the marker holds *that occurrence's own id*. Every re-seed/advance path **enqueues the fresh occurrence FIRST, then CAS-sets the marker to it** (revision-7 F4 — so a process death between the two can never leave a phantom marker; a CAS-losing re-seeder's orphan job self-collapses via generation ownership when it runs). The `on_failure`/killed-horse re-seed CAS-claims when the marker is absent OR equals the failed/killed id (a bare `SET NX` cannot, since the running id is already present — revision 4). The boot reconciler re-seeds unless the marker names a **live** job (revision-7 — absent, phantom, OR terminal-hash markers are all re-seeded). Liveness *alerting* does not depend on this key — the Sentry Cron Monitor is the external watcher (TDD §3.4). |
 
 RQ-owned keys (no new schema, listed for the namespace map):
 `rq:queue:maintenance`, `rq:scheduled:maintenance` (ScheduledJobRegistry

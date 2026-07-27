@@ -19,16 +19,22 @@ Design invariants (revision 3):
   timestamp-format regression degrades to retention, not a mass deletion of
   in-flight graphs (V-3). Operator-approved disposal of persistent unknown-age
   orphans is the ``ZEP_SWEEP_FORCE_DELETE_IDS`` escape hatch (§8 runbook).
-- **Bounded deletion, population-bounded scan memory (revision 5, honest
-  restatement of the r3 claim).** The *deletion* set is a ``max_deletes``-sized
-  heap of the oldest eligible candidates — that never grows with the backlog.
-  The per-scan bookkeeping (distinct-id / seen-matched / unknown-age sets and
-  the active-registry snapshot) is O(distinct scratch graphs), NOT O(1): it is
-  bounded by the scratch-graph population, which is small by design (SCHEMA §4 —
-  dozens in steady state; the sweep exists to keep it small) and ~tens of bytes
-  per id even for a large historical backlog. Dedup, drift, and listing-
-  completeness genuinely need those distinct-id sets, so this is a deliberate,
-  bounded cost, not the false "only a heap is retained" of r3.
+- **Bounded deletion, scratch-population-bounded scan memory (revision 6).** The
+  *deletion* set is a ``max_deletes``-sized heap of the oldest eligible
+  candidates — that never grows with the backlog. The per-scan bookkeeping is
+  O(distinct **scratch** graphs), NOT O(all listed ids): the only retained id
+  sets are ``seen_matched`` / ``unknown_age_seen`` (matched scratch ids) and the
+  active-registry snapshot, all bounded by the scratch-graph population, which is
+  small by design (SCHEMA §4 — dozens in steady state; the sweep exists to keep
+  it small). No set over *all* listed ids is kept: the r5 ``distinct_ids_seen``
+  (F6) grew with the ``merchant_*`` store population and is gone.
+- **Reconciliation closes only AUTHORITATIVELY-confirmed drift (revision 6, F1).**
+  A stale ledger entry (in the snapshot, absent from the listing) is never closed
+  by inferring "gone" from listing completeness — an under-reported vendor
+  ``total_count`` could otherwise tombstone a live graph. Each stale id is
+  confirmed gone by a per-graph ``client.graph.get`` (a 404) before it is closed;
+  one that still exists (a listing gap) or cannot be confirmed is retained
+  fail-closed and surfaced as ``reconcile_unconfirmed``.
 
 The Zep client is obtained through :func:`_zep_client` so unit tests can inject a
 fake without a real API key or network. The public :func:`sweep_orphan_graphs`
@@ -178,8 +184,8 @@ class SweepStats:
     oldest_scratch_age_seconds: int = 0
     total_count: int = 0
     ledger_drift: int = 0
+    reconcile_unconfirmed: int = 0
     zep_only_unattributed: int = 0
-    listing_incomplete: bool = False
 
 
 # --------------------------------------------------------------------------
@@ -273,8 +279,10 @@ def sweep_orphan_graphs(
         max_evicted_eligible_age = 0.0  # eligible but pushed out of the capped heap
 
         # Snapshot the scratch registry once. ``registry_stale`` is mutated as ids
-        # are seen (whatever remains = ledger-only drift, in ledger but absent in
-        # Zep). ``registry_snapshot`` is kept immutable for the F7 Zep-only check.
+        # are seen (whatever remains = ledger entries absent from the LISTING —
+        # candidate drift, each authoritatively confirmed gone via ``graph.get``
+        # before it is closed, F1). ``registry_snapshot`` is kept immutable for
+        # the F7 Zep-only check.
         conn = get_redis_connection()
         registry_snapshot = _load_registry(conn)
         registry_stale = set(registry_snapshot)
@@ -284,35 +292,23 @@ def sweep_orphan_graphs(
         # F7: dedup matched ids so a paginated repeat cannot push the same graph
         # into the heap twice (wasting a cap slot / deleting it twice) or inflate
         # per-distinct counters. F2: ids observed unknown-age here are the ONLY
-        # force-disposal candidates (§8.5 runbook intent).
+        # force-disposal candidates (§8.5 runbook intent). F6: these two sets are
+        # the ONLY retained id collections and both are scratch-bounded, so scan
+        # memory is O(distinct scratch graphs), never O(all listed ids).
         seen_matched: set[str] = set()
         unknown_age_seen: set[str] = set()
-        # F1: completeness is judged over DISTINCT graph ids (all ids, scratch or
-        # not), never raw scanned rows — a listing that repeats rows across pages
-        # must not falsely satisfy ``total_count`` and authorize destructive
-        # reconciliation of a live graph's ledger.
-        distinct_ids_seen: set[str] = set()
-
-        # F1/F6: scan-completeness signals. A listing that ends before its
-        # DISTINCT ids cover ``total_count``, whose ``total_count`` shifts between
-        # pages, or that never reports ``total_count`` at all is UNCERTAIN —
-        # reconciliation must not treat unseen registry members as stale on
-        # partial data.
-        total_count_seen: Optional[int] = None
-        total_count_stable = True
 
         page = 1
         while True:
             response = client.graph.list_all(page_number=page, page_size=page_size)
 
-            # F1: read total_count on EVERY response — BEFORE the empty-page break
-            # — so an empty first page carrying a nonzero count still marks the
-            # listing incomplete instead of silently wiping the whole registry.
+            # ``total_count`` is a REPORTED metric only (F1): reconciliation no
+            # longer infers "gone" from it (it confirms each stale id via
+            # ``graph.get`` instead), so it is never load-bearing for a
+            # destructive decision. Read it on every response so the summary
+            # reflects Zep's last reported figure.
             total_count = getattr(response, "total_count", None)
             if total_count is not None:
-                if total_count_seen is not None and total_count != total_count_seen:
-                    total_count_stable = False
-                total_count_seen = total_count
                 stats.total_count = total_count
 
             graphs = getattr(response, "graphs", None)
@@ -324,7 +320,6 @@ def sweep_orphan_graphs(
                 graph_id = getattr(graph, "graph_id", None)
                 if not isinstance(graph_id, str):
                     continue
-                distinct_ids_seen.add(graph_id)  # F1: completeness over distinct ids
                 if not SWEEPABLE_RE.fullmatch(graph_id):
                     continue
                 if graph_id in seen_matched:  # F7: count/consider each graph once
@@ -439,30 +434,23 @@ def sweep_orphan_graphs(
             max_non_eligible_age, max_evicted_eligible_age, max_undeleted_eligible_age
         ))
 
-        # F1/F6: only reconcile the registry against a COMPLETE listing — one
-        # whose DISTINCT ids cover a stable ``total_count`` that Zep actually
-        # reported. On a partial/uncertain scan (short/empty page, shifting or
-        # absent total_count), unseen members may be live graphs we simply did
-        # not page to; deleting their ledger records would be data loss. Skip
-        # reconciliation and alert instead. F9: dry-run never reconciles either
-        # (pure inventory, no ledger mutation).
-        listing_complete = (
-            total_count_stable
-            and total_count_seen is not None
-            and len(distinct_ids_seen) >= total_count_seen
-        )
-        if not listing_complete:
-            stats.listing_incomplete = True
-            logger.warning(
-                "zep_sweep: listing incomplete (distinct_seen=%d total_count=%s "
-                "stable=%s); skipping registry reconciliation to avoid deleting "
-                "live entries",
-                len(distinct_ids_seen), total_count_seen, total_count_stable,
+        # F1/F6: reconcile the ledger against the listing WITHOUT inferring
+        # "gone" from listing completeness (an under-reported ``total_count``
+        # could authorize closing a live entry, and tracking all distinct ids
+        # cost O(all listed ids)). Each stale id — in the ledger snapshot but not
+        # seen in the listing — is AUTHORITATIVELY confirmed gone via a per-graph
+        # ``graph.get`` (a 404) before it is closed; one that still exists (a
+        # listing gap) or cannot be confirmed is kept fail-closed and surfaced as
+        # ``reconcile_unconfirmed``. F9: dry-run confirms/mutates nothing (a pure
+        # inventory) — neither ``graph.get`` nor the ledger close runs on a dry
+        # sweep.
+        if not dry_run and registry_stale:
+            confirmed_gone, stats.reconcile_unconfirmed = _confirm_stale_gone(
+                client, registry_stale
             )
-        elif not dry_run:
-            # F9: close each stale entry lifecycle-aware (hash + merchant set),
-            # not a bare ZREM that leaves dangling registries behind.
-            stats.ledger_drift = _reconcile_registry(conn, registry_stale)
+            # F9: close each confirmed-gone entry lifecycle-aware (hash + merchant
+            # set), not a bare ZREM that leaves dangling registries behind.
+            stats.ledger_drift = _reconcile_registry(conn, confirmed_gone)
 
     except Exception:
         logger.exception("zep_sweep: sweep aborted by an exception")
@@ -531,26 +519,82 @@ def _load_registry(conn) -> set:
     return {graph_lifecycle._decode(m) for m in members}
 
 
-def _reconcile_registry(conn, stale: set) -> int:
-    """Close registry entries whose graphs no longer exist in Zep, lifecycle-aware.
+def _confirm_stale_gone(client, stale: set) -> tuple[set, int]:
+    """Authoritatively confirm which stale ledger ids are genuinely gone from Zep.
 
-    F9: each stale id is closed via the ledger's deletion closure
+    F1: reconciliation must not infer "gone" from listing completeness — an
+    under-reported vendor ``total_count`` could otherwise authorize closing a
+    still-live entry. Each id in the ledger snapshot that was NOT seen in the
+    listing is confirmed per-graph via ``client.graph.get``:
+
+    - ``ApiError`` with ``status_code == 404`` — genuinely gone -> confirmed for
+      closure (the caller counts it in ``ledger_drift``).
+    - a returned ``Graph`` (exists) — the listing MISSED it (a gap / dropped
+      page): it is a LIVE entry -> NOT closed, surfaced as ``reconcile_unconfirmed``
+      and logged (a listing anomaly worth a heads-up).
+    - any other exception / non-404 ``ApiError`` — UNCERTAIN -> NOT closed
+      (fail-closed), counted in ``reconcile_unconfirmed``.
+
+    Returns ``(confirmed_gone, unconfirmed_count)``. Runs only on a real (non-dry)
+    sweep; the caller does not invoke it under dry-run (F9)."""
+    confirmed_gone: set = set()
+    unconfirmed = 0
+    for graph_id in stale:
+        try:
+            client.graph.get(graph_id)
+        except ApiError as exc:
+            status = getattr(exc, "status_code", None)
+            if status == 404:
+                confirmed_gone.add(graph_id)  # genuinely gone -> safe to close
+                continue
+            unconfirmed += 1
+            logger.warning(
+                "zep_sweep: could not confirm stale ledger id %s gone "
+                "(graph.get ApiError status=%s); keeping fail-closed",
+                graph_id, status,
+            )
+            continue
+        except Exception:
+            unconfirmed += 1
+            logger.warning(
+                "zep_sweep: could not confirm stale ledger id %s gone "
+                "(graph.get raised); keeping fail-closed", graph_id,
+            )
+            continue
+        # graph.get returned a Graph -> it still EXISTS; the listing missed it.
+        unconfirmed += 1
+        logger.warning(
+            "zep_sweep: ledger id %s absent from the listing but still exists in "
+            "Zep (listing gap / under-count); keeping it (reconcile_unconfirmed)",
+            graph_id,
+        )
+    return confirmed_gone, unconfirmed
+
+
+def _reconcile_registry(conn, confirmed_gone: set) -> int:
+    """Close ledger entries CONFIRMED gone from Zep, lifecycle-aware.
+
+    F1: ``confirmed_gone`` is the set of stale ids each AUTHORITATIVELY confirmed
+    absent by ``_confirm_stale_gone`` via a per-graph ``graph.get`` 404 — never
+    inferred from listing completeness — so no live-but-unlisted graph can be
+    closed here.
+    F9: each id is closed via the ledger's deletion closure
     (``record_deleted(id, source="sweep")`` — stamp ``deleted_at`` + 30-day TTL,
     ZREM from the active zset, SREM from the merchant set) so no dangling
     ``zep:graph:<id>`` hash (which would otherwise linger with no TTL) or
     ``zep:merchant:<m>:graphs`` membership is left behind. The active zset is
     bounded (SCHEMA §4 — dozens in steady state), so a full read + per-id
-    closure is fine; no ZSCAN needed. Gated by the caller on a complete listing
-    (F6). Returns the drift count (ledger entries absent from Zep). Guarded — a
-    Redis outage / bookkeeping error never aborts the sweep."""
-    if conn is None or not stale:
+    closure is fine; no ZSCAN needed. Returns the drift count (confirmed-gone
+    ledger entries). Guarded — a Redis outage / bookkeeping error never aborts
+    the sweep."""
+    if conn is None or not confirmed_gone:
         return 0
-    for graph_id in stale:
+    for graph_id in confirmed_gone:
         try:
             graph_lifecycle.record_deleted(graph_id, source="sweep")
         except Exception:
             logger.warning("zep_sweep: reconciliation close failed for %s", graph_id)
-    return len(stale)
+    return len(confirmed_gone)
 
 
 def _emit_summary(stats: SweepStats) -> None:
@@ -558,12 +602,12 @@ def _emit_summary(stats: SweepStats) -> None:
         "zep_sweep scanned=%d matched=%d eligible_total=%d deleted=%d failed=%d "
         "skipped_dry_run=%d skipped_unknown_age=%d truncated_backlog=%d "
         "oldest_scratch_age_s=%d total_count=%d ledger_drift=%d "
-        "zep_only_unattributed=%d listing_incomplete=%s",
+        "reconcile_unconfirmed=%d zep_only_unattributed=%d",
         stats.scanned, stats.matched, stats.eligible_total, stats.deleted,
         stats.failed, stats.skipped_dry_run, stats.skipped_unknown_age,
         stats.truncated_backlog, stats.oldest_scratch_age_seconds,
-        stats.total_count, stats.ledger_drift, stats.zep_only_unattributed,
-        stats.listing_incomplete,
+        stats.total_count, stats.ledger_drift, stats.reconcile_unconfirmed,
+        stats.zep_only_unattributed,
     )
 
 
@@ -571,8 +615,11 @@ def _maybe_alert(stats: SweepStats, ttl_hours: int) -> None:
     reasons = []
     if stats.failed > 0:
         reasons.append(f"failed={stats.failed}")
-    if stats.listing_incomplete:
-        reasons.append("listing_incomplete (reconciliation skipped)")
+    if stats.reconcile_unconfirmed > 0:
+        reasons.append(
+            f"reconcile_unconfirmed={stats.reconcile_unconfirmed} "
+            "(ledger id absent from listing but not confirmed gone; kept fail-closed)"
+        )
     if stats.skipped_unknown_age > 0:
         reasons.append(f"skipped_unknown_age={stats.skipped_unknown_age}")
     if stats.oldest_scratch_age_seconds > 2 * ttl_hours * _SECONDS_PER_HOUR:
