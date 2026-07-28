@@ -96,7 +96,14 @@ sentinel.
   the ledger deploys; pre-ledger orphans have no merchant attribution
   anywhere and are handled by the global age sweep.
 
-### 2.4 Scheduling keys (revision-2 scheduler, TDD §3.4)
+### 2.4 Scheduling keys (REMOVED in revision 9)
+
+> **These keys are no longer used.** Revision 9 replaced the in-worker
+> self-perpetuating scheduler with a Railway cron one-shot (`sweep.py`, TDD §3.4
+> revision-9 note), which needs no marker or lock — Railway's cron is the
+> scheduler. `zep:sweep:lock` and `zep:sweep:next` are neither written nor read
+> anymore; the table below is retained only as the historical record of the
+> retired scheduler.
 
 | Key | Type | Semantics |
 |---|---|---|

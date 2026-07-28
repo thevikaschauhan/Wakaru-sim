@@ -1,0 +1,42 @@
+# Railway config-as-code for the #72 orphan-graph SWEEP cron service.
+#
+# A SEPARATE Railway service from the web app and the RQ worker, built from the
+# SAME repo and image. Point the sweep service's "Config-as-code file path"
+# (service settings) at /backend/railway.sweep.toml.
+#
+# This replaces the previous self-perpetuating RQ scheduler (which ran inside
+# the worker): Railway's cron IS the scheduler. Each cron fire runs one
+# `python sweep.py`, which performs a single sweep pass and exits. No
+# healthcheck (serves no HTTP). restartPolicyType = "NEVER": a completed cron
+# run must not be restarted — the next run comes from the schedule.
+#
+# The cronSchedule below is the ONLY cadence setting; sweep.py's
+# SWEEP_CRON_SCHEDULE mirrors it so the Sentry Cron Monitor expects the same
+# schedule, and tests/test_sweep.py pins the two together (it also asserts the
+# start command, NEVER restart policy, and the absence of a healthcheck here).
+#
+# Required env, set on THIS service (e.g. as references to the web service):
+#   - the create_app boot gate (Config.validate, issue #6) rejects boot without
+#     SECRET_KEY, LLM_API_KEY, ZEP_API_KEY, WAKARU_API_KEY and
+#     WAKARU_INTERNAL_SECRET. It is entrypoint-agnostic, so all five are needed
+#     even though this service serves no HTTP and calls no LLM — a missing one
+#     fails every cron run before it can even check in to Sentry.
+#   - REDIS_URL for the graph-lifecycle ledger (the sweep degrades to Zep-only
+#     corroboration without it, so a missing value is quiet, not loud).
+#   - SENTRY_DSN, or capture_checkin is a silent no-op and the existing
+#     zep-graph-sweep monitor reports missed runs forever.
+#   - optional ZEP_SWEEP_* config (ZEP_SWEEP_DRY_RUN / _PAGE_SIZE / _MAX_DELETES
+#     / _FORCE_DELETE_IDS, ZEP_GRAPH_TTL_HOURS). Cadence is NOT among them.
+# Ships DRY-RUN until OP1 flips ZEP_SWEEP_DRY_RUN=false ON THIS SERVICE (the
+# worker no longer sweeps, so flipping it there does nothing).
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "backend/Dockerfile"
+
+[deploy]
+# WORKDIR is /app/backend (see backend/Dockerfile); sweep.py lives there.
+# Overrides the Dockerfile's gunicorn CMD. No healthcheckPath — serves no HTTP.
+startCommand = "python sweep.py"
+cronSchedule = "0 * * * *"
+restartPolicyType = "NEVER"

@@ -102,11 +102,6 @@ def sweep_ttl_hours() -> int:
     return _int_env("ZEP_GRAPH_TTL_HOURS", default=24, floor=6)
 
 
-def sweep_interval_minutes() -> int:
-    """Minutes between sweep occurrences (used by the scheduler)."""
-    return _int_env("ZEP_SWEEP_INTERVAL_MINUTES", default=60, floor=5)
-
-
 def sweep_page_size() -> int:
     """``graph.list_all`` page size."""
     return _int_env("ZEP_SWEEP_PAGE_SIZE", default=100, floor=1)
