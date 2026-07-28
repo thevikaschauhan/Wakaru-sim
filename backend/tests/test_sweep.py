@@ -38,7 +38,15 @@ def stub_app(monkeypatch):
     monkeypatch.setattr(sweep, "create_app", lambda: None)
 
 
-def test_one_shot_checkin_in_progress_then_ok_on_success(stub_app, monkeypatch):
+@pytest.fixture
+def flushed(monkeypatch):
+    """Records the timeout of each sentry_sdk.flush() the entrypoint performs."""
+    calls = []
+    monkeypatch.setattr(sweep.sentry_sdk, "flush", lambda timeout=None: calls.append(timeout))
+    return calls
+
+
+def test_one_shot_checkin_in_progress_then_ok_on_success(stub_app, flushed, monkeypatch):
     rec = CheckinRecorder()
     monkeypatch.setattr(sweep, "capture_checkin", rec)
     swept = []
@@ -62,9 +70,11 @@ def test_one_shot_checkin_in_progress_then_ok_on_success(stub_app, monkeypatch):
     # The watchdog is disarmed on the success path: a pending alarm would other-
     # wise fire during interpreter shutdown (e.g. Sentry's atexit flush).
     assert signal.alarm(0) == 0
+    # ...and the check-in is flushed before this short-lived process exits.
+    assert flushed == [sweep.SENTRY_FLUSH_TIMEOUT_SECONDS]
 
 
-def test_one_shot_checkin_error_and_reraise_on_sweep_failure(stub_app, monkeypatch):
+def test_one_shot_checkin_error_and_reraise_on_sweep_failure(stub_app, flushed, monkeypatch):
     rec = CheckinRecorder()
     monkeypatch.setattr(sweep, "capture_checkin", rec)
 
@@ -83,6 +93,8 @@ def test_one_shot_checkin_error_and_reraise_on_sweep_failure(stub_app, monkeypat
     ]
     assert rec.calls[1][1] == "test-check-in-id"
     assert signal.alarm(0) == 0            # watchdog disarmed on the error path too
+    # The ERROR check-in is flushed too — the process is about to die on the raise.
+    assert flushed == [sweep.SENTRY_FLUSH_TIMEOUT_SECONDS]
 
 
 def test_monitor_config_mirrors_the_cron_schedule():

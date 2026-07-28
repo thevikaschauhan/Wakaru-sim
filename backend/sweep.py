@@ -30,6 +30,7 @@ for _p in (_BACKEND_DIR, _REPO_ROOT):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
+import sentry_sdk  # noqa: E402
 from sentry_sdk.crons import MonitorStatus, capture_checkin  # noqa: E402
 
 from app import create_app  # noqa: E402
@@ -58,6 +59,10 @@ SWEEP_CHECKIN_MARGIN_MINUTES = 60
 # Railway SKIPS a scheduled run while the previous one is still running — i.e.
 # one hang would silently end all future sweeps.
 SWEEP_MAX_RUNTIME_SECONDS = 300
+# This process exits seconds after its check-in, so the envelope has to be pushed
+# out explicitly: Sentry's atexit flush allows only shutdown_timeout (2s), and a
+# check-in dropped on the way out reads as a MISSED run even though the sweep ran.
+SENTRY_FLUSH_TIMEOUT_SECONDS = 10
 
 
 class SweepTimeout(Exception):
@@ -131,6 +136,7 @@ def main() -> int:
             duration=time.monotonic() - started,
             monitor_config=monitor_config,
         )
+        sentry_sdk.flush(timeout=SENTRY_FLUSH_TIMEOUT_SECONDS)
         # Re-raise so the process exits non-zero and Railway marks the cron run
         # failed (per-graph delete failures are counted inside the sweep and do
         # NOT raise; only a sweep-level failure, e.g. the listing itself, does).
@@ -143,6 +149,7 @@ def main() -> int:
         duration=time.monotonic() - started,
         monitor_config=monitor_config,
     )
+    sentry_sdk.flush(timeout=SENTRY_FLUSH_TIMEOUT_SECONDS)
     return 0
 
 
