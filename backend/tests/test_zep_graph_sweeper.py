@@ -2,9 +2,10 @@
 
 Fake Zep client injected through ``zep_graph_sweeper._zep_client``; the Redis
 ledger is fakeredis (the suite convention, see test_graph_lifecycle.py). These
-cover the sweep algorithm in isolation - the lock/scheduler mechanics that need
-a real RQ Worker + real Redis live in test_sweep_scheduling.py (fakeredis cannot
-run a Worker and lacks Lua ``eval``, so they cannot be faked here).
+cover the sweep algorithm in isolation - there is no longer any lock/scheduler
+mechanic to cover alongside it (the self-perpetuating RQ scheduler, and the
+real-Redis suite that pinned it, were deleted when the sweep moved to a Railway
+cron one-shot; see test_sweep.py for the entrypoint).
 
 Each test asserts the PROPERTY (which graphs were deleted, the memory bound, the
 metric source), not merely that a method was called.

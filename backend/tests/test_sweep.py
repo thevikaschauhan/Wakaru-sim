@@ -3,10 +3,18 @@
 sweep.py replaces the deleted self-perpetuating RQ scheduler: a dedicated Railway
 cron runs one sweep per fire, wrapped in a Sentry Cron Monitor check-in. These
 tests pin the check-in behavior (in_progress -> ok on success, error + re-raise
-on failure) and that it runs exactly one sweep with the live ZEP_SWEEP_* config.
-``create_app`` is stubbed so the test exercises only the entrypoint's wrapper,
-not the Flask boot.
+on failure), that it runs exactly one sweep with the live ZEP_SWEEP_* config,
+that the monitor's declared schedule matches the Railway cron VERBATIM (a
+mismatch would alert on every healthy run), and that the runtime bound is really
+enforced (a hang must not leave the process Active, or Railway skips every later
+run). ``create_app`` is stubbed so the tests exercise only the entrypoint's
+wrapper, not the Flask boot.
 """
+import pathlib
+import signal
+import time
+import tomllib
+
 import pytest
 
 import sweep
@@ -49,8 +57,11 @@ def test_one_shot_checkin_in_progress_then_ok_on_success(stub_app, monkeypatch):
     # OK check-in reuses the id returned by the IN_PROGRESS check-in.
     assert rec.calls[1][1] == "test-check-in-id"
     # Each check-in carries a monitor_config so Sentry can detect a missed run.
-    assert rec.calls[0][2]["schedule"]["type"] == "interval"
+    assert rec.calls[0][2]["schedule"]["type"] == "crontab"
     assert rec.calls[0][2]["checkin_margin"] >= 1
+    # The watchdog is disarmed on the success path: a pending alarm would other-
+    # wise fire during interpreter shutdown (e.g. Sentry's atexit flush).
+    assert signal.alarm(0) == 0
 
 
 def test_one_shot_checkin_error_and_reraise_on_sweep_failure(stub_app, monkeypatch):
@@ -71,12 +82,53 @@ def test_one_shot_checkin_error_and_reraise_on_sweep_failure(stub_app, monkeypat
         sweep.MonitorStatus.IN_PROGRESS, sweep.MonitorStatus.ERROR,
     ]
     assert rec.calls[1][1] == "test-check-in-id"
+    assert signal.alarm(0) == 0            # watchdog disarmed on the error path too
 
 
-def test_monitor_config_uses_slug_and_interval(monkeypatch):
-    monkeypatch.setenv("ZEP_SWEEP_INTERVAL_MINUTES", "60")
+def test_monitor_config_mirrors_the_cron_schedule():
     cfg = sweep._monitor_config()
-    assert cfg["schedule"] == {"type": "interval", "value": 60, "unit": "minute"}
-    assert cfg["checkin_margin"] == 60
-    assert cfg["max_runtime"] == sweep.SWEEP_MAX_RUNTIME_MINUTES
+    assert cfg["schedule"] == {"type": "crontab", "value": sweep.SWEEP_CRON_SCHEDULE}
+    assert cfg["checkin_margin"] == sweep.SWEEP_CHECKIN_MARGIN_MINUTES
+    # Sentry takes max_runtime in whole minutes; the enforced bound is in seconds.
+    assert cfg["max_runtime"] == 5 and sweep.SWEEP_MAX_RUNTIME_SECONDS == 300
+    assert cfg["timezone"] == "UTC"                        # Railway crons are UTC
     assert sweep.SWEEP_MONITOR_SLUG == "zep-graph-sweep"   # existing monitor carries over
+
+
+def test_cron_schedule_matches_railway_service_config():
+    """The Sentry monitor's expected schedule and the Railway cron that actually
+    fires must be the SAME string. If they drift, Sentry alerts on every healthy
+    run (or stays silent through a dead one), so pin them against each other."""
+    toml_path = pathlib.Path(__file__).resolve().parents[1] / "railway.sweep.toml"
+    deploy = tomllib.loads(toml_path.read_text())["deploy"]
+
+    assert deploy["cronSchedule"] == sweep.SWEEP_CRON_SCHEDULE
+    assert deploy["startCommand"] == "python sweep.py"
+    # A completed cron run must not be restarted, and a healthcheck on a service
+    # that serves no HTTP would restart-loop it (see railway.worker.toml).
+    assert deploy["restartPolicyType"] == "NEVER"
+    assert "healthcheckPath" not in deploy
+
+
+def test_runtime_bound_is_enforced_not_just_advertised(stub_app, monkeypatch):
+    """A hung sweep must be cut short: Railway does not terminate deployments and
+    SKIPS a scheduled run while the previous one is still Active, so an unbounded
+    hang would silently end every later sweep."""
+    rec = CheckinRecorder()
+    monkeypatch.setattr(sweep, "capture_checkin", rec)
+    monkeypatch.setattr(sweep, "SWEEP_MAX_RUNTIME_SECONDS", 1)
+
+    def hang(**kw):
+        time.sleep(30)
+
+    monkeypatch.setattr(sweep, "sweep_orphan_graphs", hang)
+
+    started = time.monotonic()
+    with pytest.raises(sweep.SweepTimeout):
+        sweep.main()
+
+    assert time.monotonic() - started < 10          # cut short, not run to completion
+    assert [s for s, _, _ in rec.calls] == [
+        sweep.MonitorStatus.IN_PROGRESS, sweep.MonitorStatus.ERROR,
+    ]
+    assert signal.alarm(0) == 0

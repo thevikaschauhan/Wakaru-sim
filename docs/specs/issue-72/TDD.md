@@ -359,7 +359,11 @@ convention):
 - `ZEP_GRAPH_TTL_HOURS` — default 24, **floor 6** (below-floor values fall
   back to default with a warning, mirroring `job_queue.analyze_job_timeout`'s
   footgun guard).
-- `ZEP_SWEEP_INTERVAL_MINUTES` — default 60, floor 5.
+- ~~`ZEP_SWEEP_INTERVAL_MINUTES`~~ — **removed in revision 9.** The cadence is
+  Railway's `cronSchedule` (`backend/railway.sweep.toml`), mirrored in code by
+  `sweep.SWEEP_CRON_SCHEDULE` for the Sentry monitor and pinned to the toml by
+  `tests/test_sweep.py`. An env knob that only *described* the cadence could
+  silently disagree with it and make the monitor alert on healthy runs.
 - `ZEP_SWEEP_DRY_RUN` — **one parser rule (revision 2): deletion is enabled
   only when the value, after `.strip().lower()`, equals `"false"`. Absent,
   empty, or anything else ⇒ dry run.** (The rollout in §8 relies on
@@ -388,8 +392,14 @@ correctness (PRD FR-4).
 > `sweep_orphan_graphs(...)`, wrapped in the Sentry Cron Monitor check-in
 > (`monitor_slug="zep-graph-sweep"`, kept so the existing monitor carries over;
 > in_progress → ok/error, and a missed cron run raises a missed check-in). The
-> Railway cron cadence must equal `ZEP_SWEEP_INTERVAL_MINUTES` (default 60) so
-> the monitor's expected schedule matches. `worker.py` drains only `analyze`
+> monitor declares the SAME crontab string as the Railway cron
+> (`sweep.SWEEP_CRON_SCHEDULE`, pinned to the toml by `tests/test_sweep.py`);
+> `ZEP_SWEEP_INTERVAL_MINUTES` is removed, since a cadence env knob that only
+> described the cron could silently disagree with it. A SIGALRM watchdog bounds a
+> run to `SWEEP_MAX_RUNTIME_SECONDS` (300, the deleted RQ occurrence's
+> `job_timeout`) because Railway never terminates a deployment and SKIPS a
+> scheduled run while the previous one is still Active — one hang would otherwise
+> silently end every later sweep. `worker.py` drains only `analyze`
 > again; `maintenance_queue.py` and `tests/test_sweep_scheduling.py` are deleted.
 > No `zep:sweep:*` keys, no marker/lock/generation/killed-horse/reconciler — a
 > cron either fires or it does not, so there is no in-worker chain to die.
@@ -662,14 +672,28 @@ Regression: existing `test_cart_recovery_cleanup.py` suite stays green
 
 ## 8. Rollout + historical-orphan runbook (maps to #72 AC-3)
 
-1. Merge + deploy web and worker (same image). Sweeper ships with
-   `ZEP_SWEEP_DRY_RUN` unset ⇒ **dry** (single parser rule, §3.2).
+> **Revision 9 rewrote steps 1/2/3/6 for the cron service.** The sweep no longer
+> runs in the worker, so the service the operator touches changed. Everything
+> else in this runbook is unchanged.
+
+1. Merge + deploy web and worker (same image), then **create the dedicated
+   Railway cron service** in `mirofish` from the same repo/image with
+   "Config-as-code file path" = `/backend/railway.sweep.toml`, and set the env
+   that file lists (all five `Config.validate` vars — `SECRET_KEY`,
+   `LLM_API_KEY`, `ZEP_API_KEY`, `WAKARU_API_KEY`, `WAKARU_INTERNAL_SECRET` —
+   plus `REDIS_URL` and `SENTRY_DSN`; a missing one fails every run before it can
+   check in). Sweeper ships with `ZEP_SWEEP_DRY_RUN` unset ⇒ **dry** (single
+   parser rule, §3.2).
 2. First dry sweep logs the full inventory: `total_count`, matched count,
    oldest age, and the **unknown-age list** (expected: pre-ledger orphans
    whose vendor timestamps parse fine will show proven ages; the unknown-age
    list should be empty or tiny). Operator reviews the summary (this is the
-   "inventory" artifact; paste it into #72).
-3. Operator sets `ZEP_SWEEP_DRY_RUN=false` on the **worker** service, restarts.
+   "inventory" artifact; paste it into #72) from the cron service's run history,
+   and confirms the `zep-graph-sweep` check-in landed in Sentry.
+3. Operator sets `ZEP_SWEEP_DRY_RUN=false` on the **sweep cron** service (NOT the
+   worker — it no longer sweeps, so setting it there changes nothing), then waits
+   for the next cron fire. Also unset the retired `ZEP_SWEEP_INTERVAL_MINUTES`
+   wherever it is still set (it is inert as of revision 9).
 4. Next sweeps drain the backlog (≤ `ZEP_SWEEP_MAX_DELETES` per cycle);
    #72 AC-3 closes with the before/after `total_count` pasted into the issue.
 5. **Unknown-age disposal (operator-approved path):** if any unknown-age
@@ -678,6 +702,8 @@ Regression: existing `test_cart_recovery_cleanup.py` suite stays green
    consumed by the next sweep, logged loudly, then unset). Automatic deletion
    of unknown-age graphs is never enabled.
 6. Confirm steady state over 48 h: `oldest_scratch_age_s < TTL`,
-   `skipped_unknown_age = 0`, no Sentry sweep alerts.
+   `skipped_unknown_age = 0`, no Sentry sweep alerts, and — revision 9 — the cron
+   run history shows ~one run per hour with none skipped (a skipped run means a
+   previous one was still Active; the SIGALRM bound should make that impossible).
 7. Operator documentation task: record Zep DPA / deletion-SLA reference in the
    repo's `docs/integration.md` (PRD §5).
