@@ -147,6 +147,31 @@
 > §2.2/§3 write-path corrected to the current (in-band killed-horse heal;
 > per-graph-confirm + generation-bound reconciliation) behavior. Deployable
 > invariant unchanged.
+>
+> **Revision 9 (2026-07-28), architecture change — the self-perpetuating
+> scheduler is REPLACED by a dedicated Railway cron one-shot.** Revisions 2-8
+> built (and repeatedly hardened, over four review rounds) an in-worker
+> self-perpetuating RQ scheduler — unique-id occurrences, a `zep:sweep:next`
+> generation marker, a `zep:sweep:lock` singleton lock, generation-ownership
+> collapse, a killed-horse handler, a boot reconciler, enqueue-first CAS. That
+> entire subsystem existed for ONE reason: PRD §3 accepted the complexity to
+> AVOID making the operator provision a new Railway service. The operator has
+> since opted to run a dedicated service, which removes that constraint — so the
+> whole subsystem is deleted and the sweep now runs as a one-shot
+> (`backend/sweep.py`) on a dedicated **Railway cron** service
+> (`backend/railway.sweep.toml`, hourly). Railway's cron IS the scheduler; a
+> missed run is visible in Railway's run history and alerts via the same Sentry
+> Cron Monitor check-in (now wrapping a dead-simple one-shot, not a fragile
+> chain). **Deleted:** `maintenance_queue.py` and `tests/test_sweep_scheduling.py`
+> in full; the maintenance queue / `with_scheduler` / killed-horse wiring in
+> `worker.py` (it drains only `analyze` again); the CI `redis:7` service (no
+> real-Redis test remains). **Unchanged:** the sweeper core
+> (`zep_graph_sweeper.py`) and the ledger (`graph_lifecycle.py`) — every
+> revision 2-8 sweeper/ledger fix (fail-closed age, per-graph-confirm +
+> generation-bound reconciliation, bounded memory, dry-run purity, tombstone,
+> 404) stands. **§3.4 below is SUPERSEDED** (kept only as the historical record
+> of the in-worker scheduler and why it was hard); SCHEMA §2.4's scheduling keys
+> are removed. Still ships DRY-RUN; #72 still closes at OP1.
 
 ## 1. Verified API surface this design depends on
 
@@ -354,7 +379,24 @@ rejected, revision 2), `record_deleted(graph_id, source)`,
 unavailable** — the ledger corroborates and enumerates; it never gates
 correctness (PRD FR-4).
 
-### 3.4 Scheduling: `backend/app/services/maintenance_queue.py` (new) + `backend/worker.py`
+### 3.4 Scheduling
+
+> **SUPERSEDED by revision 9.** The current design runs the sweep as a one-shot
+> `backend/sweep.py` on a dedicated **Railway cron** service
+> (`backend/railway.sweep.toml`, hourly `cronSchedule`, `restartPolicyType =
+> "NEVER"`). Each cron fire calls `create_app()` then one
+> `sweep_orphan_graphs(...)`, wrapped in the Sentry Cron Monitor check-in
+> (`monitor_slug="zep-graph-sweep"`, kept so the existing monitor carries over;
+> in_progress → ok/error, and a missed cron run raises a missed check-in). The
+> Railway cron cadence must equal `ZEP_SWEEP_INTERVAL_MINUTES` (default 60) so
+> the monitor's expected schedule matches. `worker.py` drains only `analyze`
+> again; `maintenance_queue.py` and `tests/test_sweep_scheduling.py` are deleted.
+> No `zep:sweep:*` keys, no marker/lock/generation/killed-horse/reconciler — a
+> cron either fires or it does not, so there is no in-worker chain to die.
+>
+> The rest of §3.4 below is the RETIRED in-worker scheduler design, kept as the
+> historical record of what it was and why (across revisions 2-8) it was hard —
+> which is the motivation for the revision-9 move to a cron.
 
 **Queue.** New queue name `maintenance`, drained by the existing worker:
 `Worker([ANALYZE_QUEUE_NAME, MAINTENANCE_QUEUE_NAME], ...)` with

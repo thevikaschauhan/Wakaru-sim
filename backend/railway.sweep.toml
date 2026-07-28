@@ -1,0 +1,29 @@
+# Railway config-as-code for the #72 orphan-graph SWEEP cron service.
+#
+# A SEPARATE Railway service from the web app and the RQ worker, built from the
+# SAME repo and image. Point the sweep service's "Config-as-code file path"
+# (service settings) at /backend/railway.sweep.toml.
+#
+# This replaces the previous self-perpetuating RQ scheduler (which ran inside
+# the worker): Railway's cron IS the scheduler. Each cron fire runs one
+# `python sweep.py`, which performs a single sweep pass and exits. No
+# healthcheck (serves no HTTP). restartPolicyType = "NEVER": a completed cron
+# run must not be restarted — the next run comes from the schedule.
+#
+# The cron cadence MUST match ZEP_SWEEP_INTERVAL_MINUTES (default 60) so the
+# Sentry Cron Monitor's expected schedule lines up. Required env (set on this
+# service, e.g. as references to the web service): ZEP_API_KEY, REDIS_URL,
+# SENTRY_DSN, SECRET_KEY, LLM_API_KEY (the create_app boot gate validates
+# these), plus the optional ZEP_SWEEP_* config. Ships DRY-RUN until OP1 flips
+# ZEP_SWEEP_DRY_RUN=false.
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "backend/Dockerfile"
+
+[deploy]
+# WORKDIR is /app/backend (see backend/Dockerfile); sweep.py lives there.
+# Overrides the Dockerfile's gunicorn CMD. No healthcheckPath — serves no HTTP.
+startCommand = "python sweep.py"
+cronSchedule = "0 * * * *"
+restartPolicyType = "NEVER"

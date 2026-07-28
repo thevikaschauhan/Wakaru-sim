@@ -17,7 +17,6 @@ import pytest
 from zep_cloud.core.api_error import ApiError
 
 import app.services.graph_lifecycle as gl
-import app.services.maintenance_queue as mq
 import app.services.zep_graph_sweeper as sweeper
 
 
@@ -415,46 +414,10 @@ def test_ttl_floor(monkeypatch):
     assert sweeper.sweep_ttl_hours() == 24            # non-integer -> default
 
 
-# --------------------------------------------------------------------------
-# 11 - cron check-in emitted (the occurrence body wraps the sweep)
-# --------------------------------------------------------------------------
-
-class CheckinRecorder:
-    def __init__(self):
-        self.calls = []   # (status, check_in_id)
-
-    def __call__(self, *, monitor_slug, check_in_id=None, status=None,
-                 duration=None, monitor_config=None):
-        self.calls.append((status, check_in_id))
-        return check_in_id or "test-check-in-id"
-
-
-def test_cron_checkin_in_progress_then_ok_on_success(monkeypatch):
-    rec = CheckinRecorder()
-    monkeypatch.setattr(mq, "capture_checkin", rec)
-    monkeypatch.setattr(mq, "sweep_orphan_graphs", lambda **kw: sweeper.SweepStats())
-
-    mq._run_sweep_with_checkin()
-
-    assert [s for s, _ in rec.calls] == [mq.MonitorStatus.IN_PROGRESS, mq.MonitorStatus.OK]
-    # The OK check-in reuses the id returned by the IN_PROGRESS check-in.
-    assert rec.calls[1][1] == "test-check-in-id"
-
-
-def test_cron_checkin_in_progress_then_error_on_raise(monkeypatch):
-    rec = CheckinRecorder()
-    monkeypatch.setattr(mq, "capture_checkin", rec)
-
-    def boom(**kw):
-        raise RuntimeError("sweep boom")
-
-    monkeypatch.setattr(mq, "sweep_orphan_graphs", boom)
-
-    with pytest.raises(RuntimeError):
-        mq._run_sweep_with_checkin()
-
-    assert [s for s, _ in rec.calls] == [mq.MonitorStatus.IN_PROGRESS, mq.MonitorStatus.ERROR]
-    assert rec.calls[1][1] == "test-check-in-id"
+# The Sentry cron check-in tests (in_progress -> ok/error) moved to test_sweep.py
+# with the check-in wrapper itself, which now lives in the one-shot sweep.py
+# entrypoint (issue #72: the self-perpetuating scheduler was replaced by a
+# Railway cron running sweep.py).
 
 
 # ==========================================================================

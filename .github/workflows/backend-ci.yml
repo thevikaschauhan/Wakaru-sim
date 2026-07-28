@@ -23,21 +23,9 @@ jobs:
     defaults:
       run:
         working-directory: backend
-    # Real Redis so the gated scheduler suite (tests/test_sweep_scheduling.py,
-    # incl. the serialized-duplicate / enqueue-fault tests) actually RUNS in CI
-    # instead of skipping — a green run must exercise the sweep chain against a
-    # live Redis, not fakeredis. Mapped to localhost:6379 (loopback, so the F10
-    # flush guard permits its throwaway cleanup).
-    services:
-      redis:
-        image: redis:7
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+    # No Redis service needed: the #72 sweep moved to a one-shot Railway cron
+    # (sweep.py) and the real-Redis scheduler suite was deleted with the
+    # self-perpetuating scheduler. The remaining tests use fakeredis.
     steps:
       - uses: actions/checkout@v4
 
@@ -63,8 +51,4 @@ jobs:
           uv pip install pytest pytest-asyncio fakeredis
 
       - name: Run tests
-        env:
-          # Un-skips tests/test_sweep_scheduling.py so the real-Redis scheduler
-          # proof runs against the redis:7 service above.
-          WAKARU_TEST_REDIS_URL: redis://localhost:6379/0
         run: .venv/bin/pytest -q
