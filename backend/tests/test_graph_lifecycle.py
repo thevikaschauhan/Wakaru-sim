@@ -152,7 +152,9 @@ def test_all_functions_noop_when_redis_unconfigured(monkeypatch, caplog):
         assert gl.created_at_for(GRAPH_A) is None
         assert gl.graphs_for_merchant(MERCHANT) == []
 
-    warnings = [r for r in caplog.records if "Redis unavailable" in r.getMessage()]
+    # Count emitted records, not repeated observations of the same record when
+    # test-only propagation attaches capture handlers at multiple logger levels.
+    warnings = {id(r): r for r in caplog.records if "Redis unavailable" in r.getMessage()}
     assert len(warnings) == 4
 
 

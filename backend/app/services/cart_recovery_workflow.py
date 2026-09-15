@@ -83,6 +83,14 @@ def run_cart_recovery(
     ``g.merchant_id``, the RQ job from ``job.meta``); the sentinel default
     keeps the signature backward-compatible.
     """
+    if cart.analysis_mode == "direct_v1":
+        from cart_recovery.buyer_state import direct_insight
+        insight = direct_insight(cart)
+        if on_progress:
+            on_progress("buyer_state_completed", {"analysis_mode": "direct_v1", "reason_observed": False})
+        return insight
+    if cart.analysis_mode != "legacy_simulation":
+        raise ValueError("unsupported analysis mode")
     if (cart.ontology_hint or {}).get("code") == "UNKNOWN_ABANDONMENT":
         insight = observation_only_insight(cart)
         if on_progress:

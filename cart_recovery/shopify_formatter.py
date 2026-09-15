@@ -15,6 +15,11 @@ class ShopifyCartData:
     cart_items: list[dict]          # [{product, variant, price, quantity, category}]
     cart_total: float
 
+    # Pinned at intake so queued jobs retain their selected implementation.
+    analysis_mode: str = "legacy_simulation"
+    episode_id: str = ""
+    evidence_events: list[dict] = field(default_factory=list)
+
     # --- Cart / checkout details ---
     checkout_token: str | None = None
     currency: str = "USD"

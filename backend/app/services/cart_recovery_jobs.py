@@ -52,7 +52,8 @@ def run_analysis_job(cart_dict: dict) -> dict:
     # the run's Zep graph is attributed in the lifecycle ledger (#72).
     merchant_id = (job.meta or {}).get("merchant_id", SENTINEL_MERCHANT_ID) if job is not None else SENTINEL_MERCHANT_ID
 
-    cart = ShopifyCartData(**cart_dict)
+    # Jobs created before the mode was persisted keep their old implementation.
+    cart = ShopifyCartData(**{ "analysis_mode": "legacy_simulation", **cart_dict })
 
     def on_progress(stage: str, state: object) -> None:
         # state dicts are PII-free by design (cart_recovery_workflow keeps
@@ -94,4 +95,5 @@ def run_analysis_job(cart_dict: dict) -> dict:
         "email_prompt_context": insight.email_prompt_context,
         "confidence": insight.confidence,
         "confidence_reasoning": insight.confidence_reasoning,
+        **({"buyer_state": insight.buyer_state} if getattr(insight, "buyer_state", None) is not None else {}),
     }
