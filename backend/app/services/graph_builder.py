@@ -281,56 +281,44 @@ class GraphBuilderService:
         progress_callback: Optional[Callable] = None,
         timeout: int = 600
     ):
-        """等待所有 episode 处理完成（通过查询每个 episode 的 processed 状态）"""
-        if not episode_uuids:
+        """Require every submitted episode to finish, or fail explicitly.
+
+        Status errors are retried three times per episode. The total wait and
+        each HTTP call are bounded. No source exception text is persisted.
+        """
+        pending = set(episode_uuids)
+        total = len(pending)
+        if not pending:
             if progress_callback:
-                progress_callback("无需等待（没有 episode）", 1.0)
+                progress_callback("No episodes to process", 1.0)
             return
-        
-        start_time = time.time()
-        pending_episodes = set(episode_uuids)
-        completed_count = 0
-        total_episodes = len(episode_uuids)
-        
-        if progress_callback:
-            progress_callback(f"开始等待 {total_episodes} 个文本块处理...", 0)
-        
-        while pending_episodes:
-            if time.time() - start_time > timeout:
-                if progress_callback:
-                    progress_callback(
-                        f"部分文本块超时，已完成 {completed_count}/{total_episodes}",
-                        completed_count / total_episodes
-                    )
-                break
-            
-            # 检查每个 episode 的处理状态
-            for ep_uuid in list(pending_episodes):
+        deadline = time.monotonic() + timeout
+        failures = {}
+        while pending:
+            if time.monotonic() >= deadline:
+                raise TimeoutError(f"graph ingestion incomplete: {total - len(pending)}/{total}")
+            for episode_id in list(pending):
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise TimeoutError(f"graph ingestion incomplete: {total - len(pending)}/{total}")
                 try:
-                    episode = self.client.graph.episode.get(uuid_=ep_uuid)
-                    is_processed = getattr(episode, 'processed', False)
-                    
-                    if is_processed:
-                        pending_episodes.remove(ep_uuid)
-                        completed_count += 1
-                        
-                except Exception as e:
-                    # 忽略单个查询错误，继续
-                    pass
-            
-            elapsed = int(time.time() - start_time)
+                    episode = self.client.graph.episode.get(
+                        uuid_=episode_id,
+                        request_options={"timeout_in_seconds": min(10, remaining), "max_retries": 0},
+                    )
+                except Exception:
+                    failures[episode_id] = failures.get(episode_id, 0) + 1
+                    if failures[episode_id] >= 3:
+                        raise RuntimeError("graph episode status unavailable after 3 attempts") from None
+                    continue
+                failures[episode_id] = 0
+                if getattr(episode, "processed", None) is True:
+                    pending.remove(episode_id)
             if progress_callback:
-                progress_callback(
-                    f"Zep处理中... {completed_count}/{total_episodes} 完成, {len(pending_episodes)} 待处理 ({elapsed}秒)",
-                    completed_count / total_episodes if total_episodes > 0 else 0
-                )
-            
-            if pending_episodes:
-                time.sleep(3)  # 每3秒检查一次
-        
-        if progress_callback:
-            progress_callback(f"处理完成: {completed_count}/{total_episodes}", 1.0)
-    
+                progress_callback(f"Episodes processed: {total - len(pending)}/{total}", (total - len(pending)) / total)
+            if pending:
+                time.sleep(min(3, max(0, deadline - time.monotonic())))
+
     def _get_graph_info(self, graph_id: str) -> GraphInfo:
         """获取图谱信息"""
         # 获取节点（分页）

@@ -39,7 +39,9 @@ gunicorn>=22.0,<23
 # Redis + RQ move /api/cart-recovery/jobs off the synchronous request path.
 # Installed in the deployed image (this is the prod install path; see Dockerfile);
 # the worker runs as a SEPARATE Railway service off the same image.
-redis>=5.0,<6
+# 5.3.x deadlocks when PubSub reconnects while holding its command lock.
+# 6.4.0 uses RLock; pinned and exercised against a real Redis disconnect.
+redis==6.4.0
 rq>=1.16,<2
 
 # ============= Rate limiting (issue #12) =============

@@ -444,3 +444,20 @@ def job_status(job_id):
         payload["error"] = (job.meta or {}).get("error", "Analysis failed")
 
     return jsonify(payload), 200
+
+
+@cart_recovery_bp.route('/queue-health', methods=['GET'])
+def analysis_queue_health():
+    """Authenticated operational readiness; never expose cart/job payloads."""
+    import redis
+    from ..services.queue_health import queue_health
+
+    url = os.environ.get("REDIS_URL")
+    if not url:
+        return jsonify({"healthy": False, "error": "queue_unconfigured"}), 503
+    try:
+        with redis.Redis.from_url(url, socket_connect_timeout=3, socket_timeout=3) as connection:
+            health = queue_health(connection)
+    except (RedisError, ValueError):
+        return jsonify({"healthy": False, "error": "queue_unavailable"}), 503
+    return jsonify(health), 200 if health["healthy"] else 503
