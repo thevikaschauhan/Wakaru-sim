@@ -21,8 +21,8 @@
 #     WAKARU_INTERNAL_SECRET. It is entrypoint-agnostic, so all five are needed
 #     even though this service serves no HTTP and calls no LLM — a missing one
 #     fails every cron run before it can even check in to Sentry.
-#   - REDIS_URL for the graph-lifecycle ledger (the sweep degrades to Zep-only
-#     corroboration without it, so a missing value is quiet, not loud).
+#   - REDIS_URL for the graph-lifecycle ledger and the independent worker-health
+#     check. Missing Redis or a stale worker makes the cron check-in fail.
 #   - SENTRY_DSN, or capture_checkin is a silent no-op and the existing
 #     zep-graph-sweep monitor reports missed runs forever.
 #   - optional ZEP_SWEEP_* config (ZEP_SWEEP_DRY_RUN / _PAGE_SIZE / _MAX_DELETES

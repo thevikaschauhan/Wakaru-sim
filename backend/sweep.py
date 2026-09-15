@@ -30,7 +30,9 @@ for _p in (_BACKEND_DIR, _REPO_ROOT):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
+import redis  # noqa: E402
 import sentry_sdk  # noqa: E402
+from app.services.queue_health import queue_health  # noqa: E402
 from sentry_sdk.crons import MonitorStatus, capture_checkin  # noqa: E402
 
 from app import create_app  # noqa: E402
@@ -97,6 +99,20 @@ def _arm_runtime_bound() -> None:
     signal.alarm(SWEEP_MAX_RUNTIME_SECONDS)
 
 
+def check_analysis_queue() -> None:
+    """Independent of the worker: a dead worker cannot report its own death."""
+    url = os.environ.get("REDIS_URL")
+    if not url:
+        raise RuntimeError("analysis queue is unconfigured")
+    try:
+        with redis.Redis.from_url(url, socket_connect_timeout=3, socket_timeout=3) as connection:
+            health = queue_health(connection)
+    except (redis.RedisError, ValueError):
+        raise RuntimeError("analysis queue health unavailable") from None
+    if not health["healthy"]:
+        raise RuntimeError("analysis queue has no live worker or an overdue job")
+
+
 def main() -> int:
     # create_app() runs the issue-#6 boot gate — fail-fast on missing SECRET_KEY,
     # LLM_API_KEY, ZEP_API_KEY, WAKARU_API_KEY and WAKARU_INTERNAL_SECRET (all
@@ -126,6 +142,7 @@ def main() -> int:
             page_size=sweep_page_size(),
             max_deletes=sweep_max_deletes(),
         )
+        check_analysis_queue()
     except Exception:
         # Disarm FIRST so a firing alarm cannot interrupt the ERROR check-in.
         signal.alarm(0)
