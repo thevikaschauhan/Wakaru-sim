@@ -32,6 +32,7 @@ def test_create_app_raises_when_secret_key_is_padded_literal(monkeypatch):
 
 
 def test_create_app_raises_with_all_three_errors_joined(monkeypatch):
+    monkeypatch.setenv("RECOVERY_ANALYSIS_MODE", "legacy_simulation")
     # Exercises the collect-and-join path: all three required vars missing
     # must produce a single RuntimeError naming all three (review round 1).
     monkeypatch.delenv("SECRET_KEY", raising=False)

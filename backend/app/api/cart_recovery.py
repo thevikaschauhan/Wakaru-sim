@@ -158,7 +158,20 @@ def _build_cart_from_body(request_id, merchant_id):
 
     # Build ShopifyCartData from request body
     try:
+        from cart_recovery.buyer_state import validate_evidence
+        analysis_mode = os.getenv("RECOVERY_ANALYSIS_MODE", "legacy_simulation")
+        if analysis_mode not in {"direct_v1", "legacy_simulation"}:
+            return None, (jsonify({"success": False, "error": "Analysis mode unavailable"}), 503)
+        pilot_merchants = {value.strip() for value in os.getenv("RECOVERY_DIRECT_MERCHANT_IDS", "").split(",") if value.strip()}
+        if merchant_id in pilot_merchants:
+            analysis_mode = "direct_v1"
+        episode_id = body.get("event_id", "")
+        if not isinstance(episode_id, str) or len(episode_id) > 128:
+            raise ValueError("invalid event_id")
         cart = ShopifyCartData(
+            analysis_mode=analysis_mode,
+            episode_id=episode_id,
+            evidence_events=validate_evidence(body.get("evidence_events", [])),
             customer_id=body.get("customer_id", "unknown"),
             customer_name=body.get("customer_name", "Shopper"),
             email=body.get("email", ""),
@@ -294,6 +307,7 @@ def analyze():
         "email_prompt_context": insight.email_prompt_context,
         "confidence": insight.confidence,
         "confidence_reasoning": insight.confidence_reasoning,
+        **({"buyer_state": insight.buyer_state} if getattr(insight, "buyer_state", None) is not None else {}),
     }
     if idem_conn is not None:
         _record_idempotency_best_effort(idem_conn, idem_scope, idem_key, json.dumps(data), request_id, g.merchant_id)
