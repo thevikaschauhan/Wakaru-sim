@@ -23,9 +23,16 @@ jobs:
     defaults:
       run:
         working-directory: backend
-    # No Redis service needed: the #72 sweep moved to a one-shot Railway cron
-    # (sweep.py) and the real-Redis scheduler suite was deleted with the
-    # self-perpetuating scheduler. The remaining tests use fakeredis.
+    # Real Redis exercises the reconnect deadlock that fakeredis cannot model.
+    services:
+      redis:
+        image: redis:8.2.9
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 20
     steps:
       - uses: actions/checkout@v4
 
@@ -55,3 +62,5 @@ jobs:
 
       - name: Run tests
         run: .venv/bin/pytest -q
+        env:
+          WAKARU_TEST_REDIS_URL: redis://localhost:6379

@@ -60,8 +60,16 @@ def main() -> None:
         [ANALYZE_QUEUE_NAME],
         connection=connection,
         log_job_description=False,
+        default_worker_ttl=90,
+        maintenance_interval=30,
+        job_monitoring_interval=15,
     )
-    worker.work()
+    from app.services.worker_monitor import start_queue_monitor
+    stop_monitor = start_queue_monitor()
+    try:
+        worker.work()
+    finally:
+        stop_monitor.set()
 
 
 if __name__ == "__main__":
