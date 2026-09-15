@@ -36,6 +36,7 @@ class CheckinRecorder:
 def stub_app(monkeypatch):
     """Skip the Flask/config/Sentry boot — the wrapper is what's under test."""
     monkeypatch.setattr(sweep, "create_app", lambda: None)
+    monkeypatch.setattr(sweep, "check_analysis_queue", lambda: None)
 
 
 @pytest.fixture
@@ -143,4 +144,20 @@ def test_runtime_bound_is_enforced_not_just_advertised(stub_app, monkeypatch):
     assert [s for s, _, _ in rec.calls] == [
         sweep.MonitorStatus.IN_PROGRESS, sweep.MonitorStatus.ERROR,
     ]
+    assert signal.alarm(0) == 0
+
+
+def test_dead_worker_reports_error_from_independent_cron(stub_app, flushed, monkeypatch):
+    rec = CheckinRecorder()
+    monkeypatch.setattr(sweep, "capture_checkin", rec)
+    def dead():
+        raise RuntimeError("analysis queue has no live worker or an overdue job")
+    monkeypatch.setattr(sweep, "check_analysis_queue", dead)
+    swept = []
+    monkeypatch.setattr(sweep, "sweep_orphan_graphs", lambda **kw: swept.append(kw))
+    with pytest.raises(RuntimeError, match="no live worker"):
+        sweep.main()
+    assert len(swept) == 1
+    assert [status for status, _, _ in rec.calls] == [sweep.MonitorStatus.IN_PROGRESS, sweep.MonitorStatus.ERROR]
+    assert flushed == [sweep.SENTRY_FLUSH_TIMEOUT_SECONDS]
     assert signal.alarm(0) == 0
