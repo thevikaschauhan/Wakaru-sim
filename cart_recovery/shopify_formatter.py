@@ -52,9 +52,9 @@ class ShopifyCartData:
     utm_campaign: str | None = None
 
     # --- Customer history ---
-    past_orders: int = 0
+    past_orders: int | None = None
     total_spend_lifetime: float | None = None
-    is_first_order: bool = False
+    is_first_order: bool | None = None
     customer_tags: list[str] = field(default_factory=list)
     email_marketing_consent: bool | None = None
     location: str = ""              # city, country
@@ -182,7 +182,7 @@ class ShopifyFormatter:
     # ------------------------------------------------------------------
 
     def _customer_profile(self, cart: ShopifyCartData) -> str:
-        loyalty = "new customer" if cart.past_orders == 0 else f"returning customer ({cart.past_orders} previous orders)"
+        loyalty = "customer with unknown purchase history" if cart.past_orders is None else f"customer with {cart.past_orders} recorded previous orders"
         lines = [
             f"Customer Profile: {cart.customer_name}",
             f"",
@@ -239,19 +239,12 @@ class ShopifyFormatter:
         return "\n".join(lines)
 
     def _purchase_history(self, cart: ShopifyCartData) -> str:
-        if cart.past_orders == 0:
-            return textwrap.dedent("""\
-                Purchase History:
-
-                This is the customer's first visit and they have never purchased from this brand before.
-                They have no prior relationship or trust established with the store.""")
-
-        return textwrap.dedent(f"""\
-            Purchase History:
-
-            {cart.customer_name} has placed {cart.past_orders} order(s) with this brand before,
-            with a total lifetime spend of {cart.currency} {(cart.total_spend_lifetime or 0):,.2f}.
-            They are a familiar customer who has shown willingness to buy from this brand previously.""")
+        if cart.past_orders is None:
+            return "Purchase History: unknown. No verified order history was supplied."
+        history = f"Purchase History: {cart.past_orders} recorded previous order(s)."
+        if cart.total_spend_lifetime is not None:
+            history += f" Recorded lifetime spend: {cart.currency} {cart.total_spend_lifetime:,.2f}."
+        return history
 
     def _abandonment_context(self, cart: ShopifyCartData) -> str:
         step_descriptions = {

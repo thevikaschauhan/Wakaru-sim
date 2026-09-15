@@ -258,13 +258,19 @@ class GraphBuilderService:
                     episodes=episodes
                 )
                 
-                # 收集返回的 episode uuid
-                if batch_result and isinstance(batch_result, list):
-                    for ep in batch_result:
-                        ep_uuid = getattr(ep, 'uuid_', None) or getattr(ep, 'uuid', None)
-                        if ep_uuid:
-                            episode_uuids.append(ep_uuid)
-                
+                # A successful HTTP response is not an ingestion receipt.
+                # Require one distinct id for every submitted chunk, including
+                # across batches, before any completion polling can succeed.
+                if not isinstance(batch_result, list):
+                    raise RuntimeError("graph ingestion returned incomplete episode identifiers")
+                batch_ids = [getattr(ep, "uuid_", None) or getattr(ep, "uuid", None) for ep in batch_result]
+                if (len(batch_ids) != len(batch_chunks)
+                        or any(not isinstance(value, str) or not value.strip() for value in batch_ids)
+                        or len(set(batch_ids)) != len(batch_ids)
+                        or set(batch_ids).intersection(episode_uuids)):
+                    raise RuntimeError("graph ingestion returned incomplete episode identifiers")
+                episode_uuids.extend(batch_ids)
+
                 # 避免请求过快
                 time.sleep(1)
                 

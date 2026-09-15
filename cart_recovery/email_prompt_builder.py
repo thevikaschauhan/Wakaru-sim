@@ -411,7 +411,7 @@ Output the JSON object only, with no commentary or markdown."""
             return "urgency-scarcity"
         if cart.past_orders == 0:
             return "welcome-and-reassurance"
-        if cart.past_orders >= 3:
+        if cart.past_orders is not None and cart.past_orders >= 3:
             return "loyalty-and-reward"
         return "gentle-reminder"
 

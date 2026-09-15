@@ -33,3 +33,18 @@ def test_all_episodes_must_be_processed():
     builder_with(get)._wait_for_episodes(["one","two","one"],lambda message,ratio:progress.append(ratio))
     assert get.call_count==2
     assert progress[-1]==1.0
+
+@pytest.mark.parametrize("response", [None, [], {}, [SimpleNamespace(uuid_=None)], [SimpleNamespace(uuid_="one")], [SimpleNamespace(uuid_="same"), SimpleNamespace(uuid_="same")]])
+def test_nonempty_ingestion_requires_every_episode_identifier(response, monkeypatch):
+    monkeypatch.setattr("app.services.graph_builder.time.sleep", lambda _: None)
+    builder = builder_with(Mock())
+    builder.client.graph.add_batch = Mock(return_value=response)
+    with pytest.raises(RuntimeError, match="episode identifiers"):
+        builder.add_text_batches("graph", ["chunk one", "chunk two"])
+
+
+def test_ingestion_accepts_actual_sdk_episode_identifiers(monkeypatch):
+    monkeypatch.setattr("app.services.graph_builder.time.sleep", lambda _: None)
+    builder = builder_with(Mock())
+    builder.client.graph.add_batch = Mock(return_value=[Episode(processed=False, content="text", created_at="2026-09-15T00:00:00Z", uuid_="one")])
+    assert builder.add_text_batches("graph", ["chunk"]) == ["one"]
