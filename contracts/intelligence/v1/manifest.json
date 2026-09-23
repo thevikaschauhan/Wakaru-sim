@@ -2,9 +2,11 @@
   "version": "intelligence_v1",
   "source": "vakaru-engine/contracts/intelligence/v1",
   "sha256": {
-    "buyer-intelligence.schema.json": "52aac655f4e1fa0e3292990c9a4f929261ca7ccf80460f44f5d6b879a8f53fc7",
+    "buyer-intelligence.schema.json": "f9e2cd0a1bb2b0cf9b9606508785aa87e863e31365cd944c528b587862ea4b5c",
     "conformance.json": "f1ff048ee36aaad276b62deff85361992d63a3cadc5c43187a93135de5ad6564",
+    "conversion-estimate.schema.json": "e1435942115ac17a7b6a37d97061e268d3d783d63d1b934487b9a8f25ad107dd",
     "judgment.schema.json": "4bbdd1203e4b0121bebbfad138ee274bdf3b872dbe37fdf6fe1fd5462cd2b42c",
+    "learning-dataset.schema.json": "554ec73184c360afbddee3b02ae9f71f3601616e864833915623653dab3d4b38",
     "payload-fixtures.json": "ff0161d2ac443de13076af5028b3aa517a76f6c7d93e903b70a1214dd9ff62cb",
     "policy-fact-provenance.schema.json": "2b94bc96485d5d9f45820a191ac3fd4c53164c1e6e88374beb5585cf5f520235",
     "policy-profile.json": "594cb3673156914e4073be0a489af0684a700569b01178b8405034b51ee9ebe7",

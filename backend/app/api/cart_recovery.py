@@ -175,7 +175,9 @@ def _build_cart_from_body(request_id, merchant_id):
         if merchant_id not in {v.strip() for v in os.getenv("TYPESAFE_RECOVERY_MERCHANTS", "").split(",") if v.strip()}:
             intelligence_mode = "off"
         intelligence_context = validate_context(body.get("intelligence_context"), merchant_id, episode_id)
+        from cart_recovery.learning.serving import pinned_model
         cart = ShopifyCartData(
+            conversion_model_id=pinned_model(merchant_id),
             intelligence_mode=intelligence_mode,
             intelligence_context=intelligence_context,
             analysis_mode=analysis_mode,

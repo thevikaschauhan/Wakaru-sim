@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "status",
+    "probability"
+  ],
+  "properties": {
+    "version": {
+      "type": "string",
+      "enum": [
+        "conversion_estimate_v1"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "not_available",
+        "insufficient_data",
+        "available",
+        "out_of_distribution"
+      ]
+    },
+    "probability": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 1
+    },
+    "target": {
+      "type": "string",
+      "enum": [
+        "paid_order_within_7d_without_vakaru"
+      ]
+    },
+    "horizon_seconds": {
+      "type": "integer",
+      "enum": [
+        604800
+      ]
+    },
+    "model_version": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "$defs": {}
+}

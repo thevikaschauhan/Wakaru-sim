@@ -243,7 +243,7 @@ class RecoveryWorkflow:
                 RUBRIC,
                 mode,
                 self.store.client.binding if self.store else "unavailable",
-            ]
+            ] + ([cart.conversion_model_id] if cart.conversion_model_id else [])
         )
         plan.update(plan_id=revision, revision=revision)
         journal = (
@@ -261,6 +261,13 @@ class RecoveryWorkflow:
                 )
 
         def finish():
+            # Outcome estimates are descriptive. They never enter candidate ranking.
+            # A durable journal is mandatory so retries cannot resample predictions.
+            if cart.conversion_model_id and journal:
+                from ..learning.serving import estimate_snapshot
+                intelligence["conversion_estimate"] = estimate_snapshot(
+                    cart.conversion_model_id, state, intelligence
+                )
             selected = (
                 journal.select(merchant, revision, intelligence, plan)
                 if journal

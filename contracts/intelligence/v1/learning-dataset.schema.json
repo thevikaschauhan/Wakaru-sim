@@ -1,0 +1,669 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "assignment_units": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "version": {
+            "enum": [
+              "recovery_assignment_v1"
+            ]
+          },
+          "experiment_id": {
+            "type": "string"
+          },
+          "unit_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "arm": {
+            "enum": [
+              "no_contact",
+              "recovery"
+            ]
+          },
+          "probability": {
+            "enum": [
+              0.5
+            ]
+          },
+          "assigned_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "protected_through": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "policy_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "mode": {
+            "enum": [
+              "execution",
+              "rehearsal"
+            ]
+          }
+        },
+        "required": [
+          "version",
+          "experiment_id",
+          "unit_sha256",
+          "arm",
+          "probability",
+          "assigned_at",
+          "protected_through",
+          "policy_sha256",
+          "mode"
+        ]
+      }
+    },
+    "schema_version": {
+      "enum": [
+        "recovery_learning_v2"
+      ]
+    },
+    "merchant_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "store_id": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "as_of": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "decisions_from": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "decisions_through": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "engine_source_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "label_version": {
+      "enum": [
+        "identified_customer_paid_order_7d_v1"
+      ]
+    },
+    "horizon_seconds": {
+      "enum": [
+        604800
+      ]
+    },
+    "grace_seconds": {
+      "enum": [
+        86400
+      ]
+    },
+    "origin": {
+      "enum": [
+        "synthetic",
+        "real"
+      ]
+    },
+    "rows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "decision_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "unit_sha256": {
+            "type": "string"
+          },
+          "decided_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "mature_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "snapshot_sha256": {
+            "type": "string"
+          },
+          "input_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "policy_version": {
+            "type": "string"
+          },
+          "assigned_action": {
+            "type": "string"
+          },
+          "features": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "version": {
+                "enum": [
+                  "recovery_features_v1"
+                ]
+              },
+              "observed": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "cart": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "checkout": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "event_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 500
+                  },
+                  "input_error": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "inventory_error": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "payment_error": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1
+                  }
+                },
+                "required": [
+                  "cart",
+                  "checkout",
+                  "event_count",
+                  "input_error",
+                  "inventory_error",
+                  "payment_error"
+                ]
+              },
+              "semantic": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "delivery_timing": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "interruption": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "out_of_stock_concern": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "payment_friction": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "price_sensitivity": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "shipping_cost": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "sizing_doubt": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "trust_uncertainty": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  }
+                },
+                "required": [
+                  "delivery_timing",
+                  "interruption",
+                  "out_of_stock_concern",
+                  "payment_friction",
+                  "price_sensitivity",
+                  "shipping_cost",
+                  "sizing_doubt",
+                  "trust_uncertainty"
+                ]
+              },
+              "semantic_available": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "version",
+              "observed",
+              "semantic",
+              "semantic_available"
+            ]
+          },
+          "features_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "assignment": {
+            "anyOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "version": {
+                    "enum": [
+                      "recovery_assignment_v1"
+                    ]
+                  },
+                  "experiment_id": {
+                    "type": "string"
+                  },
+                  "unit_sha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "arm": {
+                    "enum": [
+                      "no_contact",
+                      "recovery"
+                    ]
+                  },
+                  "probability": {
+                    "enum": [
+                      0.5
+                    ]
+                  },
+                  "assigned_at": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "protected_through": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "policy_sha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "mode": {
+                    "enum": [
+                      "execution",
+                      "rehearsal"
+                    ]
+                  }
+                },
+                "required": [
+                  "version",
+                  "experiment_id",
+                  "unit_sha256",
+                  "arm",
+                  "probability",
+                  "assigned_at",
+                  "protected_through",
+                  "policy_sha256",
+                  "mode"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "first_unit_decision": {
+            "type": "boolean"
+          },
+          "exposure": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "planned_contact": {
+                "type": "boolean"
+              },
+              "possible_contact": {
+                "type": "boolean"
+              },
+              "channel": {
+                "enum": [
+                  "email"
+                ]
+              },
+              "offer_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "status": {
+                "enum": [
+                  "unknown",
+                  "no_vakaru_contact_recorded",
+                  "assigned_with_execution_evidence"
+                ]
+              },
+              "contaminated": {
+                "type": "boolean"
+              },
+              "provider_accepted": {
+                "type": "boolean"
+              },
+              "delivered": {
+                "type": "boolean"
+              },
+              "click_recorded": {
+                "type": "boolean"
+              },
+              "human_exposure": {
+                "enum": [
+                  "unknown"
+                ]
+              },
+              "background_marketing": {
+                "enum": [
+                  "unknown"
+                ]
+              },
+              "cost_status": {
+                "enum": [
+                  "unknown"
+                ]
+              },
+              "event_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "planned_contact",
+              "possible_contact",
+              "channel",
+              "offer_id",
+              "status",
+              "contaminated",
+              "provider_accepted",
+              "delivered",
+              "click_recorded",
+              "human_exposure",
+              "background_marketing",
+              "cost_status",
+              "event_ids"
+            ]
+          },
+          "feedback": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "actor_sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "category": {
+                  "enum": [
+                    "shopper_statement",
+                    "merchant_hypothesis",
+                    "preference",
+                    "factual_correction"
+                  ]
+                },
+                "original_revision": {
+                  "type": "string"
+                },
+                "replacement_revision": {
+                  "type": "string"
+                },
+                "occurred_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "recorded_at": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "id",
+                "actor_sha256",
+                "category",
+                "original_revision",
+                "replacement_revision",
+                "occurred_at",
+                "recorded_at"
+              ]
+            }
+          },
+          "outcome_status": {
+            "enum": [
+              "unknown",
+              "positive",
+              "negative"
+            ]
+          },
+          "outcome_reason": {
+            "type": "string"
+          },
+          "paid_label": {
+            "enum": [
+              null,
+              0,
+              1
+            ]
+          },
+          "without_vakaru_label": {
+            "enum": [
+              null,
+              0,
+              1
+            ]
+          },
+          "target": {
+            "enum": [
+              "paid_order_within_7d_without_vakaru"
+            ]
+          },
+          "outcome_revision_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "coverage_run_id": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "accounting": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "received_less_refunds": {
+                "type": "object",
+                "propertyNames": {
+                  "pattern": "^[A-Z]{3}$"
+                },
+                "additionalProperties": {
+                  "type": "string",
+                  "pattern": "^-?[0-9]+\\.[0-9]{9}$"
+                }
+              },
+              "net_value": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "status": {
+                "enum": [
+                  "costs_unknown",
+                  "invalid_accounting",
+                  "complete"
+                ]
+              }
+            },
+            "required": [
+              "received_less_refunds",
+              "net_value",
+              "status"
+            ]
+          },
+          "row_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        },
+        "required": [
+          "decision_id",
+          "unit_sha256",
+          "decided_at",
+          "mature_at",
+          "snapshot_sha256",
+          "input_sha256",
+          "policy_version",
+          "assigned_action",
+          "features",
+          "features_sha256",
+          "assignment",
+          "first_unit_decision",
+          "exposure",
+          "feedback",
+          "outcome_status",
+          "outcome_reason",
+          "paid_label",
+          "without_vakaru_label",
+          "target",
+          "outcome_revision_ids",
+          "coverage_run_id",
+          "accounting",
+          "row_sha256"
+        ]
+      },
+      "maxItems": 10000
+    },
+    "experiment_policies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "version": {
+            "enum": [
+              "recovery_experiment_v1"
+            ]
+          },
+          "experiment_id": {
+            "type": "string"
+          },
+          "starts_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "ends_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "analysis_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "baseline_rate": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "minimum_effect": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "min_per_arm": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "mode": {
+            "enum": [
+              "execution",
+              "rehearsal"
+            ]
+          },
+          "policy_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "registered_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "version",
+          "experiment_id",
+          "starts_at",
+          "ends_at",
+          "analysis_at",
+          "baseline_rate",
+          "minimum_effect",
+          "min_per_arm",
+          "mode",
+          "policy_sha256",
+          "registered_at"
+        ]
+      }
+    },
+    "dataset_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  },
+  "required": [
+    "assignment_units",
+    "schema_version",
+    "merchant_id",
+    "store_id",
+    "as_of",
+    "decisions_from",
+    "decisions_through",
+    "engine_source_sha256",
+    "label_version",
+    "horizon_seconds",
+    "grace_seconds",
+    "origin",
+    "rows",
+    "experiment_policies",
+    "dataset_sha256"
+  ]
+}

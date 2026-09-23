@@ -93,25 +93,7 @@
       }
     },
     "conversion_estimate": {
-      "type": "object",
-      "required": [
-        "status",
-        "probability"
-      ],
-      "properties": {
-        "status": {
-          "type": "string",
-          "enum": [
-            "not_available"
-          ]
-        },
-        "probability": {
-          "type": [
-            "number",
-            "null"
-          ]
-        }
-      }
+      "$ref": "#/$defs/ConversionEstimate"
     }
   },
   "$defs": {
@@ -224,6 +206,56 @@
           "type": "number",
           "minimum": 0,
           "maximum": 1
+        }
+      }
+    },
+    "ConversionEstimate": {
+      "type": "object",
+      "required": [
+        "status",
+        "probability"
+      ],
+      "properties": {
+        "version": {
+          "type": "string",
+          "enum": [
+            "conversion_estimate_v1"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "not_available",
+            "insufficient_data",
+            "available",
+            "out_of_distribution"
+          ]
+        },
+        "probability": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "target": {
+          "type": "string",
+          "enum": [
+            "paid_order_within_7d_without_vakaru"
+          ]
+        },
+        "horizon_seconds": {
+          "type": "integer",
+          "enum": [
+            604800
+          ]
+        },
+        "model_version": {
+          "type": [
+            "string",
+            "null"
+          ]
         }
       }
     }
