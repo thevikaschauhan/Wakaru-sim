@@ -1,0 +1,34 @@
+{
+  "version": "typesafe_deployment_v1",
+  "deployment_id": "development-enforce-2026-09-23",
+  "environment": "development",
+  "provider": "openrouter",
+  "model": "typesafe/jev-1.13",
+  "approved_models": [
+    "typesafe/jev-1.13-20260917"
+  ],
+  "no_publish": true,
+  "no_shopper_send": true,
+  "daily_merchant_usd": 0.05,
+  "daily_environment_usd": 0.5,
+  "workflows": {
+    "policy_extraction": {
+      "mode": "enforce",
+      "merchants": [
+        "REPLACE_WITH_DEVELOPMENT_MERCHANT_UUID"
+      ]
+    },
+    "recovery_intelligence": {
+      "mode": "enforce",
+      "merchants": [
+        "REPLACE_WITH_DEVELOPMENT_MERCHANT_UUID"
+      ]
+    },
+    "draft_claims": {
+      "mode": "enforce",
+      "merchants": [
+        "REPLACE_WITH_DEVELOPMENT_MERCHANT_UUID"
+      ]
+    }
+  }
+}

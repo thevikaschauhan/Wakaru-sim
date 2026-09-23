@@ -83,19 +83,20 @@ def run_cart_recovery(
     ``g.merchant_id``, the RQ job from ``job.meta``); the sentinel default
     keeps the signature backward-compatible.
     """
+    from cart_recovery.intelligence.recovery import enrich
     if cart.analysis_mode == "direct_v1":
         from cart_recovery.buyer_state import direct_insight
         insight = direct_insight(cart)
         if on_progress:
             on_progress("buyer_state_completed", {"analysis_mode": "direct_v1", "reason_observed": False})
-        return insight
+        return enrich(cart, insight, merchant_id)
     if cart.analysis_mode != "legacy_simulation":
         raise ValueError("unsupported analysis mode")
     if (cart.ontology_hint or {}).get("code") == "UNKNOWN_ABANDONMENT":
         insight = observation_only_insight(cart)
         if on_progress:
             on_progress("observation_only_completed", {"analysis_mode": "observation_only", "reason_observed": False})
-        return insight
+        return enrich(cart, insight, merchant_id)
 
     # Fail fast on missing credentials before doing any work (the downstream
     # services raise mid-pipeline otherwise).
@@ -120,7 +121,7 @@ def run_cart_recovery(
     # deleted inline (#72) with its ledger record closed in the same finally.
     captured: dict = {"simulation_id": None, "graph_id": None}
     try:
-        return _run_analysis(project, cart, seed_text, on_progress, captured, merchant_id)
+        return enrich(cart, _run_analysis(project, cart, seed_text, on_progress, captured, merchant_id), merchant_id)
     finally:
         _cleanup_artifacts(
             project.project_id, captured["simulation_id"], captured["graph_id"], merchant_id

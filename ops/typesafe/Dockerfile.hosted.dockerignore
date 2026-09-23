@@ -1,0 +1,14 @@
+.git
+.gitnexus
+.codebase-memory
+.env
+.env.*
+node_modules
+.next
+__pycache__
+.pytest_cache
+.venv
+output
+.playwright-cli
+*.sqlite*
+*.log

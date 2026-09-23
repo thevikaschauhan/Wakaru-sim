@@ -1,0 +1,59 @@
+{
+  "legacy": {
+    "attempt": 1,
+    "checks": [
+      {
+        "durationMs": 0,
+        "name": "policy",
+        "reasons": [],
+        "status": "pass"
+      }
+    ],
+    "documentId": "01996aae-7023-7cc6-880a-83f3bb2cdffe",
+    "overall": "pass",
+    "ranAt": "2026-09-22T00:00:00Z",
+    "requiresApproval": false
+  },
+  "semantic_review": {
+    "attempt": 1,
+    "checks": [
+      {
+        "durationMs": 0,
+        "name": "policy",
+        "reasons": [],
+        "status": "pass"
+      },
+      {
+        "durationMs": 3,
+        "name": "semantic_claims",
+        "reasons": [
+          "support_unavailable"
+        ],
+        "semantic": {
+          "coverageComplete": true,
+          "documentRevision": 4,
+          "findings": [
+            {
+              "category": "shipping",
+              "evidenceIds": [],
+              "reasonCode": "support_unavailable",
+              "surfaceId": "subject",
+              "verdict": "review"
+            }
+          ],
+          "judgmentIds": [],
+          "mode": "enforce",
+          "repairAttempted": false,
+          "snapshotHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "status": "unavailable",
+          "version": "intelligence_v1"
+        },
+        "status": "warn"
+      }
+    ],
+    "documentId": "01996aae-7023-7cc6-880a-83f3bb2cdffe",
+    "overall": "pass",
+    "ranAt": "2026-09-22T00:00:00Z",
+    "requiresApproval": true
+  }
+}

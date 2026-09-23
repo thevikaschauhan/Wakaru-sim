@@ -1,0 +1,416 @@
+{
+  "source_extraction": {
+    "version": "policy_extraction_v1",
+    "revision": "596b6158ae8a7ed4a50448980cdbc1a747bdf11cc81492950c910e9ff4d34e20",
+    "status": "evaluated",
+    "coverage_complete": true,
+    "sources": [
+      {
+        "id": "73182cba054209503b2b2573d9104171ee5a7c5ca21e288f33b36c5b4d43835b",
+        "url": "https://synthetic.example.test/customer-help",
+        "content_hash": "7339e578f28789b35059ab3bd00b3851934ae62fd477dbd1ab9630f077296827",
+        "fetched_at": "2026-09-23T04:27:29.085039Z",
+        "locale": "en-us",
+        "text": "Shopping policies \nReturns may be requested within 30 days of delivery. Final-sale products are excluded. Free outbound shipping is available for orders of USD 50 or more to the United States. Refund processing takes 14 days."
+      }
+    ],
+    "sections": [
+      {
+        "id": "15475199f9d782db9741ea6e",
+        "source_id": "73182cba054209503b2b2573d9104171ee5a7c5ca21e288f33b36c5b4d43835b",
+        "start": 0,
+        "end": 225,
+        "text": "Shopping policies \nReturns may be requested within 30 days of delivery. Final-sale products are excluded. Free outbound shipping is available for orders of USD 50 or more to the United States. Refund processing takes 14 days.",
+        "topics": [
+          "returns",
+          "shipping",
+          "refunds",
+          "products"
+        ],
+        "status": "evaluated"
+      }
+    ],
+    "candidates": [
+      {
+        "id": "9c8e31ef2a97fdced6f99d439506ae4d",
+        "kind": "returns_window",
+        "status": "needs_review",
+        "span": {
+          "id": "83ae17c818f32b4ad40d36bd",
+          "source_id": "73182cba054209503b2b2573d9104171ee5a7c5ca21e288f33b36c5b4d43835b",
+          "section_id": "15475199f9d782db9741ea6e",
+          "start": 51,
+          "end": 53,
+          "raw": "30",
+          "normalized": "30"
+        },
+        "source_url": "https://synthetic.example.test/customer-help",
+        "content_hash": "7339e578f28789b35059ab3bd00b3851934ae62fd477dbd1ab9630f077296827",
+        "fetched_at": "2026-09-23T04:27:29.085039Z",
+        "locale": "en-us",
+        "unit": "days",
+        "currency": "",
+        "context": "Shopping policies \nReturns may be requested within 30 days of delivery. Final-sale products are excluded. Free outbound shipping is available for orders of USD 50 or more to the United States. Refund processing takes 14 days.",
+        "scope": "conditional",
+        "judgment_id": "a8dafb1a2d15abb20cbee5d4f4c4112ef07385d2d5d9619c7dc3948cfb9685f8",
+        "extraction_version": "policy_extraction_v1",
+        "reason_codes": [
+          "scope_requires_review"
+        ]
+      },
+      {
+        "id": "757f1d42c8b43debd737071bb1b00158",
+        "kind": "shipping_threshold",
+        "status": "needs_review",
+        "span": {
+          "id": "8fdf8d5078c2f633fad2c9ec",
+          "source_id": "73182cba054209503b2b2573d9104171ee5a7c5ca21e288f33b36c5b4d43835b",
+          "section_id": "15475199f9d782db9741ea6e",
+          "start": 160,
+          "end": 162,
+          "raw": "50",
+          "normalized": "50"
+        },
+        "source_url": "https://synthetic.example.test/customer-help",
+        "content_hash": "7339e578f28789b35059ab3bd00b3851934ae62fd477dbd1ab9630f077296827",
+        "fetched_at": "2026-09-23T04:27:29.085039Z",
+        "locale": "en-us",
+        "unit": "money",
+        "currency": "USD",
+        "context": "Shopping policies \nReturns may be requested within 30 days of delivery. Final-sale products are excluded. Free outbound shipping is available for orders of USD 50 or more to the United States. Refund processing takes 14 days.",
+        "scope": "conditional",
+        "judgment_id": "a8dafb1a2d15abb20cbee5d4f4c4112ef07385d2d5d9619c7dc3948cfb9685f8",
+        "extraction_version": "policy_extraction_v1",
+        "reason_codes": [
+          "scope_requires_review"
+        ]
+      }
+    ],
+    "judgment_ids": [
+      "a8dafb1a2d15abb20cbee5d4f4c4112ef07385d2d5d9619c7dc3948cfb9685f8"
+    ],
+    "reason_codes": []
+  },
+  "native_insight": {
+    "predicted_reason": "Abandonment reason unknown",
+    "emotional_state": "unknown",
+    "recommended_angle": "none",
+    "reason_category": "unknown",
+    "key_objections": [],
+    "email_prompt_context": "Use the frozen cart and approved brand facts. Do not infer motives, emotions, purchases or entitlements.",
+    "confidence": 0.0,
+    "confidence_reasoning": "Uncalibrated motive confidence is not used; readiness is unestimated.",
+    "buyer_intelligence": {
+      "version": "buyer_intelligence_v1",
+      "status": "evaluated",
+      "mode": "assist",
+      "based_on_snapshot_sha256": "4a4aea46f94c40843a8bfa76d2abb1fe7cb188eda1fda089dd4fcf83bc9b341f",
+      "as_of": "2026-09-23T09:00:00Z",
+      "hypotheses": [
+        {
+          "code": "payment_friction",
+          "basis": "observed_friction",
+          "verdict": "supported",
+          "evidence_ids": [
+            "e2"
+          ],
+          "probability": 0.95,
+          "confidence": 0.99
+        },
+        {
+          "code": "price_sensitivity",
+          "basis": "inferred_hypothesis",
+          "verdict": "review",
+          "evidence_ids": [],
+          "probability": 0.95,
+          "confidence": 0.99
+        }
+      ],
+      "reported_reasons": [],
+      "explanation_checks": [],
+      "judgment_ids": [
+        "1"
+      ],
+      "missing_evidence": [
+        "verified_motivation",
+        "calibrated_conversion"
+      ],
+      "reason_category_compat": "unknown",
+      "model_features": {
+        "payment_friction": 0.95,
+        "shipping_cost": 0.05,
+        "delivery_timing": 0.05,
+        "price_sensitivity": 0.95,
+        "sizing_doubt": 0.05,
+        "trust_uncertainty": 0.05,
+        "interruption": 0.05,
+        "out_of_stock_concern": 0.05
+      },
+      "conversion_estimate": {
+        "status": "not_available",
+        "probability": null
+      }
+    },
+    "recovery_plan": {
+      "version": "recovery_plan_v1",
+      "plan_id": "5541f894ab8b1ce6493eeb9d2e36ff982539095c483ad82bc3e64abd6b08ea26",
+      "revision": "5541f894ab8b1ce6493eeb9d2e36ff982539095c483ad82bc3e64abd6b08ea26",
+      "based_on_snapshot_sha256": "4a4aea46f94c40843a8bfa76d2abb1fe7cb188eda1fda089dd4fcf83bc9b341f",
+      "episode_id": "episode",
+      "status": "needs_review",
+      "action": "checkout_assistance",
+      "mode": "assist",
+      "fact_ids": [],
+      "fact_revisions": {},
+      "allowed_claims": [],
+      "judgment_ids": [
+        "1"
+      ],
+      "eligible_actions": [
+        "checkout_assistance",
+        "neutral_reminder",
+        "no_action",
+        "review",
+        "wait"
+      ],
+      "reason_codes": [
+        "evidence_fit"
+      ],
+      "expires_at": "2026-09-24T09:00:00+00:00",
+      "allow_incentive": false,
+      "tone": "neutral",
+      "resume_trigger": null,
+      "scores": {
+        "review": {
+          "score": 0,
+          "confidence": 0.99
+        },
+        "neutral_reminder": {
+          "score": 0,
+          "confidence": 0.99
+        },
+        "wait": {
+          "score": 0,
+          "confidence": 0.99
+        },
+        "no_action": {
+          "score": 0,
+          "confidence": 0.99
+        },
+        "checkout_assistance": {
+          "score": 2,
+          "confidence": 0.99
+        }
+      }
+    },
+    "buyer_state": {
+      "version": "buyer_state_v1",
+      "inference_version": "observed_v1",
+      "episode_id": "episode",
+      "as_of": "2026-09-23T09:00:00Z",
+      "snapshot_sha256": "4a4aea46f94c40843a8bfa76d2abb1fe7cb188eda1fda089dd4fcf83bc9b341f",
+      "observations": [
+        {
+          "event_id": "e1",
+          "event_name": "checkout_started",
+          "occurred_at": "2026-09-23T09:00:00Z"
+        },
+        {
+          "event_id": "e2",
+          "event_name": "alert_displayed",
+          "occurred_at": "2026-09-23T09:00:00Z",
+          "alert_type": "PAYMENT_ERROR"
+        }
+      ],
+      "journey_stage": "checkout",
+      "observed_friction": [
+        {
+          "code": "PAYMENT_ERROR",
+          "evidence_ids": [
+            "e2"
+          ]
+        }
+      ],
+      "motivation_status": "unknown",
+      "purchase_readiness": {
+        "status": "unestimated",
+        "probability": null,
+        "target": "paid_order_within_7d_without_vakaru",
+        "model_version": null
+      },
+      "coverage": {
+        "event_count": 2,
+        "captured_signals": [
+          "alert_displayed",
+          "checkout_started"
+        ],
+        "missing_signals": [
+          "cross_browser_completeness",
+          "verified_motivation",
+          "calibrated_readiness"
+        ]
+      }
+    }
+  },
+  "inkwell_insight": {
+    "buyerIntelligence": {
+      "version": "buyer_intelligence_v1",
+      "status": "evaluated",
+      "mode": "assist",
+      "based_on_snapshot_sha256": "4a4aea46f94c40843a8bfa76d2abb1fe7cb188eda1fda089dd4fcf83bc9b341f",
+      "as_of": "2026-09-23T09:00:00Z",
+      "hypotheses": [
+        {
+          "code": "payment_friction",
+          "basis": "observed_friction",
+          "verdict": "supported",
+          "evidence_ids": [
+            "e2"
+          ],
+          "probability": 0.95,
+          "confidence": 0.99
+        },
+        {
+          "code": "price_sensitivity",
+          "basis": "inferred_hypothesis",
+          "verdict": "review",
+          "evidence_ids": [],
+          "probability": 0.95,
+          "confidence": 0.99
+        }
+      ],
+      "reported_reasons": [],
+      "explanation_checks": [],
+      "judgment_ids": [
+        "1"
+      ],
+      "missing_evidence": [
+        "verified_motivation",
+        "calibrated_conversion"
+      ],
+      "reason_category_compat": "unknown",
+      "model_features": {
+        "payment_friction": 0.95,
+        "shipping_cost": 0.05,
+        "delivery_timing": 0.05,
+        "price_sensitivity": 0.95,
+        "sizing_doubt": 0.05,
+        "trust_uncertainty": 0.05,
+        "interruption": 0.05,
+        "out_of_stock_concern": 0.05
+      },
+      "conversion_estimate": {
+        "status": "not_available",
+        "probability": null
+      }
+    },
+    "recoveryPlan": {
+      "version": "recovery_plan_v1",
+      "plan_id": "5541f894ab8b1ce6493eeb9d2e36ff982539095c483ad82bc3e64abd6b08ea26",
+      "revision": "5541f894ab8b1ce6493eeb9d2e36ff982539095c483ad82bc3e64abd6b08ea26",
+      "based_on_snapshot_sha256": "4a4aea46f94c40843a8bfa76d2abb1fe7cb188eda1fda089dd4fcf83bc9b341f",
+      "episode_id": "episode",
+      "status": "needs_review",
+      "action": "checkout_assistance",
+      "mode": "assist",
+      "fact_ids": [],
+      "fact_revisions": {},
+      "allowed_claims": [],
+      "judgment_ids": [
+        "1"
+      ],
+      "eligible_actions": [
+        "checkout_assistance",
+        "neutral_reminder",
+        "no_action",
+        "review",
+        "wait"
+      ],
+      "reason_codes": [
+        "evidence_fit"
+      ],
+      "expires_at": "2026-09-24T09:00:00+00:00",
+      "allow_incentive": false,
+      "tone": "neutral",
+      "resume_trigger": null,
+      "scores": {
+        "review": {
+          "score": 0,
+          "confidence": 0.99
+        },
+        "neutral_reminder": {
+          "score": 0,
+          "confidence": 0.99
+        },
+        "wait": {
+          "score": 0,
+          "confidence": 0.99
+        },
+        "no_action": {
+          "score": 0,
+          "confidence": 0.99
+        },
+        "checkout_assistance": {
+          "score": 2,
+          "confidence": 0.99
+        }
+      }
+    },
+    "buyerState": {
+      "version": "buyer_state_v1",
+      "inference_version": "observed_v1",
+      "episode_id": "episode",
+      "as_of": "2026-09-23T09:00:00Z",
+      "snapshot_sha256": "4a4aea46f94c40843a8bfa76d2abb1fe7cb188eda1fda089dd4fcf83bc9b341f",
+      "observations": [
+        {
+          "event_id": "e1",
+          "event_name": "checkout_started",
+          "occurred_at": "2026-09-23T09:00:00Z"
+        },
+        {
+          "event_id": "e2",
+          "event_name": "alert_displayed",
+          "occurred_at": "2026-09-23T09:00:00Z",
+          "alert_type": "PAYMENT_ERROR"
+        }
+      ],
+      "journey_stage": "checkout",
+      "observed_friction": [
+        {
+          "code": "PAYMENT_ERROR",
+          "evidence_ids": [
+            "e2"
+          ]
+        }
+      ],
+      "motivation_status": "unknown",
+      "purchase_readiness": {
+        "status": "unestimated",
+        "probability": null,
+        "target": "paid_order_within_7d_without_vakaru",
+        "model_version": null
+      },
+      "coverage": {
+        "event_count": 2,
+        "captured_signals": [
+          "alert_displayed",
+          "checkout_started"
+        ],
+        "missing_signals": [
+          "cross_browser_completeness",
+          "verified_motivation",
+          "calibrated_readiness"
+        ]
+      }
+    },
+    "abandonmentConfidence": 0,
+    "emailPromptContext": "Use the frozen cart and approved brand facts. Do not infer motives, emotions, purchases or entitlements.",
+    "emotionalState": "unknown",
+    "keyObjections": [],
+    "predictedReason": "Abandonment reason unknown",
+    "reasonCategory": "unknown",
+    "recommendedAngle": "none",
+    "wakaruAnalysisId": "synthetic-second-slice"
+  }
+}

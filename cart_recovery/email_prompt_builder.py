@@ -60,6 +60,8 @@ class AbandonmentInsight:
     email_prompt_context: str = ""  # ready-to-use context block for your LLM
     confidence: float = 0.5         # 0.0-1.0 confidence in the analysis
     confidence_reasoning: str = ""  # one-sentence explanation of the score
+    buyer_intelligence: dict | None = None
+    recovery_plan: dict | None = None
     buyer_state: dict | None = None  # Authoritative versioned projection on direct_v1.
 
 

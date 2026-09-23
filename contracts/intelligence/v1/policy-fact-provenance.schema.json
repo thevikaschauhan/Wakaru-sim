@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "candidateId",
+    "sourceUrl",
+    "contentHash",
+    "fetchedAt",
+    "spanStart",
+    "spanEnd",
+    "raw",
+    "context",
+    "scope",
+    "extractionVersion",
+    "judgmentId",
+    "sourceRevision"
+  ],
+  "properties": {
+    "candidateId": {
+      "type": "string"
+    },
+    "sourceUrl": {
+      "type": "string"
+    },
+    "contentHash": {
+      "type": "string"
+    },
+    "fetchedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "spanStart": {
+      "type": "integer"
+    },
+    "spanEnd": {
+      "type": "integer"
+    },
+    "raw": {
+      "type": "string"
+    },
+    "context": {
+      "type": "string"
+    },
+    "scope": {
+      "type": "string",
+      "enum": [
+        "universal",
+        "conditional",
+        "unknown"
+      ]
+    },
+    "extractionVersion": {
+      "type": "string"
+    },
+    "judgmentId": {
+      "type": "string"
+    },
+    "sourceRevision": {
+      "type": "string"
+    },
+    "reviewedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "reviewedBy": {
+      "type": "string"
+    },
+    "corrected": {
+      "type": "boolean"
+    }
+  },
+  "$defs": {}
+}

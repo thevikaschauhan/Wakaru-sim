@@ -96,4 +96,6 @@ def run_analysis_job(cart_dict: dict) -> dict:
         "confidence": insight.confidence,
         "confidence_reasoning": insight.confidence_reasoning,
         **({"buyer_state": insight.buyer_state} if getattr(insight, "buyer_state", None) is not None else {}),
+        **({"buyer_intelligence": insight.buyer_intelligence} if getattr(insight, "buyer_intelligence", None) is not None else {}),
+        **({"recovery_plan": insight.recovery_plan} if getattr(insight, "recovery_plan", None) is not None else {}),
     }

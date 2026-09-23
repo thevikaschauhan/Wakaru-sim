@@ -168,7 +168,18 @@ def _build_cart_from_body(request_id, merchant_id):
         episode_id = body.get("event_id", "")
         if not isinstance(episode_id, str) or len(episode_id) > 128:
             raise ValueError("invalid event_id")
+        from cart_recovery.intelligence.recovery import validate_context
+        intelligence_mode = os.getenv("TYPESAFE_RECOVERY_MODE", "off")
+        if intelligence_mode not in {"off", "observe", "assist", "enforce"}:
+            raise ValueError("invalid intelligence mode")
+        if merchant_id not in {v.strip() for v in os.getenv("TYPESAFE_RECOVERY_MERCHANTS", "").split(",") if v.strip()}:
+            intelligence_mode = "off"
+        intelligence_context = validate_context(body.get("intelligence_context"), merchant_id, episode_id)
+        from cart_recovery.learning.serving import pinned_model
         cart = ShopifyCartData(
+            conversion_model_id=pinned_model(merchant_id),
+            intelligence_mode=intelligence_mode,
+            intelligence_context=intelligence_context,
             analysis_mode=analysis_mode,
             episode_id=episode_id,
             evidence_events=validate_evidence(body.get("evidence_events", [])),
@@ -308,6 +319,8 @@ def analyze():
         "confidence": insight.confidence,
         "confidence_reasoning": insight.confidence_reasoning,
         **({"buyer_state": insight.buyer_state} if getattr(insight, "buyer_state", None) is not None else {}),
+        **({"buyer_intelligence": insight.buyer_intelligence} if getattr(insight, "buyer_intelligence", None) is not None else {}),
+        **({"recovery_plan": insight.recovery_plan} if getattr(insight, "recovery_plan", None) is not None else {}),
     }
     if idem_conn is not None:
         _record_idempotency_best_effort(idem_conn, idem_scope, idem_key, json.dumps(data), request_id, g.merchant_id)
