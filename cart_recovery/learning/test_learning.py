@@ -75,6 +75,13 @@ def test_split_purges_horizon_and_rejects_duplicate_units(trained):
     for r in altered:
         r["mature_at"] = "2026-04-01T00:00:00Z"
     assert not split(altered, "2026-02-01T00:00:00Z", "2026-03-01T00:00:00Z")["train"]
+    # A label may be mature but only observed after the fitting cutoff.
+    late = deepcopy(rows)
+    for row in late:
+        row["dataset_as_of"] = "2026-04-01T00:00:00Z"
+    blocked = split(late, "2026-02-01T00:00:00Z", "2026-03-01T00:00:00Z")
+    assert not blocked["train"] and not blocked["calibration"]
+    assert len(blocked["test"]) == 360
 
 
 def test_contamination_hash_and_unmatured_gates(trained, tmp_path):

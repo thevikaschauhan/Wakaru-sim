@@ -124,7 +124,7 @@ def cohort(directory, per_merchant=240):
             "schema_version": "recovery_learning_v2",
             "merchant_id": merchant,
             "store_id": 1,
-            "as_of": "2026-04-01T00:00:00Z",
+            "as_of": (start + timedelta(days=15)).isoformat(),
             "decisions_from": start.isoformat(),
             "decisions_through": (start + timedelta(days=1)).isoformat(),
             "engine_source_sha256": "d" * 64,

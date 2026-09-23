@@ -262,7 +262,9 @@ def split(rows, train_through, calibration_through):
 
     Hash strata are fixed before outcomes. No shopper appears twice. Training
     labels must be mature before calibration starts, and calibration labels
-    before test starts. Excluded rows remain counted in the report.
+    before test starts. Source exports must also predate those cutoffs: a
+    mature label observed later was not available to the earlier fit.
+    Excluded rows remain counted in the report.
     """
     first, second = moment(train_through), moment(calibration_through)
     if first >= second:
@@ -278,9 +280,10 @@ def split(rows, train_through, calibration_through):
         units.add(unit)
         stratum = int(hashlib.sha256(row["merchant_id"].encode()).hexdigest(), 16) % 5
         at, mature = moment(row["decided_at"]), moment(row["mature_at"])
-        if stratum < 3 and mature <= first:
+        known_by = moment(row["dataset_as_of"])
+        if stratum < 3 and mature <= first and known_by <= first:
             result["train"].append(row)
-        elif stratum == 3 and at >= first and mature <= second:
+        elif stratum == 3 and at >= first and mature <= second and known_by <= second:
             result["calibration"].append(row)
         elif stratum == 4 and at >= second:
             result["test"].append(row)
