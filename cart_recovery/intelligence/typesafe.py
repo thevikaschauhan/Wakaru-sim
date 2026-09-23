@@ -35,9 +35,12 @@ def probability(value):
 
 
 def validate(request, response):
+    """Reject malformed provider fields before recording an evaluated result."""
     if not isinstance(response, dict) or not isinstance(response.get("model"), str) or not response["model"]:
         raise ValueError("invalid_model")
     answers = response.get("answers")
+    if not isinstance(response.get("usage", {}), dict):
+        raise ValueError("invalid_usage")
     if not isinstance(answers, dict) or set(answers) != set(request["questions"]):
         raise ValueError("invalid_answers")
     for key, question in request["questions"].items():
@@ -54,7 +57,7 @@ def validate(request, response):
         criteria = question["criteria"]
         keys = set(criteria) if kind == "choice" else {str(i) for i in range(len(criteria))}
         dist = answer.get("probabilities", {})
-        if set(dist) != keys or not all(probability(x) for x in dist.values()) or abs(sum(dist.values()) - 1) > 0.015:
+        if not isinstance(dist, dict) or set(dist) != keys or not all(probability(x) for x in dist.values()) or abs(sum(dist.values()) - 1) > 0.015:
             raise ValueError("invalid_distribution")
         if kind == "choice":
             if set(answer) != {"type", "choice", "confidence", "probabilities"} or answer.get("choice") not in keys or dist[answer["choice"]] < max(dist.values()):
@@ -209,7 +212,7 @@ class Store:
             if controls["model"] != self.client.model or sorted(controls["approved_models"]) != sorted(self.client.approved):
                 raise ValueError("prelaunch_model_mismatch")
             identity = {**identity, "policy_version": identity["policy_version"] + ":" + deployment}
-        self.purge(identity["merchant_id"])
+        self.purge()
         request = {**request, "model": self.client.model}
         rh = digest(request)
         key = digest([identity[k] for k in required if k != "as_of"]+[rh, self.client.binding])
@@ -283,17 +286,10 @@ class Store:
             db.execute("DELETE FROM budgets WHERE substr(key,1,?) = ?",(len(prefix),prefix))
             db.execute("COMMIT")
 
-    def purge(self, merchant):
-        with self.connection() as db:
-            db.execute("BEGIN IMMEDIATE")
-            db.execute("DELETE FROM raw_outputs WHERE merchant=? AND created<?",(merchant,time.time()-7*86400))
-            db.execute("DELETE FROM judgments WHERE merchant=? AND created<?",(merchant,time.time()-90*86400))
-            old=[r[0] for r in db.execute("SELECT request_key FROM attempts WHERE merchant=? AND started<?",(merchant,time.time()-90*86400))]
-            for key in old:
-                db.execute("DELETE FROM selected WHERE merchant=? AND request_key=?",(merchant,key))
-            db.execute("DELETE FROM results WHERE merchant=? AND id IN (SELECT id FROM attempts WHERE merchant=? AND started<?)",(merchant,merchant,time.time()-90*86400))
-            db.execute("DELETE FROM attempts WHERE merchant=? AND started<?",(merchant,time.time()-90*86400))
-            db.execute("COMMIT")
+    def purge(self):
+        """Apply journal retention to every merchant, including inactive ones."""
+        from .maintenance import purge_journal
+        purge_journal(self.path)
 
 
 def configured_store(path):

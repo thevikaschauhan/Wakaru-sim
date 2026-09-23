@@ -58,6 +58,7 @@ def moment(value):
 
 
 def validate_context(value, merchant, episode):
+    """Validate the complete context before intake accepts work or inference runs."""
     if value is None:
         return None
     if not isinstance(value, dict) or set(value) - {
@@ -78,6 +79,8 @@ def validate_context(value, merchant, episode):
         or value.get("episode_id") != episode
     ):
         raise ValueError("intelligence_identity_mismatch")
+    if not isinstance(value.get("as_of"), str):
+        raise ValueError("invalid_context_as_of")
     at = moment(value["as_of"])
     if (
         not isinstance(value.get("approved_facts"), list)
@@ -88,11 +91,17 @@ def validate_context(value, merchant, episode):
         raise ValueError("context_bounds")
     if (
         not isinstance(value.get("eligible_actions"), list)
+        or not all(isinstance(action, str) for action in value["eligible_actions"])
         or not set(value["eligible_actions"]) <= ACTIONS
     ):
         raise ValueError("illegal_action")
     ids = set()
     for f in value["feedback"]:
+        if not isinstance(f, dict) or any(
+            not isinstance(f.get(field), str) or not f[field].strip()
+            for field in ("id", "text", "occurred_at", "recorded_at", "source", "reporter_kind")
+        ):
+            raise ValueError("invalid_feedback_scope")
         if (
             set(f)
             - {
@@ -121,6 +130,11 @@ def validate_context(value, merchant, episode):
             raise ValueError("invalid_feedback_scope")
         ids.add(f["id"])
     for f in value["approved_facts"]:
+        if not isinstance(f, dict) or any(
+            not isinstance(f.get(field), str) or not f[field].strip()
+            for field in ("id", "revision", "kind")
+        ):
+            raise ValueError("invalid_fact_authority")
         if (
             set(f)
             - {
@@ -142,6 +156,19 @@ def validate_context(value, merchant, episode):
     return deepcopy(value)
 
 
+def validate_evidence_context(context, evidence_events):
+    """Reject conflicts between separately validated context and evidence."""
+    if context is None:
+        return
+    at = moment(context["as_of"])
+    if any(moment(event["occurred_at"]) > at for event in evidence_events):
+        raise ValueError("future_observation")
+    if {feedback["id"] for feedback in context["feedback"]} & {
+        event["event_id"] for event in evidence_events
+    }:
+        raise ValueError("duplicate_evidence_id")
+
+
 def choice(instructions, options):
     return {"type": "choice", "instructions": instructions, "criteria": options}
 
@@ -155,10 +182,11 @@ class PlanJournal:
             )
 
     def load(self, merchant, revision):
+        """Expire plans globally, then read only the requested tenant revision."""
         with sqlite3.connect(self.path, timeout=1) as db:
             db.execute(
-                "DELETE FROM recovery_plans WHERE merchant=? AND created<?",
-                (merchant, time.time() - 7 * 86400),
+                "DELETE FROM recovery_plans WHERE created<?",
+                (time.time() - 7 * 86400,),
             )
             row = db.execute(
                 "SELECT payload FROM recovery_plans WHERE merchant=? AND revision=?",
