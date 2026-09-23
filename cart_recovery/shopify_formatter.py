@@ -18,6 +18,8 @@ class ShopifyCartData:
     # Pinned at intake so queued jobs retain their selected implementation.
     analysis_mode: str = "legacy_simulation"
     episode_id: str = ""
+    intelligence_mode: str = "off"
+    intelligence_context: dict | None = None
     evidence_events: list[dict] = field(default_factory=list)
 
     # --- Cart / checkout details ---

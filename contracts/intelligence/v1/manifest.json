@@ -2,10 +2,14 @@
   "version": "intelligence_v1",
   "source": "vakaru-engine/contracts/intelligence/v1",
   "sha256": {
+    "buyer-intelligence.schema.json": "52aac655f4e1fa0e3292990c9a4f929261ca7ccf80460f44f5d6b879a8f53fc7",
     "conformance.json": "f1ff048ee36aaad276b62deff85361992d63a3cadc5c43187a93135de5ad6564",
     "judgment.schema.json": "4bbdd1203e4b0121bebbfad138ee274bdf3b872dbe37fdf6fe1fd5462cd2b42c",
     "payload-fixtures.json": "ff0161d2ac443de13076af5028b3aa517a76f6c7d93e903b70a1214dd9ff62cb",
+    "policy-fact-provenance.schema.json": "2b94bc96485d5d9f45820a191ac3fd4c53164c1e6e88374beb5585cf5f520235",
     "policy-profile.json": "594cb3673156914e4073be0a489af0684a700569b01178b8405034b51ee9ebe7",
+    "recovery-plan.schema.json": "909c7bf8180e8570e0e787d17bc25e9e942dc5452d50b349fc227c54f36f97c2",
+    "second-slice-fixtures.json": "dddad5c15f6867dd45a9f917405d04b52e9828f17429652f2dbf2dc2c5824054",
     "semantic-validation.schema.json": "9b767fb4b6f1b7dbd822dd71badb5b3c8ddd1fea004141b787de694f3e443734"
   }
 }

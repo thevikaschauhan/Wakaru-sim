@@ -1,0 +1,142 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "version",
+    "plan_id",
+    "revision",
+    "based_on_snapshot_sha256",
+    "episode_id",
+    "status",
+    "action",
+    "mode",
+    "fact_ids",
+    "fact_revisions",
+    "allowed_claims",
+    "judgment_ids",
+    "eligible_actions",
+    "reason_codes",
+    "expires_at",
+    "allow_incentive",
+    "tone",
+    "resume_trigger",
+    "scores"
+  ],
+  "properties": {
+    "version": {
+      "type": "string",
+      "enum": [
+        "recovery_plan_v1"
+      ]
+    },
+    "plan_id": {
+      "type": "string"
+    },
+    "revision": {
+      "type": "string"
+    },
+    "based_on_snapshot_sha256": {
+      "type": "string"
+    },
+    "episode_id": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "selected",
+        "needs_review",
+        "wait",
+        "suppressed"
+      ]
+    },
+    "action": {
+      "type": "string",
+      "enum": [
+        "no_action",
+        "wait",
+        "review",
+        "neutral_reminder",
+        "checkout_assistance",
+        "shipping_policy",
+        "product_information"
+      ]
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "observe",
+        "assist",
+        "enforce"
+      ]
+    },
+    "fact_ids": {
+      "type": "array",
+      "maxItems": 30,
+      "items": {
+        "type": "string"
+      }
+    },
+    "fact_revisions": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "allowed_claims": {
+      "type": "array",
+      "maxItems": 30,
+      "items": {
+        "type": "string"
+      }
+    },
+    "judgment_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "eligible_actions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "reason_codes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "expires_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "allow_incentive": {
+      "type": "boolean",
+      "enum": [
+        false
+      ]
+    },
+    "tone": {
+      "type": "string",
+      "enum": [
+        "neutral"
+      ]
+    },
+    "resume_trigger": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "scores": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "$defs": {}
+}

@@ -262,6 +262,8 @@ class Store:
             db.execute("BEGIN IMMEDIATE")
             for table in ("raw_outputs","selected","attempts","results","leases","judgments"):
                 db.execute(f"DELETE FROM {table} WHERE merchant=?", (merchant,))
+            if db.execute("SELECT 1 FROM sqlite_master WHERE name='recovery_plans'").fetchone():
+                db.execute("DELETE FROM recovery_plans WHERE merchant=?",(merchant,))
             db.execute("DELETE FROM budgets WHERE key = ?",(self.environment+":tenant:"+merchant,))
             prefix=self.environment+":draft:"+merchant+":"
             db.execute("DELETE FROM budgets WHERE substr(key,1,?) = ?",(len(prefix),prefix))

@@ -1,0 +1,231 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "version",
+    "status",
+    "mode",
+    "based_on_snapshot_sha256",
+    "as_of",
+    "hypotheses",
+    "reported_reasons",
+    "explanation_checks",
+    "judgment_ids",
+    "missing_evidence",
+    "reason_category_compat",
+    "model_features",
+    "conversion_estimate"
+  ],
+  "properties": {
+    "version": {
+      "type": "string",
+      "enum": [
+        "buyer_intelligence_v1"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "evaluated",
+        "unresolved",
+        "unavailable",
+        "stale"
+      ]
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "observe",
+        "assist",
+        "enforce"
+      ]
+    },
+    "based_on_snapshot_sha256": {
+      "type": "string"
+    },
+    "as_of": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "hypotheses": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {
+        "$ref": "#/$defs/BuyerHypothesis"
+      }
+    },
+    "reported_reasons": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "$ref": "#/$defs/ReportedReason"
+      }
+    },
+    "explanation_checks": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {
+        "$ref": "#/$defs/ExplanationCheck"
+      }
+    },
+    "judgment_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "missing_evidence": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "reason_category_compat": {
+      "type": "string"
+    },
+    "model_features": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "number"
+      }
+    },
+    "conversion_estimate": {
+      "type": "object",
+      "required": [
+        "status",
+        "probability"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "not_available"
+          ]
+        },
+        "probability": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      }
+    }
+  },
+  "$defs": {
+    "BuyerHypothesis": {
+      "type": "object",
+      "required": [
+        "code",
+        "basis",
+        "verdict",
+        "evidence_ids",
+        "probability",
+        "confidence"
+      ],
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "basis": {
+          "type": "string",
+          "enum": [
+            "observed_friction",
+            "shopper_report",
+            "inferred_hypothesis"
+          ]
+        },
+        "verdict": {
+          "type": "string",
+          "enum": [
+            "supported",
+            "review"
+          ]
+        },
+        "evidence_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "probability": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "ReportedReason": {
+      "type": "object",
+      "required": [
+        "code",
+        "evidence_id",
+        "source",
+        "occurred_at",
+        "recorded_at",
+        "text"
+      ],
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "evidence_id": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string",
+          "enum": [
+            "merchant_entered",
+            "support_import"
+          ]
+        },
+        "occurred_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "recorded_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 1000
+        }
+      }
+    },
+    "ExplanationCheck": {
+      "type": "object",
+      "required": [
+        "claim_id",
+        "verdict",
+        "confidence"
+      ],
+      "properties": {
+        "claim_id": {
+          "type": "string"
+        },
+        "verdict": {
+          "type": "string",
+          "enum": [
+            "supported",
+            "unsupported",
+            "contradicted",
+            "review"
+          ]
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    }
+  }
+}

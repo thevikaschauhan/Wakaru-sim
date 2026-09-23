@@ -72,3 +72,27 @@ def test_pilot_mode_is_scoped_to_authenticated_merchant(client, monkeypatch):
         assert response.status_code == 202, response.get_data(as_text=True)
         job = Job.fetch(response.json["job_id"], connection=queue.connection)
         assert job.args[0]["analysis_mode"] == ("direct_v1" if selected == merchant else "legacy_simulation")
+
+def test_typesafe_queue_preserves_context_and_mode_through_restart(client,monkeypatch,tmp_path):
+    from cart_recovery.intelligence.test_recovery import Judge,cart
+    from cart_recovery.intelligence import recovery
+    queue=wire(monkeypatch,asynchronous=True)
+    merchant='11111111-1111-4111-8111-111111111111'
+    monkeypatch.setenv('RECOVERY_ANALYSIS_MODE','direct_v1');monkeypatch.setenv('TYPESAFE_RECOVERY_MODE','assist');monkeypatch.setenv('TYPESAFE_RECOVERY_MERCHANTS',merchant)
+    ctx=cart().intelligence_context;ctx.update(merchant_id=merchant,episode_id='episode-1')
+    response=client.post('/api/cart-recovery/jobs',json={**payload(),'intelligence_context':ctx},headers={'X-Merchant-Id':merchant})
+    assert response.status_code==202,response.get_data(as_text=True)
+    job=Job.fetch(response.json['job_id'],connection=queue.connection)
+    assert job.args[0]['intelligence_mode']=='assist'
+    monkeypatch.setenv('TYPESAFE_RECOVERY_MODE','off')
+    j=Judge();j.path=str(tmp_path/'plans.db');monkeypatch.setattr(recovery,'runtime_store',lambda:j)
+    # A rehydrated queued call keeps the authenticated merchant and captured mode.
+    monkeypatch.setattr('app.services.cart_recovery_jobs.get_current_job',lambda:job)
+    result=job.func(*job.args,**job.kwargs)
+    assert result['recovery_plan']['mode']=='assist'
+    assert result['buyer_state']['motivation_status']=='unknown'
+    again=job.func(*job.args,**job.kwargs)
+    assert again['recovery_plan']==result['recovery_plan']
+    bad={**ctx,'merchant_id':'other'}
+    rejected=client.post('/api/cart-recovery/jobs',json={**payload(),'intelligence_context':bad},headers={'X-Merchant-Id':merchant})
+    assert rejected.status_code==400
