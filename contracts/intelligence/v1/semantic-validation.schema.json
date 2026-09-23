@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "coverageComplete": {
+      "type": "boolean"
+    },
+    "documentRevision": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "findings": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "category": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "confidence": {
+            "maximum": 1,
+            "minimum": 0,
+            "type": "number"
+          },
+          "evidenceIds": {
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "probability": {
+            "maximum": 1,
+            "minimum": 0,
+            "type": "number"
+          },
+          "reasonCode": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "surfaceId": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "verdict": {
+            "enum": [
+              "supported",
+              "unsupported",
+              "contradicted",
+              "review"
+            ]
+          }
+        },
+        "required": [
+          "surfaceId",
+          "category",
+          "verdict",
+          "evidenceIds",
+          "reasonCode"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "judgmentIds": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "mode": {
+      "enum": [
+        "off",
+        "observe",
+        "assist",
+        "enforce"
+      ]
+    },
+    "repairAttempted": {
+      "type": "boolean"
+    },
+    "snapshotHash": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "evaluated",
+        "unresolved",
+        "unavailable",
+        "stale"
+      ]
+    },
+    "version": {
+      "const": "intelligence_v1"
+    }
+  },
+  "required": [
+    "version",
+    "mode",
+    "status",
+    "documentRevision",
+    "snapshotHash",
+    "findings",
+    "judgmentIds",
+    "coverageComplete",
+    "repairAttempted"
+  ],
+  "type": "object"
+}

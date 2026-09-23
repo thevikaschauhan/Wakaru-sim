@@ -1,0 +1,11 @@
+{
+  "version": "intelligence_v1",
+  "source": "vakaru-engine/contracts/intelligence/v1",
+  "sha256": {
+    "conformance.json": "f1ff048ee36aaad276b62deff85361992d63a3cadc5c43187a93135de5ad6564",
+    "judgment.schema.json": "4bbdd1203e4b0121bebbfad138ee274bdf3b872dbe37fdf6fe1fd5462cd2b42c",
+    "payload-fixtures.json": "ff0161d2ac443de13076af5028b3aa517a76f6c7d93e903b70a1214dd9ff62cb",
+    "policy-profile.json": "594cb3673156914e4073be0a489af0684a700569b01178b8405034b51ee9ebe7",
+    "semantic-validation.schema.json": "9b767fb4b6f1b7dbd822dd71badb5b3c8ddd1fea004141b787de694f3e443734"
+  }
+}

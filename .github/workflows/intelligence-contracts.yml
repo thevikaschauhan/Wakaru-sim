@@ -1,0 +1,15 @@
+name: Intelligence contracts
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 contracts/intelligence/v1/verify.py
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install 'httpx>=0.27,<1' pytest jsonschema
+      - run: python -m pytest cart_recovery/intelligence -q
