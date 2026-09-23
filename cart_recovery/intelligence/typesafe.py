@@ -18,6 +18,8 @@ from contextlib import contextmanager
 from pathlib import Path
 
 import httpx
+from .operations import control
+from .telemetry import observe_judgment
 
 ENDPOINT = "https://openrouter.ai/api/alpha/decisions"
 ADAPTER_VERSION = "openrouter-v1"
@@ -197,10 +199,16 @@ class Store:
         finally:
             db.close()
 
+    @observe_judgment
     def judge(self, identity, request):
         required = ("merchant_id", "workflow", "revision", "snapshot_hash", "rubric_hash", "policy_version", "candidate_hash", "as_of")
         if any(not identity.get(k) for k in required):
             raise ValueError("invalid_judgment_context")
+        deployment, controls = control(identity["workflow"], identity["merchant_id"])
+        if controls:
+            if controls["model"] != self.client.model or sorted(controls["approved_models"]) != sorted(self.client.approved):
+                raise ValueError("prelaunch_model_mismatch")
+            identity = {**identity, "policy_version": identity["policy_version"] + ":" + deployment}
         self.purge(identity["merchant_id"])
         request = {**request, "model": self.client.model}
         rh = digest(request)
@@ -222,7 +230,7 @@ class Store:
             with self.connection() as db:
                 db.execute("BEGIN IMMEDIATE")
                 day = time.strftime("%Y-%m-%d",time.gmtime())
-                for budget,cap in [(self.environment+":all",self.environment_cap),(self.environment+":tenant:"+merchant,self.tenant_cap),(self.environment+":draft:"+merchant+":"+identity["workflow"]+":"+identity.get("episode_id", ""),.005)]:
+                for budget,cap in [(self.environment+":all",(controls["daily_environment_usd"] if controls else self.environment_cap)),(self.environment+":tenant:"+merchant,(controls["daily_merchant_usd"] if controls else self.tenant_cap)),(self.environment+":draft:"+merchant+":"+identity["workflow"]+":"+identity.get("episode_id", ""),.005)]:
                     row=db.execute("SELECT spent FROM budgets WHERE key=? AND day=?",(budget,day)).fetchone()
                     used=(row[0] if row else 0)+RESERVATION
                     if used>cap:
@@ -243,6 +251,12 @@ class Store:
                 db.execute("COMMIT")
         try:
             result=self.client.evaluate(request,before,finish)
+            try:
+                current, _ = control(identity["workflow"], merchant)
+                if current != deployment:
+                    raise ValueError("deployment_changed")
+            except ValueError:
+                result.update(status="unavailable", error_class="deployment_changed")
             if any(a["cost"] is not None and a["cost"]>RESERVATION for a in result["attempts"]):
                 result.update(status="unresolved",error_class="cost_reservation_exceeded")
             judgment={"schema_version":"intelligence_v1","judgment_id":key,"identity":identity,"request_hash":rh,"model_binding":self.client.binding,"adapter_version":ADAPTER_VERSION,"provider":"openrouter","requested_model":self.client.model,"result":result,"cache_hit":False}

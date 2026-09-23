@@ -12,6 +12,7 @@ import sqlite3
 import time
 
 from .typesafe import configured_store, digest
+from .operations import control
 from ..buyer_state import direct_insight
 
 VERSION = "buyer_intelligence_v1"
@@ -189,6 +190,15 @@ class RecoveryWorkflow:
         self.store = store
 
     def run(self, cart, original, merchant, mode):
+        blocked = False
+        try:
+            deployment, controls = control("recovery_intelligence", merchant)
+            blocked = (
+                controls is not None
+                and controls["workflows"]["recovery_intelligence"]["mode"] != mode
+            )
+        except ValueError:
+            deployment, blocked = "held", True
         observed = direct_insight(cart)
         returned = original if mode == "observe" else observed
         state = deepcopy(observed.buyer_state)
@@ -243,7 +253,9 @@ class RecoveryWorkflow:
                 RUBRIC,
                 mode,
                 self.store.client.binding if self.store else "unavailable",
-            ] + ([cart.conversion_model_id] if cart.conversion_model_id else [])
+            ]
+            + ([deployment] if deployment else [])
+            + ([cart.conversion_model_id] if cart.conversion_model_id else [])
         )
         plan.update(plan_id=revision, revision=revision)
         journal = (
@@ -251,6 +263,9 @@ class RecoveryWorkflow:
             if self.store and hasattr(self.store, "path")
             else None
         )
+        if blocked:
+            plan["reason_codes"] = ["prelaunch_workflow_held"]
+            return replace(returned, buyer_intelligence=intelligence, recovery_plan=plan)
         if journal:
             saved = journal.load(merchant, revision)
             if saved:
@@ -261,6 +276,20 @@ class RecoveryWorkflow:
                 )
 
         def finish():
+            try:
+                current, _ = control("recovery_intelligence", merchant)
+                if current != deployment:
+                    raise ValueError("deployment_changed")
+            except ValueError:
+                intelligence.update(
+                    status="unavailable",
+                    conversion_estimate={"status": "not_available", "probability": None},
+                )
+                plan.update(
+                    status="needs_review", action="review",
+                    reason_codes=["deployment_changed"], eligible_actions=["review"],
+                )
+                return replace(returned, buyer_intelligence=intelligence, recovery_plan=plan)
             # Outcome estimates are descriptive. They never enter candidate ranking.
             # A durable journal is mandatory so retries cannot resample predictions.
             if cart.conversion_model_id and journal:
