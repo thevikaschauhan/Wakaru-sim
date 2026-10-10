@@ -39,8 +39,22 @@ def validate(request, response):
     if not isinstance(response, dict) or not isinstance(response.get("model"), str) or not response["model"]:
         raise ValueError("invalid_model")
     answers = response.get("answers")
-    if not isinstance(response.get("usage", {}), dict):
+    usage = response.get("usage", {})
+    if not isinstance(usage, dict):
         raise ValueError("invalid_usage")
+    if "cost" in usage:
+        cost = usage["cost"]
+        try:
+            valid_cost = (
+                isinstance(cost, (int, float))
+                and not isinstance(cost, bool)
+                and math.isfinite(cost)
+                and cost >= 0
+            )
+        except OverflowError:
+            valid_cost = False
+        if not valid_cost:
+            raise ValueError("invalid_usage")
     if not isinstance(answers, dict) or set(answers) != set(request["questions"]):
         raise ValueError("invalid_answers")
     for key, question in request["questions"].items():

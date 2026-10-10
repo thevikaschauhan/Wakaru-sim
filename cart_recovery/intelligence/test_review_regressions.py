@@ -14,7 +14,7 @@ import pytest
 
 from .recovery import PlanJournal
 from .test_typesafe import CONTRACTS
-from .typesafe import Client, Store
+from .typesafe import RESERVATION, Client, Store
 
 
 @pytest.mark.parametrize(
@@ -26,6 +26,13 @@ from .typesafe import Client, Store
         ("usage", None),
         ("usage", []),
         ("usage", "bad"),
+        ("usage", {"cost": "0.02"}),
+        ("usage", {"cost": True}),
+        ("usage", {"cost": -0.02}),
+        ("usage", {"cost": None}),
+        ("usage", {"cost": float("nan")}),
+        ("usage", {"cost": float("inf")}),
+        ("usage", {"cost": 10**400}),
     ],
 )
 def test_malformed_provider_response_is_durably_recorded(tmp_path, field, value):
@@ -38,7 +45,10 @@ def test_malformed_provider_response_is_durably_recorded(tmp_path, field, value)
     client = Client(
         key="fixture",
         approved_models=[fixture["response"]["model"]],
-        transport=httpx.MockTransport(lambda _: httpx.Response(200, json=response)),
+        transport=httpx.MockTransport(
+            # Raw bytes let the adapter receive non-finite provider values.
+            lambda _: httpx.Response(200, content=json.dumps(response))
+        ),
     )
     try:
         store = Store(tmp_path / "journal.db", client)
@@ -65,6 +75,45 @@ def test_malformed_provider_response_is_durably_recorded(tmp_path, field, value)
             assert db.execute("SELECT count(*) FROM judgments").fetchone()[0] == 1
             assert db.execute("SELECT count(*) FROM selected").fetchone()[0] == 0
             assert db.execute("SELECT count(*) FROM leases").fetchone()[0] == 0
+    finally:
+        client.close()
+
+
+@pytest.mark.parametrize(
+    "usage,cost",
+    [(None, None), ({}, None), ({"cost": 0}, 0),
+     ({"cost": 0.0001}, 0.0001), ({"cost": 0.02}, 0.02)],
+)
+def test_valid_and_unreported_costs_preserve_accounting(tmp_path, usage, cost):
+    fixture = json.loads((CONTRACTS / "conformance.json").read_text())[0]
+    response = copy.deepcopy(fixture["response"])
+    if usage is None:
+        response.pop("usage", None)
+    else:
+        response["usage"] = usage
+    client = Client(
+        key="fixture",
+        approved_models=[response["model"]],
+        transport=httpx.MockTransport(lambda _: httpx.Response(200, json=response)),
+    )
+    try:
+        store = Store(tmp_path / "journal.db", client)
+        identity = dict(
+            merchant_id="m", workflow="draft_claims", revision="1",
+            snapshot_hash="h", rubric_hash="r", policy_version="v",
+            candidate_hash="c", as_of="2026-09-23", episode_id="e",
+        )
+        result = store.judge(identity, fixture["request"])["result"]
+        over_budget = cost is not None and cost > RESERVATION
+        assert result["status"] == ("unresolved" if over_budget else "evaluated")
+        assert result["error_class"] == ("cost_reservation_exceeded" if over_budget else "")
+        assert result["attempts"][0]["cost"] == cost
+        with store.connection() as db:
+            selected = db.execute("SELECT count(*) FROM selected").fetchone()[0]
+            assert selected == (0 if over_budget else 1)
+            charges = [row[0] for row in db.execute("SELECT spent FROM budgets")]
+            assert len(charges) == 3
+            assert charges == pytest.approx([max(RESERVATION, cost or 0)] * 3)
     finally:
         client.close()
 
@@ -221,9 +270,9 @@ def test_idle_retention_retries_then_purges_without_provider_work(
         finally:
             stop.set()
     assert "retention failed" in caplog.text
-    assert journal.load("recent", "new") == {}
     with sqlite3.connect(path) as db:
         assert db.execute("SELECT count(*) FROM recovery_plans").fetchone()[0] == 1
+    assert journal.load("recent", "new") == {}
 
 
 def test_global_retention_preserves_current_budgets_and_leases(tmp_path):

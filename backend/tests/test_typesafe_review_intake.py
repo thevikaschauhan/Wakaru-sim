@@ -46,44 +46,45 @@ def test_invalid_server_mode_is_retryable(client, monkeypatch, route):
 
 @pytest.mark.parametrize("route", ROUTES)
 @pytest.mark.parametrize(
-    "field,value",
+    "field,value,code",
     [
-        ("as_of", None),
-        ("as_of", 42),
-        ("as_of", []),
-        ("feedback", [None]),
-        ("feedback", ["bad"]),
-        ("approved_facts", [None]),
-        ("approved_facts", ["bad"]),
-        ("eligible_actions", [["wait"]]),
+        ("as_of", None, "invalid_context_as_of"),
+        ("as_of", 42, "invalid_context_as_of"),
+        ("as_of", [], "invalid_context_as_of"),
+        ("feedback", [None], "invalid_feedback_scope"),
+        ("feedback", ["bad"], "invalid_feedback_scope"),
+        ("approved_facts", [None], "invalid_fact_authority"),
+        ("approved_facts", ["bad"], "invalid_fact_authority"),
+        ("eligible_actions", [["wait"]], "illegal_action"),
     ],
 )
 def test_malformed_context_returns_400_before_work(
-    client, monkeypatch, route, field, value
+    client, monkeypatch, route, field, value, code
 ):
     prevent_work(monkeypatch)
     body = request_body()
     body["intelligence_context"][field] = value
     response = client.post(route, json=body, headers={"X-Merchant-Id": MERCHANT})
     assert response.status_code == 400
+    assert response.json["error"] == f"Invalid cart data: {code}"
 
 
 @pytest.mark.parametrize("route", ROUTES)
 @pytest.mark.parametrize(
-    "case",
+    "case,code",
     [
-        "missing_as_of",
-        "missing_feedback_time",
-        "numeric_feedback_id",
-        "missing_fact_kind",
-        "missing_fact_revision",
-        "numeric_fact_id",
-        "future_event",
-        "duplicate_evidence_id",
+        ("missing_as_of", "invalid_context_as_of"),
+        ("missing_feedback_time", "invalid_feedback_scope"),
+        ("numeric_feedback_id", "invalid_feedback_scope"),
+        ("missing_fact_kind", "invalid_fact_authority"),
+        ("missing_fact_revision", "invalid_fact_authority"),
+        ("numeric_fact_id", "invalid_fact_authority"),
+        ("future_event", "future_observation"),
+        ("duplicate_evidence_id", "duplicate_evidence_id"),
     ],
 )
 def test_missing_fields_and_evidence_conflicts_rejected(
-    client, monkeypatch, route, case
+    client, monkeypatch, route, case, code
 ):
     prevent_work(monkeypatch)
     body = request_body()
@@ -131,3 +132,4 @@ def test_missing_fields_and_evidence_conflicts_rejected(
             fact["id"] = 7
     response = client.post(route, json=body, headers={"X-Merchant-Id": MERCHANT})
     assert response.status_code == 400
+    assert response.json["error"] == f"Invalid cart data: {code}"
