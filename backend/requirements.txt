@@ -48,3 +48,7 @@ rq>=1.16,<2
 # Per-IP rate limit on the paid cart-recovery endpoints. Redis storage so the
 # limit coheres across the 2 gunicorn workers (in-process state would not).
 flask-limiter>=3.5,<4
+
+# Versioned integration contract validation
+jsonschema[format-nongpl]==4.25.1
+rfc8785==0.1.4

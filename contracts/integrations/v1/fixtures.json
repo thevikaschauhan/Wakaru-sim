@@ -1,0 +1,2701 @@
+[
+  {
+    "name": "legacy-context",
+    "valid": true,
+    "payload": {
+      "version": "recovery_context_v1",
+      "merchant_id": "merchant-a",
+      "episode_id": "episode-a",
+      "as_of": "2026-10-21T00:00:00Z",
+      "approved_facts": [],
+      "feedback": [],
+      "eligible_actions": [
+        "no_action",
+        "wait",
+        "review"
+      ],
+      "eligibility_reasons": [
+        "live_send_gates_required"
+      ],
+      "revision": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  },
+  {
+    "name": "support-hold",
+    "valid": true,
+    "payload": {
+      "version": "recovery_context_v2",
+      "merchant_id": "merchant-a",
+      "episode_id": "episode-a",
+      "as_of": "2026-10-21T00:00:00Z",
+      "approved_facts": [],
+      "feedback": [],
+      "eligible_actions": [
+        "no_action",
+        "wait",
+        "review"
+      ],
+      "eligibility_reasons": [
+        "live_send_gates_required"
+      ],
+      "revision": "0000000000000000000000000000000000000000000000000000000000000000",
+      "customer_context": {
+        "version": "customer_context_v1",
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_id": "customer-a",
+        "snapshot_id": "snapshot-a",
+        "as_of": "2026-10-21T00:00:00Z",
+        "expires_at": "2026-10-21T00:05:00Z",
+        "context_generation": 1,
+        "privacy_generation": 1,
+        "identity_status": "resolved",
+        "identity_revision": "identity-1",
+        "policy_version": "support-1",
+        "coverage": [
+          {
+            "connection_id": "connection-a",
+            "capability": "support.case.v1",
+            "generation": 1,
+            "state": "complete",
+            "verified_at": "2026-10-21T00:00:00Z",
+            "scope": "customer-a"
+          }
+        ],
+        "constraints": [
+          "support_open_case"
+        ],
+        "evidence": [],
+        "snapshot_hash": "0e69e7222c9d58eb7a3cd183e3e4deeda939b665e82ce91b29c893be435dcc18"
+      },
+      "context_hash": "6259526fdd6a682e9d20dd38f6abb8366d4975a56e9be7132fa0bda29f95d608"
+    }
+  },
+  {
+    "name": "unknown-version",
+    "valid": false,
+    "payload": {
+      "version": "recovery_context_v9",
+      "merchant_id": "merchant-a",
+      "episode_id": "episode-a",
+      "as_of": "2026-10-21T00:00:00Z",
+      "approved_facts": [],
+      "feedback": [],
+      "eligible_actions": [
+        "no_action",
+        "wait",
+        "review"
+      ],
+      "eligibility_reasons": [
+        "live_send_gates_required"
+      ],
+      "revision": "0000000000000000000000000000000000000000000000000000000000000000",
+      "customer_context": {
+        "version": "customer_context_v1",
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_id": "customer-a",
+        "snapshot_id": "snapshot-a",
+        "as_of": "2026-10-21T00:00:00Z",
+        "expires_at": "2026-10-21T00:05:00Z",
+        "context_generation": 1,
+        "privacy_generation": 1,
+        "identity_status": "resolved",
+        "identity_revision": "identity-1",
+        "policy_version": "support-1",
+        "coverage": [
+          {
+            "connection_id": "connection-a",
+            "capability": "support.case.v1",
+            "generation": 1,
+            "state": "complete",
+            "verified_at": "2026-10-21T00:00:00Z",
+            "scope": "customer-a"
+          }
+        ],
+        "constraints": [
+          "support_open_case"
+        ],
+        "evidence": [],
+        "snapshot_hash": "0e69e7222c9d58eb7a3cd183e3e4deeda939b665e82ce91b29c893be435dcc18"
+      },
+      "context_hash": "6259526fdd6a682e9d20dd38f6abb8366d4975a56e9be7132fa0bda29f95d608"
+    }
+  },
+  {
+    "name": "unknown-field",
+    "valid": false,
+    "payload": {
+      "version": "recovery_context_v2",
+      "merchant_id": "merchant-a",
+      "episode_id": "episode-a",
+      "as_of": "2026-10-21T00:00:00Z",
+      "approved_facts": [],
+      "feedback": [],
+      "eligible_actions": [
+        "no_action",
+        "wait",
+        "review"
+      ],
+      "eligibility_reasons": [
+        "live_send_gates_required"
+      ],
+      "revision": "0000000000000000000000000000000000000000000000000000000000000000",
+      "customer_context": {
+        "version": "customer_context_v1",
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_id": "customer-a",
+        "snapshot_id": "snapshot-a",
+        "as_of": "2026-10-21T00:00:00Z",
+        "expires_at": "2026-10-21T00:05:00Z",
+        "context_generation": 1,
+        "privacy_generation": 1,
+        "identity_status": "resolved",
+        "identity_revision": "identity-1",
+        "policy_version": "support-1",
+        "coverage": [
+          {
+            "connection_id": "connection-a",
+            "capability": "support.case.v1",
+            "generation": 1,
+            "state": "complete",
+            "verified_at": "2026-10-21T00:00:00Z",
+            "scope": "customer-a"
+          }
+        ],
+        "constraints": [
+          "support_open_case"
+        ],
+        "evidence": [],
+        "snapshot_hash": "0e69e7222c9d58eb7a3cd183e3e4deeda939b665e82ce91b29c893be435dcc18"
+      },
+      "context_hash": "6259526fdd6a682e9d20dd38f6abb8366d4975a56e9be7132fa0bda29f95d608",
+      "secret": "no"
+    }
+  },
+  {
+    "name": "wrong-merchant",
+    "valid": false,
+    "payload": {
+      "version": "recovery_context_v2",
+      "merchant_id": "merchant-a",
+      "episode_id": "episode-a",
+      "as_of": "2026-10-21T00:00:00Z",
+      "approved_facts": [],
+      "feedback": [],
+      "eligible_actions": [
+        "no_action",
+        "wait",
+        "review"
+      ],
+      "eligibility_reasons": [
+        "live_send_gates_required"
+      ],
+      "revision": "0000000000000000000000000000000000000000000000000000000000000000",
+      "customer_context": {
+        "version": "customer_context_v1",
+        "merchant_id": "merchant-b",
+        "store_id": "store-a",
+        "subject_id": "customer-a",
+        "snapshot_id": "snapshot-a",
+        "as_of": "2026-10-21T00:00:00Z",
+        "expires_at": "2026-10-21T00:05:00Z",
+        "context_generation": 1,
+        "privacy_generation": 1,
+        "identity_status": "resolved",
+        "identity_revision": "identity-1",
+        "policy_version": "support-1",
+        "coverage": [
+          {
+            "connection_id": "connection-a",
+            "capability": "support.case.v1",
+            "generation": 1,
+            "state": "complete",
+            "verified_at": "2026-10-21T00:00:00Z",
+            "scope": "customer-a"
+          }
+        ],
+        "constraints": [
+          "support_open_case"
+        ],
+        "evidence": [],
+        "snapshot_hash": "8d842963b7fbc558b2caffcedc50f07f6d306e8c11a7286665a260de83a3cff8"
+      },
+      "context_hash": "4569c6c7798505f5700a505d77bab4e1d6c22143794ea5ffbad6749ca16ba2c9"
+    }
+  },
+  {
+    "name": "tampered-hash",
+    "valid": false,
+    "payload": {
+      "version": "recovery_context_v2",
+      "merchant_id": "merchant-a",
+      "episode_id": "episode-a",
+      "as_of": "2026-10-21T00:00:00Z",
+      "approved_facts": [],
+      "feedback": [],
+      "eligible_actions": [
+        "no_action",
+        "wait",
+        "review"
+      ],
+      "eligibility_reasons": [
+        "live_send_gates_required"
+      ],
+      "revision": "0000000000000000000000000000000000000000000000000000000000000000",
+      "customer_context": {
+        "version": "customer_context_v1",
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_id": "customer-a",
+        "snapshot_id": "snapshot-a",
+        "as_of": "2026-10-21T00:00:00Z",
+        "expires_at": "2026-10-21T00:05:00Z",
+        "context_generation": 1,
+        "privacy_generation": 1,
+        "identity_status": "resolved",
+        "identity_revision": "identity-1",
+        "policy_version": "support-1",
+        "coverage": [
+          {
+            "connection_id": "connection-a",
+            "capability": "support.case.v1",
+            "generation": 1,
+            "state": "complete",
+            "verified_at": "2026-10-21T00:00:00Z",
+            "scope": "customer-a"
+          }
+        ],
+        "constraints": [
+          "support_open_case"
+        ],
+        "evidence": [],
+        "snapshot_hash": "0e69e7222c9d58eb7a3cd183e3e4deeda939b665e82ce91b29c893be435dcc18"
+      },
+      "context_hash": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    }
+  },
+  {
+    "name": "invalid-coverage",
+    "valid": false,
+    "payload": {
+      "version": "recovery_context_v2",
+      "merchant_id": "merchant-a",
+      "episode_id": "episode-a",
+      "as_of": "2026-10-21T00:00:00Z",
+      "approved_facts": [],
+      "feedback": [],
+      "eligible_actions": [
+        "no_action",
+        "wait",
+        "review"
+      ],
+      "eligibility_reasons": [
+        "live_send_gates_required"
+      ],
+      "revision": "0000000000000000000000000000000000000000000000000000000000000000",
+      "customer_context": {
+        "version": "customer_context_v1",
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_id": "customer-a",
+        "snapshot_id": "snapshot-a",
+        "as_of": "2026-10-21T00:00:00Z",
+        "expires_at": "2026-10-21T00:05:00Z",
+        "context_generation": 1,
+        "privacy_generation": 1,
+        "identity_status": "resolved",
+        "identity_revision": "identity-1",
+        "policy_version": "support-1",
+        "coverage": [
+          {
+            "connection_id": "connection-a",
+            "capability": "support.case.v1",
+            "generation": 1,
+            "state": "ready",
+            "verified_at": "2026-10-21T00:00:00Z",
+            "scope": "customer-a"
+          }
+        ],
+        "constraints": [
+          "support_open_case"
+        ],
+        "evidence": [],
+        "snapshot_hash": "0e69e7222c9d58eb7a3cd183e3e4deeda939b665e82ce91b29c893be435dcc18"
+      },
+      "context_hash": "6259526fdd6a682e9d20dd38f6abb8366d4975a56e9be7132fa0bda29f95d608"
+    }
+  },
+  {
+    "name": "future-evidence",
+    "valid": false,
+    "payload": {
+      "version": "recovery_context_v2",
+      "merchant_id": "merchant-a",
+      "episode_id": "episode-a",
+      "as_of": "2026-10-21T00:00:00Z",
+      "approved_facts": [],
+      "feedback": [],
+      "eligible_actions": [
+        "no_action",
+        "wait",
+        "review"
+      ],
+      "eligibility_reasons": [
+        "live_send_gates_required"
+      ],
+      "revision": "0000000000000000000000000000000000000000000000000000000000000000",
+      "customer_context": {
+        "version": "customer_context_v1",
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_id": "customer-a",
+        "snapshot_id": "snapshot-a",
+        "as_of": "2026-10-21T00:00:00Z",
+        "expires_at": "2026-10-21T00:05:00Z",
+        "context_generation": 1,
+        "privacy_generation": 1,
+        "identity_status": "resolved",
+        "identity_revision": "identity-1",
+        "policy_version": "support-1",
+        "coverage": [
+          {
+            "connection_id": "connection-a",
+            "capability": "support.case.v1",
+            "generation": 1,
+            "state": "complete",
+            "verified_at": "2027-01-01T00:00:00Z",
+            "scope": "customer-a"
+          }
+        ],
+        "constraints": [
+          "support_open_case"
+        ],
+        "evidence": [],
+        "snapshot_hash": "6b6b19e1bbbdde87205d8ab4ebb938a6ad54fefb91e2c9fd346580eb39a6390d"
+      },
+      "context_hash": "834c1fcef90fb0150cdd7bf44de52a4f4e3f76eb9a26fc23bba42ac68ab6bf28"
+    }
+  },
+  {
+    "name": "unicode",
+    "valid": true,
+    "payload": {
+      "version": "recovery_context_v2",
+      "merchant_id": "merchant-a",
+      "episode_id": "episode-a",
+      "as_of": "2026-10-21T00:00:00Z",
+      "approved_facts": [
+        {
+          "id": "fact-1",
+          "revision": "rev-1",
+          "kind": "value_prop",
+          "text": "Café 日本 🛍",
+          "status": "active",
+          "scope_resolved": true,
+          "source_hash": ""
+        }
+      ],
+      "feedback": [],
+      "eligible_actions": [
+        "no_action",
+        "wait",
+        "review"
+      ],
+      "eligibility_reasons": [
+        "live_send_gates_required"
+      ],
+      "revision": "0000000000000000000000000000000000000000000000000000000000000000",
+      "customer_context": {
+        "version": "customer_context_v1",
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_id": "customer-a",
+        "snapshot_id": "snapshot-a",
+        "as_of": "2026-10-21T00:00:00Z",
+        "expires_at": "2026-10-21T00:05:00Z",
+        "context_generation": 1,
+        "privacy_generation": 1,
+        "identity_status": "resolved",
+        "identity_revision": "identity-1",
+        "policy_version": "support-1",
+        "coverage": [
+          {
+            "connection_id": "connection-a",
+            "capability": "support.case.v1",
+            "generation": 1,
+            "state": "complete",
+            "verified_at": "2026-10-21T00:00:00Z",
+            "scope": "customer-a"
+          }
+        ],
+        "constraints": [
+          "support_open_case"
+        ],
+        "evidence": [],
+        "snapshot_hash": "0e69e7222c9d58eb7a3cd183e3e4deeda939b665e82ce91b29c893be435dcc18"
+      },
+      "context_hash": "eef749ea619acb5360da33fed8a986a67a8addcc3625daf746ad8daa2170c79d"
+    }
+  },
+  {
+    "name": "legacy-recovery_plan",
+    "valid": true,
+    "payload": {
+      "version": "recovery_plan_v1",
+      "plan_id": "5541f894ab8b1ce6493eeb9d2e36ff982539095c483ad82bc3e64abd6b08ea26",
+      "revision": "5541f894ab8b1ce6493eeb9d2e36ff982539095c483ad82bc3e64abd6b08ea26",
+      "based_on_snapshot_sha256": "4a4aea46f94c40843a8bfa76d2abb1fe7cb188eda1fda089dd4fcf83bc9b341f",
+      "episode_id": "episode-a",
+      "status": "needs_review",
+      "action": "checkout_assistance",
+      "mode": "assist",
+      "fact_ids": [],
+      "fact_revisions": {},
+      "allowed_claims": [],
+      "judgment_ids": [
+        "1"
+      ],
+      "eligible_actions": [
+        "checkout_assistance",
+        "neutral_reminder",
+        "no_action",
+        "review",
+        "wait"
+      ],
+      "reason_codes": [
+        "evidence_fit"
+      ],
+      "expires_at": "2026-09-24T09:00:00+00:00",
+      "allow_incentive": false,
+      "tone": "neutral",
+      "resume_trigger": null,
+      "scores": {
+        "review": {
+          "score": 0,
+          "confidence": 0.99
+        },
+        "neutral_reminder": {
+          "score": 0,
+          "confidence": 0.99
+        },
+        "wait": {
+          "score": 0,
+          "confidence": 0.99
+        },
+        "no_action": {
+          "score": 0,
+          "confidence": 0.99
+        },
+        "checkout_assistance": {
+          "score": 2,
+          "confidence": 0.99
+        }
+      }
+    }
+  },
+  {
+    "name": "bound-recovery_plan",
+    "valid": true,
+    "payload": {
+      "version": "recovery_plan_v2",
+      "plan_id": "5541f894ab8b1ce6493eeb9d2e36ff982539095c483ad82bc3e64abd6b08ea26",
+      "revision": "5541f894ab8b1ce6493eeb9d2e36ff982539095c483ad82bc3e64abd6b08ea26",
+      "based_on_snapshot_sha256": "4a4aea46f94c40843a8bfa76d2abb1fe7cb188eda1fda089dd4fcf83bc9b341f",
+      "episode_id": "episode-a",
+      "status": "needs_review",
+      "action": "checkout_assistance",
+      "mode": "assist",
+      "fact_ids": [],
+      "fact_revisions": {},
+      "allowed_claims": [],
+      "judgment_ids": [
+        "1"
+      ],
+      "eligible_actions": [
+        "checkout_assistance",
+        "neutral_reminder",
+        "no_action",
+        "review",
+        "wait"
+      ],
+      "reason_codes": [
+        "evidence_fit"
+      ],
+      "expires_at": "2026-09-24T09:00:00Z",
+      "allow_incentive": false,
+      "tone": "neutral",
+      "resume_trigger": null,
+      "scores": {
+        "review": {
+          "score": 0,
+          "confidence": 0.99
+        },
+        "neutral_reminder": {
+          "score": 0,
+          "confidence": 0.99
+        },
+        "wait": {
+          "score": 0,
+          "confidence": 0.99
+        },
+        "no_action": {
+          "score": 0,
+          "confidence": 0.99
+        },
+        "checkout_assistance": {
+          "score": 2,
+          "confidence": 0.99
+        }
+      },
+      "context_hash": "6259526fdd6a682e9d20dd38f6abb8366d4975a56e9be7132fa0bda29f95d608",
+      "source_refs": []
+    },
+    "expected_context_hash": "6259526fdd6a682e9d20dd38f6abb8366d4975a56e9be7132fa0bda29f95d608"
+  },
+  {
+    "name": "unbound-recovery_plan",
+    "valid": false,
+    "payload": {
+      "version": "recovery_plan_v2",
+      "plan_id": "5541f894ab8b1ce6493eeb9d2e36ff982539095c483ad82bc3e64abd6b08ea26",
+      "revision": "5541f894ab8b1ce6493eeb9d2e36ff982539095c483ad82bc3e64abd6b08ea26",
+      "based_on_snapshot_sha256": "4a4aea46f94c40843a8bfa76d2abb1fe7cb188eda1fda089dd4fcf83bc9b341f",
+      "episode_id": "episode-a",
+      "status": "needs_review",
+      "action": "checkout_assistance",
+      "mode": "assist",
+      "fact_ids": [],
+      "fact_revisions": {},
+      "allowed_claims": [],
+      "judgment_ids": [
+        "1"
+      ],
+      "eligible_actions": [
+        "checkout_assistance",
+        "neutral_reminder",
+        "no_action",
+        "review",
+        "wait"
+      ],
+      "reason_codes": [
+        "evidence_fit"
+      ],
+      "expires_at": "2026-09-24T09:00:00Z",
+      "allow_incentive": false,
+      "tone": "neutral",
+      "resume_trigger": null,
+      "scores": {
+        "review": {
+          "score": 0,
+          "confidence": 0.99
+        },
+        "neutral_reminder": {
+          "score": 0,
+          "confidence": 0.99
+        },
+        "wait": {
+          "score": 0,
+          "confidence": 0.99
+        },
+        "no_action": {
+          "score": 0,
+          "confidence": 0.99
+        },
+        "checkout_assistance": {
+          "score": 2,
+          "confidence": 0.99
+        }
+      },
+      "context_hash": "6259526fdd6a682e9d20dd38f6abb8366d4975a56e9be7132fa0bda29f95d608",
+      "source_refs": []
+    }
+  },
+  {
+    "name": "wrong-context-recovery_plan",
+    "valid": false,
+    "payload": {
+      "version": "recovery_plan_v2",
+      "plan_id": "5541f894ab8b1ce6493eeb9d2e36ff982539095c483ad82bc3e64abd6b08ea26",
+      "revision": "5541f894ab8b1ce6493eeb9d2e36ff982539095c483ad82bc3e64abd6b08ea26",
+      "based_on_snapshot_sha256": "4a4aea46f94c40843a8bfa76d2abb1fe7cb188eda1fda089dd4fcf83bc9b341f",
+      "episode_id": "episode-a",
+      "status": "needs_review",
+      "action": "checkout_assistance",
+      "mode": "assist",
+      "fact_ids": [],
+      "fact_revisions": {},
+      "allowed_claims": [],
+      "judgment_ids": [
+        "1"
+      ],
+      "eligible_actions": [
+        "checkout_assistance",
+        "neutral_reminder",
+        "no_action",
+        "review",
+        "wait"
+      ],
+      "reason_codes": [
+        "evidence_fit"
+      ],
+      "expires_at": "2026-09-24T09:00:00Z",
+      "allow_incentive": false,
+      "tone": "neutral",
+      "resume_trigger": null,
+      "scores": {
+        "review": {
+          "score": 0,
+          "confidence": 0.99
+        },
+        "neutral_reminder": {
+          "score": 0,
+          "confidence": 0.99
+        },
+        "wait": {
+          "score": 0,
+          "confidence": 0.99
+        },
+        "no_action": {
+          "score": 0,
+          "confidence": 0.99
+        },
+        "checkout_assistance": {
+          "score": 2,
+          "confidence": 0.99
+        }
+      },
+      "context_hash": "6259526fdd6a682e9d20dd38f6abb8366d4975a56e9be7132fa0bda29f95d608",
+      "source_refs": []
+    },
+    "expected_context_hash": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+  },
+  {
+    "name": "legacy-buyer_intelligence",
+    "valid": true,
+    "payload": {
+      "version": "buyer_intelligence_v1",
+      "status": "evaluated",
+      "mode": "assist",
+      "based_on_snapshot_sha256": "4a4aea46f94c40843a8bfa76d2abb1fe7cb188eda1fda089dd4fcf83bc9b341f",
+      "as_of": "2026-09-23T09:00:00Z",
+      "hypotheses": [
+        {
+          "code": "payment_friction",
+          "basis": "observed_friction",
+          "verdict": "supported",
+          "evidence_ids": [
+            "e2"
+          ],
+          "probability": 0.95,
+          "confidence": 0.99
+        },
+        {
+          "code": "price_sensitivity",
+          "basis": "inferred_hypothesis",
+          "verdict": "review",
+          "evidence_ids": [],
+          "probability": 0.95,
+          "confidence": 0.99
+        }
+      ],
+      "reported_reasons": [],
+      "explanation_checks": [],
+      "judgment_ids": [
+        "1"
+      ],
+      "missing_evidence": [
+        "verified_motivation",
+        "calibrated_conversion"
+      ],
+      "reason_category_compat": "unknown",
+      "model_features": {
+        "payment_friction": 0.95,
+        "shipping_cost": 0.05,
+        "delivery_timing": 0.05,
+        "price_sensitivity": 0.95,
+        "sizing_doubt": 0.05,
+        "trust_uncertainty": 0.05,
+        "interruption": 0.05,
+        "out_of_stock_concern": 0.05
+      },
+      "conversion_estimate": {
+        "status": "not_available",
+        "probability": null
+      }
+    }
+  },
+  {
+    "name": "bound-buyer_intelligence",
+    "valid": true,
+    "payload": {
+      "version": "buyer_intelligence_v2",
+      "status": "evaluated",
+      "mode": "assist",
+      "based_on_snapshot_sha256": "4a4aea46f94c40843a8bfa76d2abb1fe7cb188eda1fda089dd4fcf83bc9b341f",
+      "as_of": "2026-09-23T09:00:00Z",
+      "hypotheses": [
+        {
+          "code": "payment_friction",
+          "basis": "observed_friction",
+          "verdict": "supported",
+          "evidence_ids": [
+            "e2"
+          ],
+          "probability": 0.95,
+          "confidence": 0.99
+        },
+        {
+          "code": "price_sensitivity",
+          "basis": "inferred_hypothesis",
+          "verdict": "review",
+          "evidence_ids": [],
+          "probability": 0.95,
+          "confidence": 0.99
+        }
+      ],
+      "reported_reasons": [],
+      "explanation_checks": [],
+      "judgment_ids": [
+        "1"
+      ],
+      "missing_evidence": [
+        "verified_motivation",
+        "calibrated_conversion"
+      ],
+      "reason_category_compat": "unknown",
+      "model_features": {
+        "payment_friction": 0.95,
+        "shipping_cost": 0.05,
+        "delivery_timing": 0.05,
+        "price_sensitivity": 0.95,
+        "sizing_doubt": 0.05,
+        "trust_uncertainty": 0.05,
+        "interruption": 0.05,
+        "out_of_stock_concern": 0.05
+      },
+      "conversion_estimate": {
+        "status": "not_available",
+        "probability": null
+      },
+      "context_hash": "6259526fdd6a682e9d20dd38f6abb8366d4975a56e9be7132fa0bda29f95d608",
+      "source_refs": []
+    },
+    "expected_context_hash": "6259526fdd6a682e9d20dd38f6abb8366d4975a56e9be7132fa0bda29f95d608"
+  },
+  {
+    "name": "unbound-buyer_intelligence",
+    "valid": false,
+    "payload": {
+      "version": "buyer_intelligence_v2",
+      "status": "evaluated",
+      "mode": "assist",
+      "based_on_snapshot_sha256": "4a4aea46f94c40843a8bfa76d2abb1fe7cb188eda1fda089dd4fcf83bc9b341f",
+      "as_of": "2026-09-23T09:00:00Z",
+      "hypotheses": [
+        {
+          "code": "payment_friction",
+          "basis": "observed_friction",
+          "verdict": "supported",
+          "evidence_ids": [
+            "e2"
+          ],
+          "probability": 0.95,
+          "confidence": 0.99
+        },
+        {
+          "code": "price_sensitivity",
+          "basis": "inferred_hypothesis",
+          "verdict": "review",
+          "evidence_ids": [],
+          "probability": 0.95,
+          "confidence": 0.99
+        }
+      ],
+      "reported_reasons": [],
+      "explanation_checks": [],
+      "judgment_ids": [
+        "1"
+      ],
+      "missing_evidence": [
+        "verified_motivation",
+        "calibrated_conversion"
+      ],
+      "reason_category_compat": "unknown",
+      "model_features": {
+        "payment_friction": 0.95,
+        "shipping_cost": 0.05,
+        "delivery_timing": 0.05,
+        "price_sensitivity": 0.95,
+        "sizing_doubt": 0.05,
+        "trust_uncertainty": 0.05,
+        "interruption": 0.05,
+        "out_of_stock_concern": 0.05
+      },
+      "conversion_estimate": {
+        "status": "not_available",
+        "probability": null
+      },
+      "context_hash": "6259526fdd6a682e9d20dd38f6abb8366d4975a56e9be7132fa0bda29f95d608",
+      "source_refs": []
+    }
+  },
+  {
+    "name": "wrong-context-buyer_intelligence",
+    "valid": false,
+    "payload": {
+      "version": "buyer_intelligence_v2",
+      "status": "evaluated",
+      "mode": "assist",
+      "based_on_snapshot_sha256": "4a4aea46f94c40843a8bfa76d2abb1fe7cb188eda1fda089dd4fcf83bc9b341f",
+      "as_of": "2026-09-23T09:00:00Z",
+      "hypotheses": [
+        {
+          "code": "payment_friction",
+          "basis": "observed_friction",
+          "verdict": "supported",
+          "evidence_ids": [
+            "e2"
+          ],
+          "probability": 0.95,
+          "confidence": 0.99
+        },
+        {
+          "code": "price_sensitivity",
+          "basis": "inferred_hypothesis",
+          "verdict": "review",
+          "evidence_ids": [],
+          "probability": 0.95,
+          "confidence": 0.99
+        }
+      ],
+      "reported_reasons": [],
+      "explanation_checks": [],
+      "judgment_ids": [
+        "1"
+      ],
+      "missing_evidence": [
+        "verified_motivation",
+        "calibrated_conversion"
+      ],
+      "reason_category_compat": "unknown",
+      "model_features": {
+        "payment_friction": 0.95,
+        "shipping_cost": 0.05,
+        "delivery_timing": 0.05,
+        "price_sensitivity": 0.95,
+        "sizing_doubt": 0.05,
+        "trust_uncertainty": 0.05,
+        "interruption": 0.05,
+        "out_of_stock_concern": 0.05
+      },
+      "conversion_estimate": {
+        "status": "not_available",
+        "probability": null
+      },
+      "context_hash": "6259526fdd6a682e9d20dd38f6abb8366d4975a56e9be7132fa0bda29f95d608",
+      "source_refs": []
+    },
+    "expected_context_hash": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+  },
+  {
+    "name": "outreach_eligibility_v2",
+    "valid": true,
+    "payload": {
+      "merchant_id": "merchant-a",
+      "store_id": "store-a",
+      "subject_id": "customer-a",
+      "decision": "hold",
+      "reason_codes": [
+        "support_open_case"
+      ],
+      "context_generation": 1,
+      "snapshot_hash": "0e69e7222c9d58eb7a3cd183e3e4deeda939b665e82ce91b29c893be435dcc18",
+      "checked_at": "2026-10-21T00:00:00Z",
+      "provider_attempted": false,
+      "version": "outreach_eligibility_v2"
+    }
+  },
+  {
+    "name": "privacy_request_v1",
+    "valid": true,
+    "payload": {
+      "merchant_id": "merchant-a",
+      "store_id": "store-a",
+      "subject_id": "customer-a",
+      "privacy_generation": 1,
+      "operation": "erase",
+      "request_id": "request-a",
+      "version": "privacy_request_v1"
+    }
+  },
+  {
+    "name": "context_changed_v1",
+    "valid": true,
+    "payload": {
+      "merchant_id": "merchant-a",
+      "store_id": "store-a",
+      "subject_id": "customer-a",
+      "context_generation": 2,
+      "privacy_generation": 1,
+      "reason": "support_open_case",
+      "idempotency_key": "event-a",
+      "version": "context_changed_v1"
+    }
+  },
+  {
+    "name": "integration_connection_v1",
+    "valid": true,
+    "payload": {
+      "merchant_id": "merchant-a",
+      "store_id": "store-a",
+      "connection_id": "connection-a",
+      "provider": "fixture",
+      "external_account": "account-a",
+      "state": "connected",
+      "generation": 1,
+      "authorization_health": "unverified",
+      "capabilities": [],
+      "live_ingestion_enabled": false,
+      "email_use_enabled": false,
+      "version": "integration_connection_v1"
+    }
+  },
+  {
+    "name": "scoped-evidence",
+    "valid": true,
+    "payload": {
+      "version": "recovery_context_v2",
+      "merchant_id": "merchant-a",
+      "episode_id": "episode-a",
+      "as_of": "2026-10-21T00:00:00Z",
+      "approved_facts": [],
+      "feedback": [],
+      "eligible_actions": [
+        "no_action",
+        "wait",
+        "review"
+      ],
+      "eligibility_reasons": [
+        "live_send_gates_required"
+      ],
+      "revision": "0000000000000000000000000000000000000000000000000000000000000000",
+      "customer_context": {
+        "version": "customer_context_v1",
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_id": "customer-a",
+        "snapshot_id": "snapshot-a",
+        "as_of": "2026-10-21T00:00:00Z",
+        "expires_at": "2026-10-21T00:05:00Z",
+        "context_generation": 1,
+        "privacy_generation": 1,
+        "identity_status": "resolved",
+        "identity_revision": "identity-1",
+        "policy_version": "support-1",
+        "coverage": [
+          {
+            "connection_id": "connection-a",
+            "capability": "support.case.v1",
+            "generation": 1,
+            "state": "complete",
+            "verified_at": "2026-10-21T00:00:00Z",
+            "scope": "customer-a"
+          }
+        ],
+        "constraints": [
+          "support_open_case"
+        ],
+        "evidence": [
+          {
+            "version": "integration_evidence_ref_v1",
+            "merchant_id": "merchant-a",
+            "store_id": "store-a",
+            "subject_id": "customer-a",
+            "connection_id": "connection-a",
+            "connection_generation": 1,
+            "privacy_generation": 1,
+            "provider": "fixture",
+            "object_type": "support.statement.v1",
+            "object_id": "statement-a",
+            "revision": "1",
+            "observed_at": "2026-10-21T00:00:00Z",
+            "source_updated_at": null,
+            "span_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "scope": "customer",
+            "scope_id": "customer-a",
+            "permitted_use": "decision_only"
+          }
+        ],
+        "snapshot_hash": "a58f040c88356294af1e22fb08fcc5b2b319f8a5c4665e28cdadbd5d0f83786c"
+      },
+      "context_hash": "b463f0c2bd1cbe157e7dd08659c17262d42f51e43f1d90ba153559341dc8f7c1"
+    }
+  },
+  {
+    "name": "reordered-keys-same-hash",
+    "valid": true,
+    "payload": {
+      "context_hash": "b463f0c2bd1cbe157e7dd08659c17262d42f51e43f1d90ba153559341dc8f7c1",
+      "customer_context": {
+        "snapshot_hash": "a58f040c88356294af1e22fb08fcc5b2b319f8a5c4665e28cdadbd5d0f83786c",
+        "evidence": [
+          {
+            "permitted_use": "decision_only",
+            "scope_id": "customer-a",
+            "scope": "customer",
+            "span_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "source_updated_at": null,
+            "observed_at": "2026-10-21T00:00:00Z",
+            "revision": "1",
+            "object_id": "statement-a",
+            "object_type": "support.statement.v1",
+            "provider": "fixture",
+            "privacy_generation": 1,
+            "connection_generation": 1,
+            "connection_id": "connection-a",
+            "subject_id": "customer-a",
+            "store_id": "store-a",
+            "merchant_id": "merchant-a",
+            "version": "integration_evidence_ref_v1"
+          }
+        ],
+        "constraints": [
+          "support_open_case"
+        ],
+        "coverage": [
+          {
+            "scope": "customer-a",
+            "verified_at": "2026-10-21T00:00:00Z",
+            "state": "complete",
+            "generation": 1,
+            "capability": "support.case.v1",
+            "connection_id": "connection-a"
+          }
+        ],
+        "policy_version": "support-1",
+        "identity_revision": "identity-1",
+        "identity_status": "resolved",
+        "privacy_generation": 1,
+        "context_generation": 1,
+        "expires_at": "2026-10-21T00:05:00Z",
+        "as_of": "2026-10-21T00:00:00Z",
+        "snapshot_id": "snapshot-a",
+        "subject_id": "customer-a",
+        "store_id": "store-a",
+        "merchant_id": "merchant-a",
+        "version": "customer_context_v1"
+      },
+      "revision": "0000000000000000000000000000000000000000000000000000000000000000",
+      "eligibility_reasons": [
+        "live_send_gates_required"
+      ],
+      "eligible_actions": [
+        "no_action",
+        "wait",
+        "review"
+      ],
+      "feedback": [],
+      "approved_facts": [],
+      "as_of": "2026-10-21T00:00:00Z",
+      "episode_id": "episode-a",
+      "merchant_id": "merchant-a",
+      "version": "recovery_context_v2"
+    }
+  },
+  {
+    "name": "null-source-time",
+    "valid": true,
+    "payload": {
+      "version": "recovery_context_v2",
+      "merchant_id": "merchant-a",
+      "episode_id": "episode-a",
+      "as_of": "2026-10-21T00:00:00Z",
+      "approved_facts": [],
+      "feedback": [],
+      "eligible_actions": [
+        "no_action",
+        "wait",
+        "review"
+      ],
+      "eligibility_reasons": [
+        "live_send_gates_required"
+      ],
+      "revision": "0000000000000000000000000000000000000000000000000000000000000000",
+      "customer_context": {
+        "version": "customer_context_v1",
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_id": "customer-a",
+        "snapshot_id": "snapshot-a",
+        "as_of": "2026-10-21T00:00:00Z",
+        "expires_at": "2026-10-21T00:05:00Z",
+        "context_generation": 1,
+        "privacy_generation": 1,
+        "identity_status": "resolved",
+        "identity_revision": "identity-1",
+        "policy_version": "support-1",
+        "coverage": [
+          {
+            "connection_id": "connection-a",
+            "capability": "support.case.v1",
+            "generation": 1,
+            "state": "complete",
+            "verified_at": "2026-10-21T00:00:00Z",
+            "scope": "customer-a"
+          }
+        ],
+        "constraints": [
+          "support_open_case"
+        ],
+        "evidence": [
+          {
+            "version": "integration_evidence_ref_v1",
+            "merchant_id": "merchant-a",
+            "store_id": "store-a",
+            "subject_id": "customer-a",
+            "connection_id": "connection-a",
+            "connection_generation": 1,
+            "privacy_generation": 1,
+            "provider": "fixture",
+            "object_type": "support.statement.v1",
+            "object_id": "statement-a",
+            "revision": "1",
+            "observed_at": "2026-10-21T00:00:00Z",
+            "source_updated_at": null,
+            "span_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "scope": "customer",
+            "scope_id": "customer-a",
+            "permitted_use": "decision_only"
+          }
+        ],
+        "snapshot_hash": "a58f040c88356294af1e22fb08fcc5b2b319f8a5c4665e28cdadbd5d0f83786c"
+      },
+      "context_hash": "b463f0c2bd1cbe157e7dd08659c17262d42f51e43f1d90ba153559341dc8f7c1"
+    }
+  },
+  {
+    "name": "missing-source-time",
+    "valid": false,
+    "payload": {
+      "version": "recovery_context_v2",
+      "merchant_id": "merchant-a",
+      "episode_id": "episode-a",
+      "as_of": "2026-10-21T00:00:00Z",
+      "approved_facts": [],
+      "feedback": [],
+      "eligible_actions": [
+        "no_action",
+        "wait",
+        "review"
+      ],
+      "eligibility_reasons": [
+        "live_send_gates_required"
+      ],
+      "revision": "0000000000000000000000000000000000000000000000000000000000000000",
+      "customer_context": {
+        "version": "customer_context_v1",
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_id": "customer-a",
+        "snapshot_id": "snapshot-a",
+        "as_of": "2026-10-21T00:00:00Z",
+        "expires_at": "2026-10-21T00:05:00Z",
+        "context_generation": 1,
+        "privacy_generation": 1,
+        "identity_status": "resolved",
+        "identity_revision": "identity-1",
+        "policy_version": "support-1",
+        "coverage": [
+          {
+            "connection_id": "connection-a",
+            "capability": "support.case.v1",
+            "generation": 1,
+            "state": "complete",
+            "verified_at": "2026-10-21T00:00:00Z",
+            "scope": "customer-a"
+          }
+        ],
+        "constraints": [
+          "support_open_case"
+        ],
+        "evidence": [
+          {
+            "version": "integration_evidence_ref_v1",
+            "merchant_id": "merchant-a",
+            "store_id": "store-a",
+            "subject_id": "customer-a",
+            "connection_id": "connection-a",
+            "connection_generation": 1,
+            "privacy_generation": 1,
+            "provider": "fixture",
+            "object_type": "support.statement.v1",
+            "object_id": "statement-a",
+            "revision": "1",
+            "observed_at": "2026-10-21T00:00:00Z",
+            "span_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "scope": "customer",
+            "scope_id": "customer-a",
+            "permitted_use": "decision_only"
+          }
+        ],
+        "snapshot_hash": "c2cc21b0875b5b74d4758b240690276fe4abb9b7c7a78a25793d3477ca803b47"
+      },
+      "context_hash": "007ac6adcb2265b25df4ca608d84fc2c82d6a8cc1de23b2d09655562da8fc0c2"
+    }
+  },
+  {
+    "name": "foreign-store-evidence",
+    "valid": false,
+    "payload": {
+      "version": "recovery_context_v2",
+      "merchant_id": "merchant-a",
+      "episode_id": "episode-a",
+      "as_of": "2026-10-21T00:00:00Z",
+      "approved_facts": [],
+      "feedback": [],
+      "eligible_actions": [
+        "no_action",
+        "wait",
+        "review"
+      ],
+      "eligibility_reasons": [
+        "live_send_gates_required"
+      ],
+      "revision": "0000000000000000000000000000000000000000000000000000000000000000",
+      "customer_context": {
+        "version": "customer_context_v1",
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_id": "customer-a",
+        "snapshot_id": "snapshot-a",
+        "as_of": "2026-10-21T00:00:00Z",
+        "expires_at": "2026-10-21T00:05:00Z",
+        "context_generation": 1,
+        "privacy_generation": 1,
+        "identity_status": "resolved",
+        "identity_revision": "identity-1",
+        "policy_version": "support-1",
+        "coverage": [
+          {
+            "connection_id": "connection-a",
+            "capability": "support.case.v1",
+            "generation": 1,
+            "state": "complete",
+            "verified_at": "2026-10-21T00:00:00Z",
+            "scope": "customer-a"
+          }
+        ],
+        "constraints": [
+          "support_open_case"
+        ],
+        "evidence": [
+          {
+            "version": "integration_evidence_ref_v1",
+            "merchant_id": "merchant-a",
+            "store_id": "other-store",
+            "subject_id": "customer-a",
+            "connection_id": "connection-a",
+            "connection_generation": 1,
+            "privacy_generation": 1,
+            "provider": "fixture",
+            "object_type": "support.statement.v1",
+            "object_id": "statement-a",
+            "revision": "1",
+            "observed_at": "2026-10-21T00:00:00Z",
+            "source_updated_at": null,
+            "span_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "scope": "customer",
+            "scope_id": "customer-a",
+            "permitted_use": "decision_only"
+          }
+        ],
+        "snapshot_hash": "5d1e77e7a32755325c61151a97a96f0f31d0a1b005b107d3a1f063e46560846f"
+      },
+      "context_hash": "ca5820c1675851c62fd611f919b2d1e481a14c6f60716a428b7536e061ae23c0"
+    }
+  },
+  {
+    "name": "foreign-subject-evidence",
+    "valid": false,
+    "payload": {
+      "version": "recovery_context_v2",
+      "merchant_id": "merchant-a",
+      "episode_id": "episode-a",
+      "as_of": "2026-10-21T00:00:00Z",
+      "approved_facts": [],
+      "feedback": [],
+      "eligible_actions": [
+        "no_action",
+        "wait",
+        "review"
+      ],
+      "eligibility_reasons": [
+        "live_send_gates_required"
+      ],
+      "revision": "0000000000000000000000000000000000000000000000000000000000000000",
+      "customer_context": {
+        "version": "customer_context_v1",
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_id": "customer-a",
+        "snapshot_id": "snapshot-a",
+        "as_of": "2026-10-21T00:00:00Z",
+        "expires_at": "2026-10-21T00:05:00Z",
+        "context_generation": 1,
+        "privacy_generation": 1,
+        "identity_status": "resolved",
+        "identity_revision": "identity-1",
+        "policy_version": "support-1",
+        "coverage": [
+          {
+            "connection_id": "connection-a",
+            "capability": "support.case.v1",
+            "generation": 1,
+            "state": "complete",
+            "verified_at": "2026-10-21T00:00:00Z",
+            "scope": "customer-a"
+          }
+        ],
+        "constraints": [
+          "support_open_case"
+        ],
+        "evidence": [
+          {
+            "version": "integration_evidence_ref_v1",
+            "merchant_id": "merchant-a",
+            "store_id": "store-a",
+            "subject_id": "other-customer",
+            "connection_id": "connection-a",
+            "connection_generation": 1,
+            "privacy_generation": 1,
+            "provider": "fixture",
+            "object_type": "support.statement.v1",
+            "object_id": "statement-a",
+            "revision": "1",
+            "observed_at": "2026-10-21T00:00:00Z",
+            "source_updated_at": null,
+            "span_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "scope": "customer",
+            "scope_id": "customer-a",
+            "permitted_use": "decision_only"
+          }
+        ],
+        "snapshot_hash": "b4284c199491ec76495e8be0cf7f78df72897b5a99c376858537bcde7bb02f10"
+      },
+      "context_hash": "02425629626af94c9465f78733ae5fc5b5b9e26f3563f24394719c9f47d6e577"
+    }
+  },
+  {
+    "name": "old-privacy-generation",
+    "valid": false,
+    "payload": {
+      "version": "recovery_context_v2",
+      "merchant_id": "merchant-a",
+      "episode_id": "episode-a",
+      "as_of": "2026-10-21T00:00:00Z",
+      "approved_facts": [],
+      "feedback": [],
+      "eligible_actions": [
+        "no_action",
+        "wait",
+        "review"
+      ],
+      "eligibility_reasons": [
+        "live_send_gates_required"
+      ],
+      "revision": "0000000000000000000000000000000000000000000000000000000000000000",
+      "customer_context": {
+        "version": "customer_context_v1",
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_id": "customer-a",
+        "snapshot_id": "snapshot-a",
+        "as_of": "2026-10-21T00:00:00Z",
+        "expires_at": "2026-10-21T00:05:00Z",
+        "context_generation": 1,
+        "privacy_generation": 1,
+        "identity_status": "resolved",
+        "identity_revision": "identity-1",
+        "policy_version": "support-1",
+        "coverage": [
+          {
+            "connection_id": "connection-a",
+            "capability": "support.case.v1",
+            "generation": 1,
+            "state": "complete",
+            "verified_at": "2026-10-21T00:00:00Z",
+            "scope": "customer-a"
+          }
+        ],
+        "constraints": [
+          "support_open_case"
+        ],
+        "evidence": [
+          {
+            "version": "integration_evidence_ref_v1",
+            "merchant_id": "merchant-a",
+            "store_id": "store-a",
+            "subject_id": "customer-a",
+            "connection_id": "connection-a",
+            "connection_generation": 1,
+            "privacy_generation": 2,
+            "provider": "fixture",
+            "object_type": "support.statement.v1",
+            "object_id": "statement-a",
+            "revision": "1",
+            "observed_at": "2026-10-21T00:00:00Z",
+            "source_updated_at": null,
+            "span_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "scope": "customer",
+            "scope_id": "customer-a",
+            "permitted_use": "decision_only"
+          }
+        ],
+        "snapshot_hash": "7f84a388c1e7b958a85402ff9e38bea0f9ca24d5d26dd53c299da5a54621ea2d"
+      },
+      "context_hash": "888e68b5c268e224f80b309f519d394edc5c6f9832544bcbec0b229209da1dad"
+    }
+  },
+  {
+    "name": "duplicate-evidence",
+    "valid": false,
+    "payload": {
+      "version": "recovery_context_v2",
+      "merchant_id": "merchant-a",
+      "episode_id": "episode-a",
+      "as_of": "2026-10-21T00:00:00Z",
+      "approved_facts": [],
+      "feedback": [],
+      "eligible_actions": [
+        "no_action",
+        "wait",
+        "review"
+      ],
+      "eligibility_reasons": [
+        "live_send_gates_required"
+      ],
+      "revision": "0000000000000000000000000000000000000000000000000000000000000000",
+      "customer_context": {
+        "version": "customer_context_v1",
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_id": "customer-a",
+        "snapshot_id": "snapshot-a",
+        "as_of": "2026-10-21T00:00:00Z",
+        "expires_at": "2026-10-21T00:05:00Z",
+        "context_generation": 1,
+        "privacy_generation": 1,
+        "identity_status": "resolved",
+        "identity_revision": "identity-1",
+        "policy_version": "support-1",
+        "coverage": [
+          {
+            "connection_id": "connection-a",
+            "capability": "support.case.v1",
+            "generation": 1,
+            "state": "complete",
+            "verified_at": "2026-10-21T00:00:00Z",
+            "scope": "customer-a"
+          }
+        ],
+        "constraints": [
+          "support_open_case"
+        ],
+        "evidence": [
+          {
+            "version": "integration_evidence_ref_v1",
+            "merchant_id": "merchant-a",
+            "store_id": "store-a",
+            "subject_id": "customer-a",
+            "connection_id": "connection-a",
+            "connection_generation": 1,
+            "privacy_generation": 1,
+            "provider": "fixture",
+            "object_type": "support.statement.v1",
+            "object_id": "statement-a",
+            "revision": "1",
+            "observed_at": "2026-10-21T00:00:00Z",
+            "source_updated_at": null,
+            "span_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "scope": "customer",
+            "scope_id": "customer-a",
+            "permitted_use": "decision_only"
+          },
+          {
+            "version": "integration_evidence_ref_v1",
+            "merchant_id": "merchant-a",
+            "store_id": "store-a",
+            "subject_id": "customer-a",
+            "connection_id": "connection-a",
+            "connection_generation": 1,
+            "privacy_generation": 1,
+            "provider": "fixture",
+            "object_type": "support.statement.v1",
+            "object_id": "statement-a",
+            "revision": "1",
+            "observed_at": "2026-10-21T00:00:00Z",
+            "source_updated_at": null,
+            "span_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "scope": "customer",
+            "scope_id": "customer-a",
+            "permitted_use": "decision_only"
+          }
+        ],
+        "snapshot_hash": "2189d19fdb9784ccd1fa403c7c4c24798c132a7cd03356aafeb7970e5cad7765"
+      },
+      "context_hash": "99347a40ecd322355e4c0297aff19e2f34b702f7e271cd82015d9de56815ee59"
+    }
+  },
+  {
+    "name": "complete-without-verification",
+    "valid": false,
+    "payload": {
+      "version": "recovery_context_v2",
+      "merchant_id": "merchant-a",
+      "episode_id": "episode-a",
+      "as_of": "2026-10-21T00:00:00Z",
+      "approved_facts": [],
+      "feedback": [],
+      "eligible_actions": [
+        "no_action",
+        "wait",
+        "review"
+      ],
+      "eligibility_reasons": [
+        "live_send_gates_required"
+      ],
+      "revision": "0000000000000000000000000000000000000000000000000000000000000000",
+      "customer_context": {
+        "version": "customer_context_v1",
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_id": "customer-a",
+        "snapshot_id": "snapshot-a",
+        "as_of": "2026-10-21T00:00:00Z",
+        "expires_at": "2026-10-21T00:05:00Z",
+        "context_generation": 1,
+        "privacy_generation": 1,
+        "identity_status": "resolved",
+        "identity_revision": "identity-1",
+        "policy_version": "support-1",
+        "coverage": [
+          {
+            "connection_id": "connection-a",
+            "capability": "support.case.v1",
+            "generation": 1,
+            "state": "complete",
+            "verified_at": null,
+            "scope": "customer-a"
+          }
+        ],
+        "constraints": [
+          "support_open_case"
+        ],
+        "evidence": [
+          {
+            "version": "integration_evidence_ref_v1",
+            "merchant_id": "merchant-a",
+            "store_id": "store-a",
+            "subject_id": "customer-a",
+            "connection_id": "connection-a",
+            "connection_generation": 1,
+            "privacy_generation": 1,
+            "provider": "fixture",
+            "object_type": "support.statement.v1",
+            "object_id": "statement-a",
+            "revision": "1",
+            "observed_at": "2026-10-21T00:00:00Z",
+            "source_updated_at": null,
+            "span_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "scope": "customer",
+            "scope_id": "customer-a",
+            "permitted_use": "decision_only"
+          }
+        ],
+        "snapshot_hash": "e33a845abad9d01a19d1ec2f2a7f7bed59775592e731dba6a8dab67fdeb9e851"
+      },
+      "context_hash": "5a7769e66c95e41ee43df9f1669151036f2e42edcb86a388110228b5e739c1f7"
+    }
+  },
+  {
+    "name": "future-coverage",
+    "valid": false,
+    "payload": {
+      "version": "recovery_context_v2",
+      "merchant_id": "merchant-a",
+      "episode_id": "episode-a",
+      "as_of": "2026-10-21T00:00:00Z",
+      "approved_facts": [],
+      "feedback": [],
+      "eligible_actions": [
+        "no_action",
+        "wait",
+        "review"
+      ],
+      "eligibility_reasons": [
+        "live_send_gates_required"
+      ],
+      "revision": "0000000000000000000000000000000000000000000000000000000000000000",
+      "customer_context": {
+        "version": "customer_context_v1",
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_id": "customer-a",
+        "snapshot_id": "snapshot-a",
+        "as_of": "2026-10-21T00:00:00Z",
+        "expires_at": "2026-10-21T00:05:00Z",
+        "context_generation": 1,
+        "privacy_generation": 1,
+        "identity_status": "resolved",
+        "identity_revision": "identity-1",
+        "policy_version": "support-1",
+        "coverage": [
+          {
+            "connection_id": "connection-a",
+            "capability": "support.case.v1",
+            "generation": 1,
+            "state": "complete",
+            "verified_at": "2026-10-22T00:00:00Z",
+            "scope": "customer-a"
+          }
+        ],
+        "constraints": [
+          "support_open_case"
+        ],
+        "evidence": [
+          {
+            "version": "integration_evidence_ref_v1",
+            "merchant_id": "merchant-a",
+            "store_id": "store-a",
+            "subject_id": "customer-a",
+            "connection_id": "connection-a",
+            "connection_generation": 1,
+            "privacy_generation": 1,
+            "provider": "fixture",
+            "object_type": "support.statement.v1",
+            "object_id": "statement-a",
+            "revision": "1",
+            "observed_at": "2026-10-21T00:00:00Z",
+            "source_updated_at": null,
+            "span_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "scope": "customer",
+            "scope_id": "customer-a",
+            "permitted_use": "decision_only"
+          }
+        ],
+        "snapshot_hash": "14fd3834a54b8be89ca3638ce1953e6edb3cd588ada39f576e18c7bc625c2c32"
+      },
+      "context_hash": "0284ef49ee1387323ed217182a5bc603a96c6e158c7acc71b043aca4139346f0"
+    }
+  },
+  {
+    "name": "mismatched-decision-time",
+    "valid": false,
+    "payload": {
+      "version": "recovery_context_v2",
+      "merchant_id": "merchant-a",
+      "episode_id": "episode-a",
+      "as_of": "2026-10-21T00:00:00Z",
+      "approved_facts": [],
+      "feedback": [],
+      "eligible_actions": [
+        "no_action",
+        "wait",
+        "review"
+      ],
+      "eligibility_reasons": [
+        "live_send_gates_required"
+      ],
+      "revision": "0000000000000000000000000000000000000000000000000000000000000000",
+      "customer_context": {
+        "version": "customer_context_v1",
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_id": "customer-a",
+        "snapshot_id": "snapshot-a",
+        "as_of": "2026-10-20T00:00:00Z",
+        "expires_at": "2026-10-21T00:05:00Z",
+        "context_generation": 1,
+        "privacy_generation": 1,
+        "identity_status": "resolved",
+        "identity_revision": "identity-1",
+        "policy_version": "support-1",
+        "coverage": [
+          {
+            "connection_id": "connection-a",
+            "capability": "support.case.v1",
+            "generation": 1,
+            "state": "complete",
+            "verified_at": "2026-10-21T00:00:00Z",
+            "scope": "customer-a"
+          }
+        ],
+        "constraints": [
+          "support_open_case"
+        ],
+        "evidence": [
+          {
+            "version": "integration_evidence_ref_v1",
+            "merchant_id": "merchant-a",
+            "store_id": "store-a",
+            "subject_id": "customer-a",
+            "connection_id": "connection-a",
+            "connection_generation": 1,
+            "privacy_generation": 1,
+            "provider": "fixture",
+            "object_type": "support.statement.v1",
+            "object_id": "statement-a",
+            "revision": "1",
+            "observed_at": "2026-10-21T00:00:00Z",
+            "source_updated_at": null,
+            "span_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "scope": "customer",
+            "scope_id": "customer-a",
+            "permitted_use": "decision_only"
+          }
+        ],
+        "snapshot_hash": "16cb692888373ff1bc3ba414358dac684ddabd5e97d16169079109c54bace9e4"
+      },
+      "context_hash": "b695494dd3f79c3ec6750c4182bfc58a6c74beb38b545cfebdaf562e562fe543"
+    }
+  },
+  {
+    "name": "expired-at-creation",
+    "valid": false,
+    "payload": {
+      "version": "recovery_context_v2",
+      "merchant_id": "merchant-a",
+      "episode_id": "episode-a",
+      "as_of": "2026-10-21T00:00:00Z",
+      "approved_facts": [],
+      "feedback": [],
+      "eligible_actions": [
+        "no_action",
+        "wait",
+        "review"
+      ],
+      "eligibility_reasons": [
+        "live_send_gates_required"
+      ],
+      "revision": "0000000000000000000000000000000000000000000000000000000000000000",
+      "customer_context": {
+        "version": "customer_context_v1",
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_id": "customer-a",
+        "snapshot_id": "snapshot-a",
+        "as_of": "2026-10-21T00:00:00Z",
+        "expires_at": "2026-10-21T00:00:00Z",
+        "context_generation": 1,
+        "privacy_generation": 1,
+        "identity_status": "resolved",
+        "identity_revision": "identity-1",
+        "policy_version": "support-1",
+        "coverage": [
+          {
+            "connection_id": "connection-a",
+            "capability": "support.case.v1",
+            "generation": 1,
+            "state": "complete",
+            "verified_at": "2026-10-21T00:00:00Z",
+            "scope": "customer-a"
+          }
+        ],
+        "constraints": [
+          "support_open_case"
+        ],
+        "evidence": [
+          {
+            "version": "integration_evidence_ref_v1",
+            "merchant_id": "merchant-a",
+            "store_id": "store-a",
+            "subject_id": "customer-a",
+            "connection_id": "connection-a",
+            "connection_generation": 1,
+            "privacy_generation": 1,
+            "provider": "fixture",
+            "object_type": "support.statement.v1",
+            "object_id": "statement-a",
+            "revision": "1",
+            "observed_at": "2026-10-21T00:00:00Z",
+            "source_updated_at": null,
+            "span_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "scope": "customer",
+            "scope_id": "customer-a",
+            "permitted_use": "decision_only"
+          }
+        ],
+        "snapshot_hash": "02dfbfd5c6f975463403ed2cf1b916a5d4174e144cd890ef8268dbdd846f6ef9"
+      },
+      "context_hash": "5865f4a378b56e129d1fc4eb03bd6eebdb6bef5b9efe508bde2c1c45b5ac1c86"
+    }
+  },
+  {
+    "name": "excessive-validity",
+    "valid": false,
+    "payload": {
+      "version": "recovery_context_v2",
+      "merchant_id": "merchant-a",
+      "episode_id": "episode-a",
+      "as_of": "2026-10-21T00:00:00Z",
+      "approved_facts": [],
+      "feedback": [],
+      "eligible_actions": [
+        "no_action",
+        "wait",
+        "review"
+      ],
+      "eligibility_reasons": [
+        "live_send_gates_required"
+      ],
+      "revision": "0000000000000000000000000000000000000000000000000000000000000000",
+      "customer_context": {
+        "version": "customer_context_v1",
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_id": "customer-a",
+        "snapshot_id": "snapshot-a",
+        "as_of": "2026-10-21T00:00:00Z",
+        "expires_at": "2026-10-23T00:00:00Z",
+        "context_generation": 1,
+        "privacy_generation": 1,
+        "identity_status": "resolved",
+        "identity_revision": "identity-1",
+        "policy_version": "support-1",
+        "coverage": [
+          {
+            "connection_id": "connection-a",
+            "capability": "support.case.v1",
+            "generation": 1,
+            "state": "complete",
+            "verified_at": "2026-10-21T00:00:00Z",
+            "scope": "customer-a"
+          }
+        ],
+        "constraints": [
+          "support_open_case"
+        ],
+        "evidence": [
+          {
+            "version": "integration_evidence_ref_v1",
+            "merchant_id": "merchant-a",
+            "store_id": "store-a",
+            "subject_id": "customer-a",
+            "connection_id": "connection-a",
+            "connection_generation": 1,
+            "privacy_generation": 1,
+            "provider": "fixture",
+            "object_type": "support.statement.v1",
+            "object_id": "statement-a",
+            "revision": "1",
+            "observed_at": "2026-10-21T00:00:00Z",
+            "source_updated_at": null,
+            "span_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "scope": "customer",
+            "scope_id": "customer-a",
+            "permitted_use": "decision_only"
+          }
+        ],
+        "snapshot_hash": "6cb904f298b2a87fd537d830e06bb95c52195d7bb1f39ecae6c133c8d971ed8c"
+      },
+      "context_hash": "6fa73e2e10dc0c23f0671e9ac245fc9ce8b4c568fe577d840591b5d8a398cc14"
+    }
+  },
+  {
+    "name": "unsafe-integer-generation",
+    "valid": false,
+    "payload": {
+      "version": "recovery_context_v2",
+      "merchant_id": "merchant-a",
+      "episode_id": "episode-a",
+      "as_of": "2026-10-21T00:00:00Z",
+      "approved_facts": [],
+      "feedback": [],
+      "eligible_actions": [
+        "no_action",
+        "wait",
+        "review"
+      ],
+      "eligibility_reasons": [
+        "live_send_gates_required"
+      ],
+      "revision": "0000000000000000000000000000000000000000000000000000000000000000",
+      "customer_context": {
+        "version": "customer_context_v1",
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_id": "customer-a",
+        "snapshot_id": "snapshot-a",
+        "as_of": "2026-10-21T00:00:00Z",
+        "expires_at": "2026-10-21T00:05:00Z",
+        "context_generation": 9007199254740992,
+        "privacy_generation": 1,
+        "identity_status": "resolved",
+        "identity_revision": "identity-1",
+        "policy_version": "support-1",
+        "coverage": [
+          {
+            "connection_id": "connection-a",
+            "capability": "support.case.v1",
+            "generation": 1,
+            "state": "complete",
+            "verified_at": "2026-10-21T00:00:00Z",
+            "scope": "customer-a"
+          }
+        ],
+        "constraints": [
+          "support_open_case"
+        ],
+        "evidence": [
+          {
+            "version": "integration_evidence_ref_v1",
+            "merchant_id": "merchant-a",
+            "store_id": "store-a",
+            "subject_id": "customer-a",
+            "connection_id": "connection-a",
+            "connection_generation": 1,
+            "privacy_generation": 1,
+            "provider": "fixture",
+            "object_type": "support.statement.v1",
+            "object_id": "statement-a",
+            "revision": "1",
+            "observed_at": "2026-10-21T00:00:00Z",
+            "source_updated_at": null,
+            "span_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "scope": "customer",
+            "scope_id": "customer-a",
+            "permitted_use": "decision_only"
+          }
+        ],
+        "snapshot_hash": "a58f040c88356294af1e22fb08fcc5b2b319f8a5c4665e28cdadbd5d0f83786c"
+      },
+      "context_hash": "b463f0c2bd1cbe157e7dd08659c17262d42f51e43f1d90ba153559341dc8f7c1"
+    }
+  },
+  {
+    "name": "revoked-source-generation",
+    "valid": false,
+    "payload": {
+      "version": "recovery_context_v2",
+      "merchant_id": "merchant-a",
+      "episode_id": "episode-a",
+      "as_of": "2026-10-21T00:00:00Z",
+      "approved_facts": [],
+      "feedback": [],
+      "eligible_actions": [
+        "no_action",
+        "wait",
+        "review"
+      ],
+      "eligibility_reasons": [
+        "live_send_gates_required"
+      ],
+      "revision": "0000000000000000000000000000000000000000000000000000000000000000",
+      "customer_context": {
+        "version": "customer_context_v1",
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_id": "customer-a",
+        "snapshot_id": "snapshot-a",
+        "as_of": "2026-10-21T00:00:00Z",
+        "expires_at": "2026-10-21T00:05:00Z",
+        "context_generation": 1,
+        "privacy_generation": 1,
+        "identity_status": "resolved",
+        "identity_revision": "identity-1",
+        "policy_version": "support-1",
+        "coverage": [
+          {
+            "connection_id": "connection-a",
+            "capability": "support.case.v1",
+            "generation": 1,
+            "state": "complete",
+            "verified_at": "2026-10-21T00:00:00Z",
+            "scope": "customer-a"
+          }
+        ],
+        "constraints": [
+          "support_open_case"
+        ],
+        "evidence": [
+          {
+            "version": "integration_evidence_ref_v1",
+            "merchant_id": "merchant-a",
+            "store_id": "store-a",
+            "subject_id": "customer-a",
+            "connection_id": "connection-a",
+            "connection_generation": 2,
+            "privacy_generation": 1,
+            "provider": "fixture",
+            "object_type": "support.statement.v1",
+            "object_id": "statement-a",
+            "revision": "1",
+            "observed_at": "2026-10-21T00:00:00Z",
+            "source_updated_at": null,
+            "span_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "scope": "customer",
+            "scope_id": "customer-a",
+            "permitted_use": "decision_only"
+          }
+        ],
+        "snapshot_hash": "9650d7f66b3ab363152e7d26d86343e6330fd1ad206db23e0f9b30db34617445"
+      },
+      "context_hash": "503bcf49f0173d25631186f719901f7c692b31fdba66ca27d4fdc676a2dd480b"
+    }
+  },
+  {
+    "name": "missing-source-coverage",
+    "valid": false,
+    "payload": {
+      "version": "recovery_context_v2",
+      "merchant_id": "merchant-a",
+      "episode_id": "episode-a",
+      "as_of": "2026-10-21T00:00:00Z",
+      "approved_facts": [],
+      "feedback": [],
+      "eligible_actions": [
+        "no_action",
+        "wait",
+        "review"
+      ],
+      "eligibility_reasons": [
+        "live_send_gates_required"
+      ],
+      "revision": "0000000000000000000000000000000000000000000000000000000000000000",
+      "customer_context": {
+        "version": "customer_context_v1",
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_id": "customer-a",
+        "snapshot_id": "snapshot-a",
+        "as_of": "2026-10-21T00:00:00Z",
+        "expires_at": "2026-10-21T00:05:00Z",
+        "context_generation": 1,
+        "privacy_generation": 1,
+        "identity_status": "resolved",
+        "identity_revision": "identity-1",
+        "policy_version": "support-1",
+        "coverage": [],
+        "constraints": [
+          "support_open_case"
+        ],
+        "evidence": [
+          {
+            "version": "integration_evidence_ref_v1",
+            "merchant_id": "merchant-a",
+            "store_id": "store-a",
+            "subject_id": "customer-a",
+            "connection_id": "connection-a",
+            "connection_generation": 1,
+            "privacy_generation": 1,
+            "provider": "fixture",
+            "object_type": "support.statement.v1",
+            "object_id": "statement-a",
+            "revision": "1",
+            "observed_at": "2026-10-21T00:00:00Z",
+            "source_updated_at": null,
+            "span_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "scope": "customer",
+            "scope_id": "customer-a",
+            "permitted_use": "decision_only"
+          }
+        ],
+        "snapshot_hash": "cb7e6fed1282044012fe2912d449f0f9f12287702c154a2edd7dd8689d879e99"
+      },
+      "context_hash": "a2d2cf3875c477f6a24dd01331cef9b71052a8a038fb91020d60e3776dfe2879"
+    }
+  },
+  {
+    "name": "conflicting-source-generations",
+    "valid": false,
+    "payload": {
+      "version": "recovery_context_v2",
+      "merchant_id": "merchant-a",
+      "episode_id": "episode-a",
+      "as_of": "2026-10-21T00:00:00Z",
+      "approved_facts": [],
+      "feedback": [],
+      "eligible_actions": [
+        "no_action",
+        "wait",
+        "review"
+      ],
+      "eligibility_reasons": [
+        "live_send_gates_required"
+      ],
+      "revision": "0000000000000000000000000000000000000000000000000000000000000000",
+      "customer_context": {
+        "version": "customer_context_v1",
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_id": "customer-a",
+        "snapshot_id": "snapshot-a",
+        "as_of": "2026-10-21T00:00:00Z",
+        "expires_at": "2026-10-21T00:05:00Z",
+        "context_generation": 1,
+        "privacy_generation": 1,
+        "identity_status": "resolved",
+        "identity_revision": "identity-1",
+        "policy_version": "support-1",
+        "coverage": [
+          {
+            "connection_id": "connection-a",
+            "capability": "support.case.v1",
+            "generation": 1,
+            "state": "complete",
+            "verified_at": "2026-10-21T00:00:00Z",
+            "scope": "customer-a"
+          },
+          {
+            "connection_id": "connection-a",
+            "capability": "support.statement.v1",
+            "generation": 2,
+            "state": "complete",
+            "verified_at": "2026-10-21T00:00:00Z",
+            "scope": "customer-a"
+          }
+        ],
+        "constraints": [
+          "support_open_case"
+        ],
+        "evidence": [
+          {
+            "version": "integration_evidence_ref_v1",
+            "merchant_id": "merchant-a",
+            "store_id": "store-a",
+            "subject_id": "customer-a",
+            "connection_id": "connection-a",
+            "connection_generation": 1,
+            "privacy_generation": 1,
+            "provider": "fixture",
+            "object_type": "support.statement.v1",
+            "object_id": "statement-a",
+            "revision": "1",
+            "observed_at": "2026-10-21T00:00:00Z",
+            "source_updated_at": null,
+            "span_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "scope": "customer",
+            "scope_id": "customer-a",
+            "permitted_use": "decision_only"
+          }
+        ],
+        "snapshot_hash": "6b4f2274188bbb5f13909a97e4f19dfc8dead8f944fb0098731d8bade8135f31"
+      },
+      "context_hash": "8df3e987474f41872372b717c7596585172ba0fb9f904e9905546d065dd30e9e"
+    }
+  },
+  {
+    "name": "duplicate-coverage",
+    "valid": false,
+    "payload": {
+      "version": "recovery_context_v2",
+      "merchant_id": "merchant-a",
+      "episode_id": "episode-a",
+      "as_of": "2026-10-21T00:00:00Z",
+      "approved_facts": [],
+      "feedback": [],
+      "eligible_actions": [
+        "no_action",
+        "wait",
+        "review"
+      ],
+      "eligibility_reasons": [
+        "live_send_gates_required"
+      ],
+      "revision": "0000000000000000000000000000000000000000000000000000000000000000",
+      "customer_context": {
+        "version": "customer_context_v1",
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_id": "customer-a",
+        "snapshot_id": "snapshot-a",
+        "as_of": "2026-10-21T00:00:00Z",
+        "expires_at": "2026-10-21T00:05:00Z",
+        "context_generation": 1,
+        "privacy_generation": 1,
+        "identity_status": "resolved",
+        "identity_revision": "identity-1",
+        "policy_version": "support-1",
+        "coverage": [
+          {
+            "connection_id": "connection-a",
+            "capability": "support.case.v1",
+            "generation": 1,
+            "state": "complete",
+            "verified_at": "2026-10-21T00:00:00Z",
+            "scope": "customer-a"
+          },
+          {
+            "connection_id": "connection-a",
+            "capability": "support.case.v1",
+            "generation": 1,
+            "state": "complete",
+            "verified_at": "2026-10-21T00:00:00Z",
+            "scope": "customer-a"
+          }
+        ],
+        "constraints": [
+          "support_open_case"
+        ],
+        "evidence": [
+          {
+            "version": "integration_evidence_ref_v1",
+            "merchant_id": "merchant-a",
+            "store_id": "store-a",
+            "subject_id": "customer-a",
+            "connection_id": "connection-a",
+            "connection_generation": 1,
+            "privacy_generation": 1,
+            "provider": "fixture",
+            "object_type": "support.statement.v1",
+            "object_id": "statement-a",
+            "revision": "1",
+            "observed_at": "2026-10-21T00:00:00Z",
+            "source_updated_at": null,
+            "span_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "scope": "customer",
+            "scope_id": "customer-a",
+            "permitted_use": "decision_only"
+          }
+        ],
+        "snapshot_hash": "c7b41ade74da3a8404f0cc3d7f33d98fa013fa7bf124a99f056b70827a773721"
+      },
+      "context_hash": "678ac0e47ac24e92597581ceb49629a56a996ce8a9fd558f3d9c37b46048dc0b"
+    }
+  },
+  {
+    "name": "other-customer-statement-scope",
+    "valid": false,
+    "payload": {
+      "version": "recovery_context_v2",
+      "merchant_id": "merchant-a",
+      "episode_id": "episode-a",
+      "as_of": "2026-10-21T00:00:00Z",
+      "approved_facts": [],
+      "feedback": [],
+      "eligible_actions": [
+        "no_action",
+        "wait",
+        "review"
+      ],
+      "eligibility_reasons": [
+        "live_send_gates_required"
+      ],
+      "revision": "0000000000000000000000000000000000000000000000000000000000000000",
+      "customer_context": {
+        "version": "customer_context_v1",
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_id": "customer-a",
+        "snapshot_id": "snapshot-a",
+        "as_of": "2026-10-21T00:00:00Z",
+        "expires_at": "2026-10-21T00:05:00Z",
+        "context_generation": 1,
+        "privacy_generation": 1,
+        "identity_status": "resolved",
+        "identity_revision": "identity-1",
+        "policy_version": "support-1",
+        "coverage": [
+          {
+            "connection_id": "connection-a",
+            "capability": "support.case.v1",
+            "generation": 1,
+            "state": "complete",
+            "verified_at": "2026-10-21T00:00:00Z",
+            "scope": "customer-a"
+          }
+        ],
+        "constraints": [
+          "support_open_case"
+        ],
+        "evidence": [
+          {
+            "version": "integration_evidence_ref_v1",
+            "merchant_id": "merchant-a",
+            "store_id": "store-a",
+            "subject_id": "customer-a",
+            "connection_id": "connection-a",
+            "connection_generation": 1,
+            "privacy_generation": 1,
+            "provider": "fixture",
+            "object_type": "support.statement.v1",
+            "object_id": "statement-a",
+            "revision": "1",
+            "observed_at": "2026-10-21T00:00:00Z",
+            "source_updated_at": null,
+            "span_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "scope": "customer",
+            "scope_id": "customer-b",
+            "permitted_use": "decision_only"
+          }
+        ],
+        "snapshot_hash": "d9d0dbb3d5eedfeb9b7cdce74f530b27f973c22d275579e811f7c5076c43b774"
+      },
+      "context_hash": "2f1b72a0ee8f265ecc81890b14284e1b2c4d3519cdc3ae99ebf0b74cc78770f8"
+    }
+  },
+  {
+    "name": "other-episode-statement-scope",
+    "valid": false,
+    "payload": {
+      "version": "recovery_context_v2",
+      "merchant_id": "merchant-a",
+      "episode_id": "episode-a",
+      "as_of": "2026-10-21T00:00:00Z",
+      "approved_facts": [],
+      "feedback": [],
+      "eligible_actions": [
+        "no_action",
+        "wait",
+        "review"
+      ],
+      "eligibility_reasons": [
+        "live_send_gates_required"
+      ],
+      "revision": "0000000000000000000000000000000000000000000000000000000000000000",
+      "customer_context": {
+        "version": "customer_context_v1",
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_id": "customer-a",
+        "snapshot_id": "snapshot-a",
+        "as_of": "2026-10-21T00:00:00Z",
+        "expires_at": "2026-10-21T00:05:00Z",
+        "context_generation": 1,
+        "privacy_generation": 1,
+        "identity_status": "resolved",
+        "identity_revision": "identity-1",
+        "policy_version": "support-1",
+        "coverage": [
+          {
+            "connection_id": "connection-a",
+            "capability": "support.case.v1",
+            "generation": 1,
+            "state": "complete",
+            "verified_at": "2026-10-21T00:00:00Z",
+            "scope": "customer-a"
+          }
+        ],
+        "constraints": [
+          "support_open_case"
+        ],
+        "evidence": [
+          {
+            "version": "integration_evidence_ref_v1",
+            "merchant_id": "merchant-a",
+            "store_id": "store-a",
+            "subject_id": "customer-a",
+            "connection_id": "connection-a",
+            "connection_generation": 1,
+            "privacy_generation": 1,
+            "provider": "fixture",
+            "object_type": "support.statement.v1",
+            "object_id": "statement-a",
+            "revision": "1",
+            "observed_at": "2026-10-21T00:00:00Z",
+            "source_updated_at": null,
+            "span_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "scope": "episode",
+            "scope_id": "episode-b",
+            "permitted_use": "decision_only"
+          }
+        ],
+        "snapshot_hash": "f038866b8759db1c5e176d4b85269cbceed7ca56cfc72899d12c5d2d6b52c855"
+      },
+      "context_hash": "63997822f36e917c3f7735a368054452ebb0d34838a8e85eb6bbf6a4578c4c8d"
+    }
+  },
+  {
+    "name": "correct-episode-statement-scope",
+    "valid": true,
+    "payload": {
+      "version": "recovery_context_v2",
+      "merchant_id": "merchant-a",
+      "episode_id": "episode-a",
+      "as_of": "2026-10-21T00:00:00Z",
+      "approved_facts": [],
+      "feedback": [],
+      "eligible_actions": [
+        "no_action",
+        "wait",
+        "review"
+      ],
+      "eligibility_reasons": [
+        "live_send_gates_required"
+      ],
+      "revision": "0000000000000000000000000000000000000000000000000000000000000000",
+      "customer_context": {
+        "version": "customer_context_v1",
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_id": "customer-a",
+        "snapshot_id": "snapshot-a",
+        "as_of": "2026-10-21T00:00:00Z",
+        "expires_at": "2026-10-21T00:05:00Z",
+        "context_generation": 1,
+        "privacy_generation": 1,
+        "identity_status": "resolved",
+        "identity_revision": "identity-1",
+        "policy_version": "support-1",
+        "coverage": [
+          {
+            "connection_id": "connection-a",
+            "capability": "support.case.v1",
+            "generation": 1,
+            "state": "complete",
+            "verified_at": "2026-10-21T00:00:00Z",
+            "scope": "customer-a"
+          }
+        ],
+        "constraints": [
+          "support_open_case"
+        ],
+        "evidence": [
+          {
+            "version": "integration_evidence_ref_v1",
+            "merchant_id": "merchant-a",
+            "store_id": "store-a",
+            "subject_id": "customer-a",
+            "connection_id": "connection-a",
+            "connection_generation": 1,
+            "privacy_generation": 1,
+            "provider": "fixture",
+            "object_type": "support.statement.v1",
+            "object_id": "statement-a",
+            "revision": "1",
+            "observed_at": "2026-10-21T00:00:00Z",
+            "source_updated_at": null,
+            "span_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "scope": "episode",
+            "scope_id": "episode-a",
+            "permitted_use": "decision_only"
+          }
+        ],
+        "snapshot_hash": "c8cb34c58cb688fd6ad8c46e96a1d32f73624ae50dbca0066d31adef5ad08b03"
+      },
+      "context_hash": "07ef2f1fec6e733891757a01737175dcd6155346527653da3be7d541a90fe9e1"
+    }
+  },
+  {
+    "name": "distinct-slash-containing-references",
+    "valid": true,
+    "payload": {
+      "version": "recovery_context_v2",
+      "merchant_id": "merchant-a",
+      "episode_id": "episode-a",
+      "as_of": "2026-10-21T00:00:00Z",
+      "approved_facts": [],
+      "feedback": [],
+      "eligible_actions": [
+        "no_action",
+        "wait",
+        "review"
+      ],
+      "eligibility_reasons": [
+        "live_send_gates_required"
+      ],
+      "revision": "0000000000000000000000000000000000000000000000000000000000000000",
+      "customer_context": {
+        "version": "customer_context_v1",
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_id": "customer-a",
+        "snapshot_id": "snapshot-a",
+        "as_of": "2026-10-21T00:00:00Z",
+        "expires_at": "2026-10-21T00:05:00Z",
+        "context_generation": 1,
+        "privacy_generation": 1,
+        "identity_status": "resolved",
+        "identity_revision": "identity-1",
+        "policy_version": "support-1",
+        "coverage": [
+          {
+            "connection_id": "connection-a",
+            "capability": "support.case.v1",
+            "generation": 1,
+            "state": "complete",
+            "verified_at": "2026-10-21T00:00:00Z",
+            "scope": "customer-a"
+          }
+        ],
+        "constraints": [
+          "support_open_case"
+        ],
+        "evidence": [
+          {
+            "version": "integration_evidence_ref_v1",
+            "merchant_id": "merchant-a",
+            "store_id": "store-a",
+            "subject_id": "customer-a",
+            "connection_id": "connection-a",
+            "connection_generation": 1,
+            "privacy_generation": 1,
+            "provider": "fixture",
+            "object_type": "support/a",
+            "object_id": "b",
+            "revision": "1",
+            "observed_at": "2026-10-21T00:00:00Z",
+            "source_updated_at": null,
+            "span_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "scope": "customer",
+            "scope_id": "customer-a",
+            "permitted_use": "decision_only"
+          },
+          {
+            "version": "integration_evidence_ref_v1",
+            "merchant_id": "merchant-a",
+            "store_id": "store-a",
+            "subject_id": "customer-a",
+            "connection_id": "connection-a",
+            "connection_generation": 1,
+            "privacy_generation": 1,
+            "provider": "fixture",
+            "object_type": "support",
+            "object_id": "a/b",
+            "revision": "1",
+            "observed_at": "2026-10-21T00:00:00Z",
+            "source_updated_at": null,
+            "span_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "scope": "customer",
+            "scope_id": "customer-a",
+            "permitted_use": "decision_only"
+          }
+        ],
+        "snapshot_hash": "3ce8f87cc8c05c7bf84c26b9418c3953a86dde62406dd66c763703523f862bf4"
+      },
+      "context_hash": "b6692dcdcfd203f060d26cc59da69fe76d6f1c0c1536c7f286cfc06bd0a8c90b"
+    }
+  },
+  {
+    "name": "submillisecond-expiry",
+    "valid": false,
+    "payload": {
+      "version": "recovery_context_v2",
+      "merchant_id": "merchant-a",
+      "episode_id": "episode-a",
+      "as_of": "2026-10-21T00:00:00Z",
+      "approved_facts": [],
+      "feedback": [],
+      "eligible_actions": [
+        "no_action",
+        "wait",
+        "review"
+      ],
+      "eligibility_reasons": [
+        "live_send_gates_required"
+      ],
+      "revision": "0000000000000000000000000000000000000000000000000000000000000000",
+      "customer_context": {
+        "version": "customer_context_v1",
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_id": "customer-a",
+        "snapshot_id": "snapshot-a",
+        "as_of": "2026-10-21T00:00:00Z",
+        "expires_at": "2026-10-21T00:00:00.0001Z",
+        "context_generation": 1,
+        "privacy_generation": 1,
+        "identity_status": "resolved",
+        "identity_revision": "identity-1",
+        "policy_version": "support-1",
+        "coverage": [
+          {
+            "connection_id": "connection-a",
+            "capability": "support.case.v1",
+            "generation": 1,
+            "state": "complete",
+            "verified_at": "2026-10-21T00:00:00Z",
+            "scope": "customer-a"
+          }
+        ],
+        "constraints": [
+          "support_open_case"
+        ],
+        "evidence": [
+          {
+            "version": "integration_evidence_ref_v1",
+            "merchant_id": "merchant-a",
+            "store_id": "store-a",
+            "subject_id": "customer-a",
+            "connection_id": "connection-a",
+            "connection_generation": 1,
+            "privacy_generation": 1,
+            "provider": "fixture",
+            "object_type": "support.statement.v1",
+            "object_id": "statement-a",
+            "revision": "1",
+            "observed_at": "2026-10-21T00:00:00Z",
+            "source_updated_at": null,
+            "span_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "scope": "customer",
+            "scope_id": "customer-a",
+            "permitted_use": "decision_only"
+          }
+        ],
+        "snapshot_hash": "c45539b04af396e665ea40548ada602d56b85a6a4a4b1ae6eaa9525f0005c14d"
+      },
+      "context_hash": "62dd4a57141b53ae16e7c862ae7f7a928721957763401ddb35863194e3eae2cb"
+    }
+  },
+  {
+    "name": "impossible-plan-expiry-date",
+    "valid": false,
+    "payload": {
+      "version": "recovery_plan_v2",
+      "plan_id": "5541f894ab8b1ce6493eeb9d2e36ff982539095c483ad82bc3e64abd6b08ea26",
+      "revision": "5541f894ab8b1ce6493eeb9d2e36ff982539095c483ad82bc3e64abd6b08ea26",
+      "based_on_snapshot_sha256": "4a4aea46f94c40843a8bfa76d2abb1fe7cb188eda1fda089dd4fcf83bc9b341f",
+      "episode_id": "episode-a",
+      "status": "needs_review",
+      "action": "checkout_assistance",
+      "mode": "assist",
+      "fact_ids": [],
+      "fact_revisions": {},
+      "allowed_claims": [],
+      "judgment_ids": [
+        "1"
+      ],
+      "eligible_actions": [
+        "checkout_assistance",
+        "neutral_reminder",
+        "no_action",
+        "review",
+        "wait"
+      ],
+      "reason_codes": [
+        "evidence_fit"
+      ],
+      "expires_at": "2026-02-30T00:00:00Z",
+      "allow_incentive": false,
+      "tone": "neutral",
+      "resume_trigger": null,
+      "scores": {
+        "review": {
+          "score": 0,
+          "confidence": 0.99
+        },
+        "neutral_reminder": {
+          "score": 0,
+          "confidence": 0.99
+        },
+        "wait": {
+          "score": 0,
+          "confidence": 0.99
+        },
+        "no_action": {
+          "score": 0,
+          "confidence": 0.99
+        },
+        "checkout_assistance": {
+          "score": 2,
+          "confidence": 0.99
+        }
+      },
+      "context_hash": "6259526fdd6a682e9d20dd38f6abb8366d4975a56e9be7132fa0bda29f95d608",
+      "source_refs": []
+    },
+    "expected_context_hash": "6259526fdd6a682e9d20dd38f6abb8366d4975a56e9be7132fa0bda29f95d608"
+  }
+]
