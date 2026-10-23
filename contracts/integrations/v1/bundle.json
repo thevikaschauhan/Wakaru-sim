@@ -1510,6 +1510,156 @@
         "request_id"
       ],
       "additionalProperties": false
+    },
+    "integration_privacy_task_v1": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "const": "integration_privacy_task_v1"
+        },
+        "merchant_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "store_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "request_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "subject_key": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "privacy_generation": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "operation": {
+          "enum": [
+            "erase",
+            "export",
+            "expire"
+          ]
+        },
+        "scope": {
+          "enum": [
+            "subject",
+            "store"
+          ]
+        },
+        "source_keys": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "uniqueItems": true,
+          "maxItems": 2000
+        },
+        "inventory_revision": {
+          "const": "integration_c5_v1"
+        },
+        "live_ingestion_enabled": {
+          "const": false
+        },
+        "email_use_enabled": {
+          "const": false
+        }
+      },
+      "required": [
+        "version",
+        "merchant_id",
+        "store_id",
+        "request_id",
+        "subject_key",
+        "privacy_generation",
+        "operation",
+        "scope",
+        "source_keys",
+        "inventory_revision",
+        "live_ingestion_enabled",
+        "email_use_enabled"
+      ],
+      "additionalProperties": false
+    },
+    "integration_privacy_receipt_v1": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "const": "integration_privacy_receipt_v1"
+        },
+        "merchant_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "store_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "request_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "subject_key": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "privacy_generation": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "operation": {
+          "enum": [
+            "erase",
+            "export",
+            "expire"
+          ]
+        },
+        "scope": {
+          "enum": [
+            "subject",
+            "store"
+          ]
+        },
+        "inventory_revision": {
+          "const": "integration_c5_v1"
+        },
+        "service": {
+          "enum": [
+            "engine",
+            "wakaru",
+            "inkwell"
+          ]
+        },
+        "status": {
+          "const": "complete"
+        }
+      },
+      "required": [
+        "version",
+        "merchant_id",
+        "store_id",
+        "request_id",
+        "subject_key",
+        "privacy_generation",
+        "operation",
+        "scope",
+        "inventory_revision",
+        "service",
+        "status"
+      ],
+      "additionalProperties": false
     }
   }
 }

@@ -391,7 +391,7 @@
           "id": "fact-1",
           "revision": "rev-1",
           "kind": "value_prop",
-          "text": "Café 日本 🛍",
+          "text": "Caf\u00e9 \u65e5\u672c \ud83d\udecd",
           "status": "active",
           "scope_resolved": true,
           "source_hash": ""
@@ -2697,5 +2697,123 @@
       "source_refs": []
     },
     "expected_context_hash": "6259526fdd6a682e9d20dd38f6abb8366d4975a56e9be7132fa0bda29f95d608"
+  },
+  {
+    "name": "privacy-task",
+    "valid": true,
+    "payload": {
+      "version": "integration_privacy_task_v1",
+      "merchant_id": "merchant-a",
+      "store_id": "store-a",
+      "request_id": "privacy-job-a",
+      "subject_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "privacy_generation": 2,
+      "operation": "erase",
+      "scope": "subject",
+      "source_keys": [
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      ],
+      "inventory_revision": "integration_c5_v1",
+      "live_ingestion_enabled": false,
+      "email_use_enabled": false
+    }
+  },
+  {
+    "name": "privacy-receipt",
+    "valid": true,
+    "payload": {
+      "version": "integration_privacy_receipt_v1",
+      "merchant_id": "merchant-a",
+      "store_id": "store-a",
+      "request_id": "privacy-job-a",
+      "subject_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "privacy_generation": 2,
+      "operation": "erase",
+      "scope": "subject",
+      "inventory_revision": "integration_c5_v1",
+      "service": "wakaru",
+      "status": "complete"
+    }
+  },
+  {
+    "name": "privacy-reject-source_keys",
+    "valid": false,
+    "payload": {
+      "version": "integration_privacy_task_v1",
+      "merchant_id": "merchant-a",
+      "store_id": "store-a",
+      "request_id": "privacy-job-a",
+      "subject_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "privacy_generation": 2,
+      "operation": "erase",
+      "scope": "subject",
+      "source_keys": [
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      ],
+      "inventory_revision": "integration_c5_v1",
+      "live_ingestion_enabled": false,
+      "email_use_enabled": false
+    }
+  },
+  {
+    "name": "privacy-reject-privacy_generation",
+    "valid": false,
+    "payload": {
+      "version": "integration_privacy_task_v1",
+      "merchant_id": "merchant-a",
+      "store_id": "store-a",
+      "request_id": "privacy-job-a",
+      "subject_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "privacy_generation": 0,
+      "operation": "erase",
+      "scope": "subject",
+      "source_keys": [
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      ],
+      "inventory_revision": "integration_c5_v1",
+      "live_ingestion_enabled": false,
+      "email_use_enabled": false
+    }
+  },
+  {
+    "name": "privacy-reject-live_ingestion_enabled",
+    "valid": false,
+    "payload": {
+      "version": "integration_privacy_task_v1",
+      "merchant_id": "merchant-a",
+      "store_id": "store-a",
+      "request_id": "privacy-job-a",
+      "subject_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "privacy_generation": 2,
+      "operation": "erase",
+      "scope": "subject",
+      "source_keys": [
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      ],
+      "inventory_revision": "integration_c5_v1",
+      "live_ingestion_enabled": true,
+      "email_use_enabled": false
+    }
+  },
+  {
+    "name": "privacy-reject-inventory_revision",
+    "valid": false,
+    "payload": {
+      "version": "integration_privacy_task_v1",
+      "merchant_id": "merchant-a",
+      "store_id": "store-a",
+      "request_id": "privacy-job-a",
+      "subject_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "privacy_generation": 2,
+      "operation": "erase",
+      "scope": "subject",
+      "source_keys": [
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      ],
+      "inventory_revision": "all-legacy-data",
+      "live_ingestion_enabled": false,
+      "email_use_enabled": false
+    }
   }
 ]
