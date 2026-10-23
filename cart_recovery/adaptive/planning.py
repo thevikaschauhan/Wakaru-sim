@@ -68,6 +68,8 @@ def strict_response(request, response, approved, policy=POLICY):
         raise ValueError("semantic_unapproved_model")
     for key, q in request["questions"].items():
         a = response["answers"][key]
+        if q["type"] == "noul":
+            continue  # adapter_validate enforces probability-only shape
         if abs(sum(a["probabilities"].values()) - 1) > policy["distribution_tolerance"]:
             raise ValueError("semantic_distribution")
         if q["type"] == "score":

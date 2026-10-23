@@ -361,6 +361,8 @@ def create_app(config_class=Config):
     app.register_blueprint(cart_recovery_bp, url_prefix='/api/cart-recovery')
     from cart_recovery.adaptive.http import bp as adaptive_followup_bp
     app.register_blueprint(adaptive_followup_bp)
+    from cart_recovery.adaptive.draft_http import bp as adaptive_draft_bp
+    app.register_blueprint(adaptive_draft_bp)
 
     # 健康检查
     @app.route('/health')
