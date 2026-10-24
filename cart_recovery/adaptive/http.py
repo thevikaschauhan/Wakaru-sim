@@ -102,3 +102,34 @@ def evaluate():
         # No payloads, credentials, exception text or raw provider output in logs.
         current_app.logger.warning("adaptive semantic storage/transport unavailable")
         return jsonify(error="semantic_unavailable"), 503
+
+
+@bp.post("/api/internal/v2/recovery/measurement")
+def measure():
+    # Independent read-only endpoint; importing this module does not open a model client.
+    if os.getenv("AF10_MEASUREMENT_ENABLED") != "true" or os.getenv("ENVIRONMENT") == "production":
+        return jsonify(error="measurement_disabled"), 503
+    path = "/api/internal/v2/recovery/measurement"
+    raw = request.stream.read(8193)
+    merchant, key, ts = (request.headers.get(k, "") for k in ("X-Merchant-Id", "Idempotency-Key", "X-Wakaru-Timestamp"))
+    secret, api_key = os.getenv("WAKARU_INTERNAL_SECRET", ""), os.getenv("WAKARU_API_KEY", "")
+    try:
+        if not secret or not api_key or not hmac.compare_digest(request.headers.get("X-API-Key", ""), api_key) or str(UUID(merchant)) != merchant or abs(time.time()-int(ts)) > 300:
+            raise ValueError()
+        prefix=f"{ts}\nPOST\n{path}\n{merchant}\n{key}\n".encode()
+        if not hmac.compare_digest(request.headers.get("X-Wakaru-Signature", ""), hmac.new(secret.encode(),prefix+raw,hashlib.sha256).hexdigest()):
+            raise ValueError()
+    except ValueError:
+        return jsonify(error="unauthorized"),401
+    try:
+        from .planning import digest
+        from .measurement import measurement
+        body=contracts.loads(raw)
+        if len(raw)>8192 or set(body)!={"journey_id"} or str(UUID(body["journey_id"]))!=body["journey_id"] or key!=digest(body):
+            raise ValueError()
+        # Reuse the configured journal; this read never calls Client.evaluate.
+        return jsonify(measurement(planner().journal,merchant,body["journey_id"]))
+    except (ValueError,TypeError,KeyError):
+        return jsonify(error="invalid_measurement"),422
+    except Exception:
+        return jsonify(error="measurement_unavailable"),503
