@@ -468,7 +468,11 @@ class Planner:
             {"body": body, "thresholds": self.policy, "deployment_revision": revision}
         )
         existing = self.journal.evaluation(
-            merchant, idempotency_key, request_hash, revision=revision
+            merchant,
+            idempotency_key,
+            request_hash,
+            revision=revision,
+            journey=c["journey_id"],
         )
         if existing is not None:
             if date(existing["plan"]["valid_until"]) <= now:
@@ -702,5 +706,10 @@ class Planner:
             judgment_request=normalized_request, semantic_bundle=normalized_bundle
         )
         return self.journal.evaluation(
-            merchant, idempotency_key, request_hash, result, revision=revision
+            merchant,
+            idempotency_key,
+            request_hash,
+            result,
+            revision=revision,
+            journey=c["journey_id"],
         )

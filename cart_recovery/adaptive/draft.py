@@ -257,7 +257,9 @@ class DraftChecker:
         key = "draft:" + key
         if len(key) > 128:
             raise ValueError("idempotency_key_overflow")
-        old = self.journal.evaluation(merchant, key, request_hash, revision=revision)
+        old = self.journal.evaluation(
+            merchant, key, request_hash, revision=revision, journey=c["journey_id"]
+        )
         if old is not None:
             return old
         b = copy.deepcopy(body["plan"]["binding"])
@@ -469,5 +471,10 @@ class DraftChecker:
             },
         }
         return self.journal.evaluation(
-            merchant, key, request_hash, result, revision=revision
+            merchant,
+            key,
+            request_hash,
+            result,
+            revision=revision,
+            journey=c["journey_id"],
         )

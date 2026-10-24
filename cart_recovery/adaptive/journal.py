@@ -94,19 +94,21 @@ class Journal:
         with self.transaction() as db:
             return self.check_deployment(db)
 
-    def evaluation(self, merchant, key, request_hash, result=None, revision=None):
+    def evaluation(
+        self, merchant, key, request_hash, result=None, revision=None, journey=None
+    ):
         with self.transaction() as db:
             if self.check_deployment(db) != revision:
                 raise Conflict("semantic_stale_deployment")
             db.execute(
-                "INSERT INTO af6_evaluations(environment,merchant,idempotency_key,request_hash) VALUES(%s,%s,%s,%s) ON CONFLICT DO NOTHING",
-                (self.environment, merchant, key, request_hash),
+                "INSERT INTO af6_evaluations(environment,merchant,idempotency_key,request_hash,journey_id) VALUES(%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING",
+                (self.environment, merchant, key, request_hash, journey),
             )
             row = db.execute(
-                "SELECT request_hash,result FROM af6_evaluations WHERE environment=%s AND merchant=%s AND idempotency_key=%s FOR UPDATE",
+                "SELECT request_hash,result,journey_id::text FROM af6_evaluations WHERE environment=%s AND merchant=%s AND idempotency_key=%s FOR UPDATE",
                 (self.environment, merchant, key),
             ).fetchone()
-            if row[0] != request_hash:
+            if row[0] != request_hash or row[2] != journey:
                 raise Conflict("IDEMPOTENCY_CONFLICT")
             if row[1] is not None:
                 return row[1]
@@ -132,13 +134,22 @@ class Journal:
         with self.transaction() as db:
             revision = self.check_deployment(db)
             db.execute(
-                "INSERT INTO af6_requests(environment,merchant,request_key,request_hash,request) VALUES(%s,%s,%s,%s,%s::jsonb) ON CONFLICT DO NOTHING",
-                (self.environment, merchant, key, digest(request), json.dumps(request)),
+                "INSERT INTO af6_requests(environment,merchant,request_key,request_hash,request,journey_id) VALUES(%s,%s,%s,%s,%s::jsonb,%s) ON CONFLICT DO NOTHING",
+                (
+                    self.environment,
+                    merchant,
+                    key,
+                    digest(request),
+                    json.dumps(request),
+                    identity["journey_id"],
+                ),
             )
             row = db.execute(
                 "SELECT selected,lease_until>clock_timestamp(),attempts,retry_at>clock_timestamp() FROM af6_requests WHERE environment=%s AND merchant=%s AND request_key=%s FOR UPDATE",
                 (self.environment, merchant, key),
             ).fetchone()
+            if not row:
+                raise Conflict("semantic_erased_or_stale")
             if row[0] is not None:
                 return cached(row[0], key)
             if row[1] or row[3]:
@@ -326,6 +337,8 @@ class Journal:
                 "SELECT selected,lease_token::text,lease_until>clock_timestamp() FROM af6_requests WHERE environment=%s AND merchant=%s AND request_key=%s FOR UPDATE",
                 (self.environment, merchant, key),
             ).fetchone()
+            if not row:
+                raise Conflict("semantic_erased_or_stale")
             if row[0] is not None:
                 return cached(row[0], key)
             if row[1] != token or not row[2]:

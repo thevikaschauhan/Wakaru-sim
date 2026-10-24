@@ -44,6 +44,14 @@ def setup():
                 ).read_text()
             )
 
+    with psycopg.connect(DSN) as db:
+        if not db.execute("SELECT to_regclass('af11_erasure_fences')").fetchone()[0]:
+            db.execute(
+                (
+                    Path(__file__).resolve().parents[1] / "migrations/002_erasure.sql"
+                ).read_text()
+            )
+
     def build(handler=None, policy=None, env=None):
         calls = []
         policy = copy.deepcopy(policy or POLICY)

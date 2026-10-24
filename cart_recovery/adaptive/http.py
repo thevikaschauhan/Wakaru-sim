@@ -11,7 +11,7 @@ from flask import Blueprint, current_app, jsonify, request
 from jsonschema import ValidationError
 
 from .journal import Conflict, Journal
-from .planning import POLICY, Planner, contracts
+from .planning import POLICY, Planner, contracts, digest
 from cart_recovery.intelligence.typesafe import Client
 
 PATH = "/api/internal/v2/recovery/evaluate"
@@ -133,3 +133,55 @@ def measure():
         return jsonify(error="invalid_measurement"),422
     except Exception:
         return jsonify(error="measurement_unavailable"),503
+
+
+@bp.post("/api/internal/v2/recovery/erase")
+def erase():
+    if (
+        os.getenv("AF11_ERASURE_ENABLED") != "true"
+        or os.getenv("ENVIRONMENT") == "production"
+    ):
+        return jsonify(error="erasure_disabled"), 503
+    path = "/api/internal/v2/recovery/erase"
+    raw = request.stream.read(8193)
+    merchant, key, ts = (
+        request.headers.get(k, "")
+        for k in ("X-Merchant-Id", "Idempotency-Key", "X-Wakaru-Timestamp")
+    )
+    secret, api_key = (
+        os.getenv("WAKARU_INTERNAL_SECRET", ""),
+        os.getenv("WAKARU_API_KEY", ""),
+    )
+    try:
+        if (
+            not secret
+            or not api_key
+            or not hmac.compare_digest(request.headers.get("X-API-Key", ""), api_key)
+            or str(UUID(merchant)) != merchant
+            or abs(time.time() - int(ts)) > 300
+        ):
+            raise ValueError()
+        prefix = f"{ts}\nPOST\n{path}\n{merchant}\n{key}\n".encode()
+        if not hmac.compare_digest(
+            request.headers.get("X-Wakaru-Signature", ""),
+            hmac.new(secret.encode(), prefix + raw, hashlib.sha256).hexdigest(),
+        ):
+            raise ValueError()
+    except ValueError:
+        return jsonify(error="unauthorized"), 401
+    try:
+        from .erasure import erase_journey
+
+        body = contracts.loads(raw)
+        if (
+            len(raw) > 8192
+            or set(body) != {"journey_id"}
+            or str(UUID(body["journey_id"])) != body["journey_id"]
+            or key != digest(body)
+        ):
+            raise ValueError()
+        return jsonify(erase_journey(planner().journal, merchant, body["journey_id"]))
+    except (ValueError, TypeError, KeyError):
+        return jsonify(error="invalid_erasure"), 422
+    except Exception:
+        return jsonify(error="erasure_unavailable"), 503
