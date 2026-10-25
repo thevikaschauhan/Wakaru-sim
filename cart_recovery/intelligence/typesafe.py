@@ -30,8 +30,30 @@ def digest(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode()).hexdigest()
 
 
+def _finite_number(value):
+    try:
+        return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+    except OverflowError:
+        return False
+
+
 def probability(value):
-    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value) and 0 <= value <= 1
+    return _finite_number(value) and 0 <= value <= 1
+
+
+def _reported_cost(response):
+    """Validate usage independently so unusable answers still settle paid work."""
+    if not isinstance(response, dict):
+        return None
+    usage = response.get("usage", {})
+    if not isinstance(usage, dict):
+        raise ValueError("invalid_usage")
+    if "cost" not in usage:
+        return None
+    cost = usage["cost"]
+    if not _finite_number(cost) or cost < 0:
+        raise ValueError("invalid_usage")
+    return cost
 
 
 def validate(request, response):
@@ -39,22 +61,7 @@ def validate(request, response):
     if not isinstance(response, dict) or not isinstance(response.get("model"), str) or not response["model"]:
         raise ValueError("invalid_model")
     answers = response.get("answers")
-    usage = response.get("usage", {})
-    if not isinstance(usage, dict):
-        raise ValueError("invalid_usage")
-    if "cost" in usage:
-        cost = usage["cost"]
-        try:
-            valid_cost = (
-                isinstance(cost, (int, float))
-                and not isinstance(cost, bool)
-                and math.isfinite(cost)
-                and cost >= 0
-            )
-        except OverflowError:
-            valid_cost = False
-        if not valid_cost:
-            raise ValueError("invalid_usage")
+    _reported_cost(response)
     if not isinstance(answers, dict) or set(answers) != set(request["questions"]):
         raise ValueError("invalid_answers")
     for key, question in request["questions"].items():
@@ -78,7 +85,7 @@ def validate(request, response):
                 raise ValueError("illegal_choice")
         elif kind == "score":
             score = answer.get("score")
-            if set(answer) != {"type", "score", "confidence", "probabilities", "legend"} or set(answer.get("legend", {})) != keys or not isinstance(score, (int, float)) or isinstance(score, bool) or not math.isfinite(score) or abs(score - sum(int(k)*v for k,v in dist.items())) > 0.03:
+            if set(answer) != {"type", "score", "confidence", "probabilities", "legend"} or set(answer.get("legend", {})) != keys or not _finite_number(score) or abs(score - sum(int(k)*v for k,v in dist.items())) > 0.03:
                 raise ValueError("invalid_score")
         else:
             raise ValueError("invalid_type")
@@ -162,11 +169,9 @@ class Client:
                     attempt["error_class"] = "http_rejected"
                 else:
                     value = json.loads(body)
+                    attempt["cost"] = _reported_cost(value)
                     validate(request, value)
                     result.update(status="evaluated", response=value)
-                    cost = value.get("usage", {}).get("cost")
-                    if isinstance(cost, (int, float)) and not isinstance(cost, bool) and math.isfinite(cost) and cost>=0:
-                        attempt["cost"] = cost
                     if value["model"] not in self.approved:
                         result["status"], attempt["error_class"] = "unresolved", "unapproved_model"
             except (ValueError, TypeError, KeyError):
