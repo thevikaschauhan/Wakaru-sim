@@ -168,13 +168,15 @@ def _build_cart_from_body(request_id, merchant_id):
         episode_id = body.get("event_id", "")
         if not isinstance(episode_id, str) or len(episode_id) > 128:
             raise ValueError("invalid event_id")
-        from cart_recovery.intelligence.recovery import validate_context
+        from cart_recovery.intelligence.recovery import validate_context, validate_evidence_context
         intelligence_mode = os.getenv("TYPESAFE_RECOVERY_MODE", "off")
         if intelligence_mode not in {"off", "observe", "assist", "enforce"}:
-            raise ValueError("invalid intelligence mode")
+            return None, (jsonify({"success": False, "error": "Intelligence mode unavailable"}), 503)
         if merchant_id not in {v.strip() for v in os.getenv("TYPESAFE_RECOVERY_MERCHANTS", "").split(",") if v.strip()}:
             intelligence_mode = "off"
         intelligence_context = validate_context(body.get("intelligence_context"), merchant_id, episode_id)
+        evidence_events = validate_evidence(body.get("evidence_events", []))
+        validate_evidence_context(intelligence_context, evidence_events)
         from cart_recovery.learning.serving import pinned_model
         cart = ShopifyCartData(
             conversion_model_id=pinned_model(merchant_id),
@@ -182,7 +184,7 @@ def _build_cart_from_body(request_id, merchant_id):
             intelligence_context=intelligence_context,
             analysis_mode=analysis_mode,
             episode_id=episode_id,
-            evidence_events=validate_evidence(body.get("evidence_events", [])),
+            evidence_events=evidence_events,
             customer_id=body.get("customer_id", "unknown"),
             customer_name=body.get("customer_name", "Shopper"),
             email=body.get("email", ""),

@@ -30,14 +30,38 @@ def digest(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode()).hexdigest()
 
 
+def _finite_number(value):
+    try:
+        return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+    except OverflowError:
+        return False
+
+
 def probability(value):
-    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value) and 0 <= value <= 1
+    return _finite_number(value) and 0 <= value <= 1
+
+
+def _reported_cost(response):
+    """Validate usage independently so unusable answers still settle paid work."""
+    if not isinstance(response, dict):
+        return None
+    usage = response.get("usage", {})
+    if not isinstance(usage, dict):
+        raise ValueError("invalid_usage")
+    if "cost" not in usage:
+        return None
+    cost = usage["cost"]
+    if not _finite_number(cost) or cost < 0:
+        raise ValueError("invalid_usage")
+    return cost
 
 
 def validate(request, response):
+    """Reject malformed provider fields before recording an evaluated result."""
     if not isinstance(response, dict) or not isinstance(response.get("model"), str) or not response["model"]:
         raise ValueError("invalid_model")
     answers = response.get("answers")
+    _reported_cost(response)
     if not isinstance(answers, dict) or set(answers) != set(request["questions"]):
         raise ValueError("invalid_answers")
     for key, question in request["questions"].items():
@@ -54,14 +78,14 @@ def validate(request, response):
         criteria = question["criteria"]
         keys = set(criteria) if kind == "choice" else {str(i) for i in range(len(criteria))}
         dist = answer.get("probabilities", {})
-        if set(dist) != keys or not all(probability(x) for x in dist.values()) or abs(sum(dist.values()) - 1) > 0.015:
+        if not isinstance(dist, dict) or set(dist) != keys or not all(probability(x) for x in dist.values()) or abs(sum(dist.values()) - 1) > 0.015:
             raise ValueError("invalid_distribution")
         if kind == "choice":
             if set(answer) != {"type", "choice", "confidence", "probabilities"} or answer.get("choice") not in keys or dist[answer["choice"]] < max(dist.values()):
                 raise ValueError("illegal_choice")
         elif kind == "score":
             score = answer.get("score")
-            if set(answer) != {"type", "score", "confidence", "probabilities", "legend"} or set(answer.get("legend", {})) != keys or not isinstance(score, (int, float)) or isinstance(score, bool) or not math.isfinite(score) or abs(score - sum(int(k)*v for k,v in dist.items())) > 0.03:
+            if set(answer) != {"type", "score", "confidence", "probabilities", "legend"} or set(answer.get("legend", {})) != keys or not _finite_number(score) or abs(score - sum(int(k)*v for k,v in dist.items())) > 0.03:
                 raise ValueError("invalid_score")
         else:
             raise ValueError("invalid_type")
@@ -145,11 +169,9 @@ class Client:
                     attempt["error_class"] = "http_rejected"
                 else:
                     value = json.loads(body)
+                    attempt["cost"] = _reported_cost(value)
                     validate(request, value)
                     result.update(status="evaluated", response=value)
-                    cost = value.get("usage", {}).get("cost")
-                    if isinstance(cost, (int, float)) and not isinstance(cost, bool) and math.isfinite(cost) and cost>=0:
-                        attempt["cost"] = cost
                     if value["model"] not in self.approved:
                         result["status"], attempt["error_class"] = "unresolved", "unapproved_model"
             except (ValueError, TypeError, KeyError):
@@ -209,7 +231,7 @@ class Store:
             if controls["model"] != self.client.model or sorted(controls["approved_models"]) != sorted(self.client.approved):
                 raise ValueError("prelaunch_model_mismatch")
             identity = {**identity, "policy_version": identity["policy_version"] + ":" + deployment}
-        self.purge(identity["merchant_id"])
+        self.purge()
         request = {**request, "model": self.client.model}
         rh = digest(request)
         key = digest([identity[k] for k in required if k != "as_of"]+[rh, self.client.binding])
@@ -283,17 +305,10 @@ class Store:
             db.execute("DELETE FROM budgets WHERE substr(key,1,?) = ?",(len(prefix),prefix))
             db.execute("COMMIT")
 
-    def purge(self, merchant):
-        with self.connection() as db:
-            db.execute("BEGIN IMMEDIATE")
-            db.execute("DELETE FROM raw_outputs WHERE merchant=? AND created<?",(merchant,time.time()-7*86400))
-            db.execute("DELETE FROM judgments WHERE merchant=? AND created<?",(merchant,time.time()-90*86400))
-            old=[r[0] for r in db.execute("SELECT request_key FROM attempts WHERE merchant=? AND started<?",(merchant,time.time()-90*86400))]
-            for key in old:
-                db.execute("DELETE FROM selected WHERE merchant=? AND request_key=?",(merchant,key))
-            db.execute("DELETE FROM results WHERE merchant=? AND id IN (SELECT id FROM attempts WHERE merchant=? AND started<?)",(merchant,merchant,time.time()-90*86400))
-            db.execute("DELETE FROM attempts WHERE merchant=? AND started<?",(merchant,time.time()-90*86400))
-            db.execute("COMMIT")
+    def purge(self):
+        """Apply journal retention to every merchant, including inactive ones."""
+        from .maintenance import purge_journal
+        purge_journal(self.path)
 
 
 def configured_store(path):

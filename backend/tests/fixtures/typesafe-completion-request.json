@@ -1,0 +1,23 @@
+{
+  "customer_id": "synthetic-ci-shopper",
+  "email": "synthetic-ci@example.invalid",
+  "cart_items": [{"product": "Synthetic test snowboard", "price": 100, "quantity": 1}],
+  "cart_total": 100,
+  "currency": "USD",
+  "event_id": "synthetic-ci-completion-episode",
+  "evidence_events": [
+    {"event_id": "9998", "event_name": "checkout_started", "occurred_at": "2026-09-23T09:00:00Z"},
+    {"event_id": "9999", "event_name": "alert_displayed", "alert_type": "PAYMENT_ERROR", "occurred_at": "2026-09-23T09:00:00Z"}
+  ],
+  "intelligence_context": {
+    "version": "recovery_context_v1",
+    "merchant_id": "11111111-1111-4111-8111-111111111111",
+    "episode_id": "synthetic-ci-completion-episode",
+    "as_of": "2026-09-23T09:00:00Z",
+    "approved_facts": [],
+    "feedback": [],
+    "eligible_actions": ["no_action", "wait", "review", "neutral_reminder", "checkout_assistance"],
+    "eligibility_reasons": ["no_offer"],
+    "revision": "synthetic-ci-context-v1"
+  }
+}

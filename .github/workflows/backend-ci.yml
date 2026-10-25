@@ -64,3 +64,12 @@ jobs:
         run: .venv/bin/pytest -q
         env:
           WAKARU_TEST_REDIS_URL: redis://localhost:6379
+
+      # Run the opt-in signed HTTP/RQ/SQLite replay with a committed synthetic
+      # request. The provider is httpx.MockTransport; no live key is needed.
+      - name: Verify signed recovery replay and rollback
+        working-directory: .
+        run: backend/.venv/bin/pytest -q -ra backend/tests/test_completion_slice.py
+        env:
+          TYPESAFE_COMPLETION_REQUEST: backend/tests/fixtures/typesafe-completion-request.json
+          TYPESAFE_SYNTHETIC_INSIGHT: ${{ runner.temp }}/typesafe-completion-insight.json

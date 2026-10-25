@@ -65,10 +65,13 @@ def main() -> None:
         job_monitoring_interval=15,
     )
     from app.services.worker_monitor import start_queue_monitor
+    from cart_recovery.intelligence.maintenance import start_retention_monitor
     stop_monitor = start_queue_monitor()
+    stop_retention = start_retention_monitor()
     try:
         worker.work()
     finally:
+        stop_retention.set()
         stop_monitor.set()
 
 

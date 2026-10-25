@@ -11,6 +11,18 @@ These profiles support TS-15/16 in isolated development or staging processes. Th
 5. Set corresponding `TYPESAFE_POLICY_MODE`, `TYPESAFE_RECOVERY_MODE`, `TYPESAFE_CLAIMS_MODE` and `_MERCHANTS` variables to the reviewed profile modes and explicit IDs. A disagreement, unknown workflow, missing file, disallowed merchant or model binding holds inference. Engine needs policy/recovery settings, Wakaru recovery, Inkwell claims. Run the synthetic provider smoke inside every deployed worker image before enabling a component. API-only credentials do not prove worker wiring.
 6. Wakaru requires an absolute `TYPESAFE_JOURNAL_PATH` on a persistent **single-host** volume. SQLite is not a distributed-worker journal; do not expand workers onto independent hosts with separate journals. Ensure backup and tenant-deletion handling includes this file and learning registry. Do not enable conversion models unless a separate real-outcome promotion report qualifies them.
 
+The Wakaru worker purges its local journal on startup and hourly, including when
+the queue is idle and inference is disabled. Every judgment also runs the same
+global purge; loading a recovery plan expires old plans for all merchants.
+Raw provider output and plans expire after seven days; attempts, results,
+selected judgments, audit records and budget history expire after ninety days.
+Current leases and budgets are preserved. Retention emits content-free completion
+or failure logs and retries failures on the next interval. Keep the worker running
+while the volume contains journal data. During a worker shutdown, operators can
+run `python -c 'import os; from cart_recovery.intelligence.maintenance import purge_journal; purge_journal(os.environ["TYPESAFE_JOURNAL_PATH"])'`
+on that same mounted volume. Backups and exported artifacts need their own deletion
+schedule; a service restart or model rollback does not reset retention.
+
 All pre-launch Inkwell recovery send authorization and worker dispatch are blocked even for previously approved documents. Engine's Inkwell-facing send endpoint is independently blocked. Inkwell contract publish and save-and-publish endpoints are blocked. Review, correction, preview and exact-revision approval remain usable. External CI/deployment permissions and Shopify credentials must retain the existing no-publish scope; these application fences are not a substitute for platform permissions.
 
 ## Rollback rehearsal

@@ -12,4 +12,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install 'httpx>=0.27,<1' pytest jsonschema
-      - run: python -m pytest cart_recovery/intelligence -q
+      # Learning is a sibling package, so the intelligence path alone misses
+      # its maturity, leakage, contamination and model-promotion regressions.
+      - name: Test intelligence and learning boundaries
+        run: python -m pytest cart_recovery/intelligence cart_recovery/learning -q -ra
