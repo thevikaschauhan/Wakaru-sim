@@ -26,5 +26,12 @@
       "github.com/thevikaschauhan/inkwell/internal/invalidation/TestC12InvalidationWireBoundaries",
       "tests.test_integration_invalidation/test_c12_wire_validation"
     ]
+  },
+  {
+    "id": "c12_dormant_runtime_privileges",
+    "required_tests": [
+      "github.com/thevikaschauhan/inkwell/internal/db/TestMigrations_NewRelationsCarryExplicitGrants",
+      "github.com/thevikaschauhan/inkwell/internal/db/TestC5PrivacyAppRoleDenied"
+    ]
   }
 ]
