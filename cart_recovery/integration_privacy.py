@@ -30,6 +30,7 @@ class PrivacyStore:
             CREATE TABLE IF NOT EXISTS privacy_tombstones(merchant TEXT,store TEXT,kind TEXT,key TEXT,PRIMARY KEY(merchant,store,kind,key));
             CREATE TABLE IF NOT EXISTS privacy_artifacts(merchant TEXT,store TEXT,id TEXT,subject TEXT,generation INTEGER,kind TEXT,sources TEXT,payload TEXT,expires REAL,PRIMARY KEY(merchant,store,id));
             CREATE INDEX IF NOT EXISTS privacy_artifacts_expiry ON privacy_artifacts(merchant,store,expires);
+            CREATE TABLE IF NOT EXISTS invalidation_scopes(merchant TEXT,store TEXT,epoch INTEGER NOT NULL,cutoff_us INTEGER NOT NULL,PRIMARY KEY(merchant,store));
             CREATE TABLE IF NOT EXISTS privacy_requests(merchant TEXT,store TEXT,id TEXT,fingerprint TEXT,task TEXT,complete INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(merchant,id));
             """)
 
@@ -66,7 +67,7 @@ class PrivacyStore:
         return any(kind == "subject" and key == subject or kind == "source" and key in sources
                    for kind, key in db.execute("SELECT kind,key FROM privacy_tombstones WHERE merchant=? AND store=?", (merchant, store)))
 
-    def put(self, merchant, store, *, artifact_id, subject, generation, kind, sources, payload, expires, now):
+    def put(self, merchant, store, *, artifact_id, subject, generation, kind, sources, payload, expires, now, context_as_of=None):
         encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), allow_nan=False)
         if kind not in KINDS or not KEY.fullmatch(subject) or not artifact_id or len(artifact_id) > 256 or not 0 < len(sources) <= 100 or not all(KEY.fullmatch(k) for k in sources) or len(encoded.encode()) > 200000 or not 0 < expires-now <= 90*86400:
             raise PrivacyStop("invalid_artifact")
@@ -74,6 +75,8 @@ class PrivacyStore:
             current, erased = self.lock(db, merchant, store)
             if erased or current != generation or self.blocked(db, merchant, store, subject, sources):
                 raise PrivacyStop("privacy_stop")
+            if context_as_of is not None:
+                self.context_current(db, merchant, store, context_as_of)
             value = (subject, generation, kind, json.dumps(sources), encoded, expires)
             old = db.execute("SELECT subject,generation,kind,sources,payload,expires FROM privacy_artifacts WHERE merchant=? AND store=? AND id=?", (merchant, store, artifact_id)).fetchone()
             if old is not None:
@@ -82,12 +85,14 @@ class PrivacyStore:
                 return
             db.execute("INSERT INTO privacy_artifacts VALUES(?,?,?,?,?,?,?,?,?)", (merchant, store, artifact_id, *value))
 
-    def read(self, merchant, store, artifact_id, *, now):
+    def read(self, merchant, store, artifact_id, *, now, context_as_of=None):
         with self.transaction() as db:
             current, erased = self.lock(db, merchant, store)
             row = db.execute("SELECT subject,generation,sources,payload,expires FROM privacy_artifacts WHERE merchant=? AND store=? AND id=?", (merchant, store, artifact_id)).fetchone()
             if erased or row is None or row[1] != current or row[4] <= now or self.blocked(db, merchant, store, row[0], json.loads(row[2])):
                 raise PrivacyStop("privacy_stop")
+            if context_as_of is not None:
+                self.context_current(db, merchant, store, context_as_of)
             return json.loads(row[3])
 
     def apply(self, merchant, store, raw, *, now):
@@ -151,3 +156,32 @@ class PrivacyStore:
                 db.execute("INSERT OR IGNORE INTO privacy_tombstones VALUES(?,?,'source',?)", (merchant, store, key))
             result=db.execute("DELETE FROM privacy_artifacts WHERE merchant=? AND store=? AND EXISTS(SELECT 1 FROM json_each(privacy_artifacts.sources) WHERE value IN (SELECT value FROM json_each(?)))",(merchant,store,json.dumps(keys)))
             return result.rowcount
+
+    @staticmethod
+    def context_current(db, merchant, store, as_of):
+        from datetime import datetime
+        row = db.execute("SELECT cutoff_us FROM invalidation_scopes WHERE merchant=? AND store=?", (merchant, store)).fetchone()
+        if row is not None:
+            at = datetime.fromisoformat(as_of.replace("Z", "+00:00"))
+            # Integer arithmetic preserves the exact microsecond boundary.
+            from datetime import timezone
+            delta = at - datetime(1970, 1, 1, tzinfo=timezone.utc)
+            micros = (delta.days * 86400 + delta.seconds) * 1000000 + delta.microseconds
+            if micros <= row[0]:
+                raise PrivacyStop("context_invalidated")
+
+    def apply_invalidation(self, merchant, store, event):
+        from .integration_invalidation import validate_event
+        validate_event(event, merchant, store)
+        with self.transaction() as db:
+            self.lock(db, merchant, store)
+            old = db.execute("SELECT epoch,cutoff_us FROM invalidation_scopes WHERE merchant=? AND store=?", (merchant, store)).fetchone()
+            if old:
+                epoch, cutoff = old
+                if (event["epoch"] == epoch and event["cutoff_us"] != cutoff
+                        or event["epoch"] > epoch and event["cutoff_us"] <= cutoff
+                        or event["epoch"] < epoch and event["cutoff_us"] >= cutoff):
+                    raise PrivacyStop("invalidation_conflict")
+            if old is None or event["epoch"] > old[0]:
+                db.execute("INSERT INTO invalidation_scopes VALUES(?,?,?,?) ON CONFLICT(merchant,store) DO UPDATE SET epoch=excluded.epoch,cutoff_us=excluded.cutoff_us", (merchant, store, event["epoch"], event["cutoff_us"]))
+        return dict(event, service="wakaru", status="fenced")
