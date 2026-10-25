@@ -128,13 +128,14 @@ class BoundedService:
         customer = context["customer_context"]
         job = digest(value)
         self.store.put(merchant, store, artifact_id=job, subject=hashlib.sha256(subject.encode()).hexdigest(), generation=customer["privacy_generation"],
-                       kind="pending_job", sources=sorted(value["source_keys"]), payload=value, expires=moment(customer["expires_at"]).timestamp(), now=now.timestamp())
+                       kind="pending_job", sources=sorted(value["source_keys"]), payload=value, expires=moment(customer["expires_at"]).timestamp(), now=now.timestamp(), context_as_of=context["as_of"])
         return job
 
     def run(self, merchant, store, job, *, now):
         value = self.store.read(merchant, store, job, now=now.timestamp())
         context = value["context"]
         customer = context["customer_context"]
+        self.store.read(merchant, store, job, now=now.timestamp(), context_as_of=context["as_of"])
         try:
             return self.result(merchant, store, job, now=now)
         except PrivacyStop:
@@ -142,11 +143,12 @@ class BoundedService:
         plan = interpret(json.dumps(value), merchant=merchant, store=store, subject=customer["subject_id"], episode=context["episode_id"], now=now, selector=self.selector)
         now = self.clock()
         self.store.put(merchant, store, artifact_id=job+":plan", subject=hashlib.sha256(customer["subject_id"].encode()).hexdigest(), generation=customer["privacy_generation"],
-                       kind="plan", sources=sorted(value["source_keys"]), payload=plan, expires=moment(customer["expires_at"]).timestamp(), now=now.timestamp())
+                       kind="plan", sources=sorted(value["source_keys"]), payload=plan, expires=moment(customer["expires_at"]).timestamp(), now=now.timestamp(), context_as_of=context["as_of"])
         return self.result(merchant, store, job, now=now)
 
     def result(self, merchant, store, job, *, now):
-        return self.store.read(merchant, store, job+":plan", now=now.timestamp())
+        value = self.store.read(merchant, store, job, now=now.timestamp())
+        return self.store.read(merchant, store, job+":plan", now=now.timestamp(), context_as_of=value["context"]["as_of"])
 
     def analyze(self, raw, **binding):
         job = self.submit(raw, **binding)
