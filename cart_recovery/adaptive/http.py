@@ -11,6 +11,7 @@ from flask import Blueprint, current_app, jsonify, request
 from jsonschema import ValidationError
 
 from .journal import Conflict, Journal
+from . import promotion
 from .planning import POLICY, Planner, contracts, digest
 from cart_recovery.intelligence.typesafe import Client
 
@@ -28,10 +29,8 @@ def planner():
     with _lock:
         if "adaptive_planner" not in current_app.extensions:
             dsn = os.getenv("ADAPTIVE_SEMANTIC_DATABASE_URL", "")
-            environment = os.getenv("ADAPTIVE_SEMANTIC_ENVIRONMENT", "local")
-            if not dsn or (
-                environment == "production" and not POLICY["production_qualified"]
-            ):
+            environment = promotion.environment()
+            if not dsn:
                 raise Conflict("semantic_unconfigured_or_unqualified")
             client = Client()
             current_app.extensions["adaptive_planner"] = Planner(
@@ -81,7 +80,7 @@ def evaluate():
         return jsonify(error="unauthorized"), 401
     try:
         body = contracts.loads(raw)
-        result = planner().evaluate(body, merchant, key)
+        result = promotion.evaluate(planner(), body, merchant, key)
         response = jsonify(result)
         response.headers["X-AF06-Elapsed-Ms"] = str(
             int((time.monotonic() - started) * 1000)
@@ -107,7 +106,7 @@ def evaluate():
 @bp.post("/api/internal/v2/recovery/measurement")
 def measure():
     # Independent read-only endpoint; importing this module does not open a model client.
-    if os.getenv("AF10_MEASUREMENT_ENABLED") != "true" or os.getenv("ENVIRONMENT") == "production":
+    if os.getenv("AF10_MEASUREMENT_ENABLED") != "true" or not promotion.valid_environment():
         return jsonify(error="measurement_disabled"), 503
     path = "/api/internal/v2/recovery/measurement"
     raw = request.stream.read(8193)
@@ -128,7 +127,7 @@ def measure():
         if len(raw)>8192 or set(body)!={"journey_id"} or str(UUID(body["journey_id"]))!=body["journey_id"] or key!=digest(body):
             raise ValueError()
         # Reuse the configured journal; this read never calls Client.evaluate.
-        return jsonify(measurement(planner().journal,merchant,body["journey_id"]))
+        return jsonify(measurement(maintenance_journal(),merchant,body["journey_id"]))
     except (ValueError,TypeError,KeyError):
         return jsonify(error="invalid_measurement"),422
     except Exception:
@@ -139,7 +138,7 @@ def measure():
 def erase():
     if (
         os.getenv("AF11_ERASURE_ENABLED") != "true"
-        or os.getenv("ENVIRONMENT") == "production"
+        or not promotion.valid_environment()
     ):
         return jsonify(error="erasure_disabled"), 503
     path = "/api/internal/v2/recovery/erase"
@@ -180,8 +179,15 @@ def erase():
             or key != digest(body)
         ):
             raise ValueError()
-        return jsonify(erase_journey(planner().journal, merchant, body["journey_id"]))
+        return jsonify(erase_journey(maintenance_journal(), merchant, body["journey_id"]))
     except (ValueError, TypeError, KeyError):
         return jsonify(error="invalid_erasure"), 422
     except Exception:
         return jsonify(error="erasure_unavailable"), 503
+
+
+def maintenance_journal():
+    # Explicitly injected local fixture journals never initialize a model.
+    if not promotion.required() and "adaptive_planner" in current_app.extensions:
+        return current_app.extensions["adaptive_planner"].journal
+    return promotion.MaintenanceJournal()

@@ -11,6 +11,7 @@ from flask import Blueprint, current_app, jsonify, request
 from jsonschema import ValidationError
 
 from .journal import Conflict, Journal
+from . import promotion
 from .planning import contracts
 from .draft import POLICY, RUBRIC, DraftChecker
 from cart_recovery.intelligence.typesafe import Client
@@ -29,10 +30,8 @@ def planner():
     with _lock:
         if "adaptive_draft_checker" not in current_app.extensions:
             dsn = os.getenv("ADAPTIVE_SEMANTIC_DATABASE_URL", "")
-            environment = os.getenv("ADAPTIVE_SEMANTIC_ENVIRONMENT", "local")
-            if not dsn or (
-                environment == "production" and not POLICY["production_qualified"]
-            ):
+            environment = promotion.environment()
+            if not dsn:
                 raise Conflict("semantic_unconfigured_or_unqualified")
             client = Client()
             current_app.extensions["adaptive_draft_checker"] = DraftChecker(
@@ -84,7 +83,7 @@ def evaluate():
         return jsonify(error="unauthorized"), 401
     try:
         body = contracts.loads(raw)
-        result = planner().evaluate(body, merchant, key)
+        result = promotion.evaluate(planner(), body, merchant, key)
         response = jsonify(result)
         response.headers["X-AF07-Elapsed-Ms"] = str(
             int((time.monotonic() - started) * 1000)
