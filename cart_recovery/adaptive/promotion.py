@@ -172,7 +172,9 @@ class MaintenanceJournal:
 
     def __init__(self):
         self.environment = environment()
-        self.dsn = os.getenv("ADAPTIVE_SEMANTIC_DATABASE_URL", "")
+        self.dsn = os.getenv("ADAPTIVE_SEMANTIC_MAINTENANCE_DATABASE_URL") or os.getenv(
+            "ADAPTIVE_SEMANTIC_DATABASE_URL", ""
+        )
         if not self.dsn:
             raise Conflict("semantic_storage_unconfigured")
 
