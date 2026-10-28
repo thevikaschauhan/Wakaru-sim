@@ -1,0 +1,25 @@
+{
+  "version": "recovery_v2",
+  "source": "vakaru-engine/contracts/recovery/v2",
+  "sha256": {
+    "README.md": "dfefd40fb4a4d4416ad4ff7640b2168ebf2e09026ef3ec3705632ed24d10abfc",
+    "binding.schema.json": "0b318d543f2bff153a41571eb0c2d698291e5237b6e1d8cff3b83ef9d9f03236",
+    "conformance.json": "8d9d0a9b6483f9ed88c8f7915d46e15575f6dd8cf816373783be483bc83ce034",
+    "conversation-context.schema.json": "377e5d940f0140b7775e347852845dbaefb3c7846ee6337017c4a82f3e4a2572",
+    "journey.schema.json": "d7bedc339018abad4f737925abf03a5c6923cd63eea7f7c3e7b5f5631e28a090",
+    "judgment-catalog.json": "79485fb8c01589435448723eaecb4c14f7ef5e10be877f7926d5d7634a13a1dc",
+    "judgment-request.schema.json": "ac0b687fee3268659d489d471bc340ba39dbc59f9e209342f0c613d3ff691e96",
+    "judgment-result.schema.json": "32b537967c01fbaf3fbccfc1d651a7760546911273181efad7f9044025eb1ad3",
+    "policy-defaults.json": "8a0d4d66165b9d39da2eb791979f0229a5f0119716f637c35a612e896839b5b5",
+    "policy.schema.json": "70e697d5ce908b95409744be11185fc6d59b861d21582243eaa135ee8014f71d",
+    "recovery-context.schema.json": "ddb8284f4943a1858758bda9d85ccb398724cffcfe8003f174f3fcba5cfb5905",
+    "recovery-plan.schema.json": "db31436e5e05ec2be2f2b7506be8da02af11fef5729af261a128f829cb577751",
+    "requirements.txt": "756cc9e506ae4ee1a6f6c0507088b5cfc0dc8ba350fb2d2d46f1ffa72033adb6",
+    "semantic-bundle.schema.json": "3094f0f9cbfd3b35a3e0e83f376c7483a123c3f73651fd69aa4c69b347edfdf8",
+    "signal.go": "0704d00464b336c041253ff4aff2bab6044923a05a082643e1c795c26aecd4eb",
+    "signal.schema.json": "67179fa1f07728b10e02b04b1d1c34d61ddcd7b2a1083ff1f7654a46c7263438",
+    "signal_test.go": "a65771ce04e62f2abff10f8891f015410a211ce0089e091e869b3238211214e7",
+    "test_semantics.py": "a1555aff69b18adbcdd38442201355de968b22f987c3d08070755dc0074e22df",
+    "verify.py": "f7f7e91c3f40fc2e53d3b88d730be3574fe7910fba320a59a0abfc09d26474eb"
+  }
+}

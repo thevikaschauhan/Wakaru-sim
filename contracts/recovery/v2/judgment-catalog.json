@@ -1,0 +1,70 @@
+{
+  "TF01": {
+    "type": "choice",
+    "options": [
+      "useful_change",
+      "no_useful_change",
+      "insufficient"
+    ],
+    "enabled": true
+  },
+  "TF02": {
+    "type": "choice",
+    "options": [
+      "explicit_report",
+      "behavior_only",
+      "unsupported",
+      "conflicting"
+    ],
+    "enabled": true
+  },
+  "TF03": {
+    "type": "score",
+    "options": [
+      "0",
+      "1",
+      "2",
+      "3"
+    ],
+    "enabled": true
+  },
+  "TF04": {
+    "type": "choice",
+    "options": [
+      "adds_useful_information",
+      "answers_prior_question",
+      "repeats",
+      "insufficient"
+    ],
+    "enabled": true
+  },
+  "TF05": {
+    "type": "choice",
+    "options": [
+      "supported",
+      "contradicted",
+      "missing_evidence",
+      "out_of_scope"
+    ],
+    "enabled": true
+  },
+  "TF06": {
+    "type": "noul",
+    "options": [],
+    "enabled": true
+  },
+  "TF07": {
+    "type": "choice",
+    "options": [
+      "consistent",
+      "conflicts_prior_commitment",
+      "insufficient"
+    ],
+    "enabled": true
+  },
+  "TF08": {
+    "type": "choice",
+    "options": [],
+    "enabled": false
+  }
+}

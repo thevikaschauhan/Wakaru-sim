@@ -1,0 +1,23 @@
+{
+  "schema_version": "followup_policy_v1",
+  "version": "followup-rehearsal-v1",
+  "enabled": false,
+  "max_messages": 3,
+  "rolling_limit": 3,
+  "rolling_seconds": 604800,
+  "spacing_seconds": [
+    86400,
+    172800
+  ],
+  "inactivity_seconds": 2700,
+  "expiry_seconds": 604800,
+  "quiet_start": "20:00",
+  "quiet_end": "09:00",
+  "timezone": "UTC",
+  "require_previous_delivery": true,
+  "tf08_enabled": false,
+  "transport_attempts": 3,
+  "repair_limit": 1,
+  "experiment_arm": "first_email_only",
+  "unknown_behavior": "hold"
+}
