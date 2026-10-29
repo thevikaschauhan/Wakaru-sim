@@ -1,0 +1,86 @@
+{
+  "version": "knowledge_lifecycle_inventory_v1",
+  "family": "wakaru.knowledge_lifecycle",
+  "activation": false,
+  "rls": false,
+  "direct_database_tenant_access": false,
+  "relations": {
+    "knowledge_data.subjects": {
+      "class": "erasable",
+      "columns": [
+        "scope_key",
+        "scope",
+        "payload",
+        "data_version"
+      ]
+    },
+    "knowledge_data.sources": {
+      "class": "erasable",
+      "columns": [
+        "scope_key",
+        "source_key",
+        "receipt"
+      ]
+    },
+    "knowledge_data.catalog": {
+      "class": "erasable",
+      "columns": [
+        "scope_key",
+        "entity_key",
+        "receipt"
+      ]
+    },
+    "knowledge_data.commands": {
+      "class": "erasable",
+      "columns": [
+        "scope_key",
+        "command_key",
+        "request_hash",
+        "data_version"
+      ]
+    },
+    "knowledge_retained.control": {
+      "class": "retained_control",
+      "columns": [
+        "singleton",
+        "quarantined",
+        "key_fingerprint"
+      ]
+    },
+    "knowledge_retained.tenants": {
+      "class": "retained_fence",
+      "columns": [
+        "tenant_key",
+        "erased"
+      ]
+    },
+    "knowledge_retained.subjects": {
+      "class": "retained_fence",
+      "columns": [
+        "scope_key",
+        "tenant_key",
+        "identity_revision",
+        "privacy_generation",
+        "data_version",
+        "erased"
+      ]
+    },
+    "knowledge_retained.withdrawals": {
+      "class": "retained_fence",
+      "columns": [
+        "scope_key",
+        "source_key"
+      ]
+    },
+    "knowledge_retained.events": {
+      "class": "retained_invalidation",
+      "columns": [
+        "event_id",
+        "tenant_key",
+        "scope_key",
+        "data_version",
+        "kind"
+      ]
+    }
+  }
+}

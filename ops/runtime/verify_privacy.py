@@ -52,6 +52,9 @@ def verify(root=ROOT):
     migrations = {str(p.relative_to(root)):digest(p) for p in (root/'cart_recovery/adaptive/migrations').glob('*.sql')}
     if migrations != value['adaptive_migrations']:
         raise ValueError('adaptive_migration_drift')
+    knowledge = {str(p.relative_to(root)):digest(p) for p in (root/'cart_recovery/domain/migrations').glob('*.sql')}
+    if knowledge != value['knowledge_migrations']:
+        raise ValueError('knowledge_migration_drift')
     for name, expected in value['lineage_controls'].items():
         if digest(root/name) != expected:
             raise ValueError('lineage_control_drift')

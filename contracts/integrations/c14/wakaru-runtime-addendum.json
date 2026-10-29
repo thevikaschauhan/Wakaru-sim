@@ -1,7 +1,7 @@
 {
   "version": "wakaru_runtime_privacy_addendum_v1",
   "scope": "wakaru_combined_source_only",
-  "base_sha256": "9e03707cc7038eef2951b593ab587e8e371de5f74848e2254a0f5ff30434ecfb",
+  "base_sha256": "83e46eadadd4396d8f7c7e0231ee1b84af1c33af4b21ae5650aa13ad007aad02",
   "whole_application_erasure_complete": false,
   "retained_base_blockers": [
     "engine.behavior_legacy",
@@ -23,7 +23,19 @@
     "wakaru.workflow_files",
     "wakaru.zep"
   ],
-  "additional_families": [],
+  "additional_families": [
+    {
+      "id": "wakaru.knowledge_lifecycle",
+      "owner": "Wakaru under Engine identity and source authority",
+      "status": "legacy_blocked",
+      "subject_selector": "HMAC of merchant/store/subject kind/id; exact identity and privacy generations",
+      "export": "KnowledgeStore.export_subject and export_merchant internal adapters; no public export endpoint",
+      "erasure": "Atomic retained stop plus deletion of subject payload, sources, catalog and commands; current source withdrawals retained",
+      "retention": "Expired records excluded from reads; physical retention, backup expiry, key rotation and retained-ledger policy await activation review",
+      "restore": "New database quarantined by default; independently current retained checkpoint before activation; stale active rows fail closed",
+      "blocker": "Local PostgreSQL qualification only; authenticated Engine adapter, cross-repository C14 receipt wiring, database role policy and artifact requalification remain closed"
+    }
+  ],
   "writers": {
     "backend/app/api/cart_recovery.py": {
       "sha256": "43de66858dada1ee2871d6430cfbcac9e6905a89ece650f7997cd526b6f7ace6",
@@ -116,6 +128,10 @@
     "cart_recovery/learning/registry.py": {
       "sha256": "84e046fbd27a0c0332f3785203f121db90e85ed171ae4e28d1728c2738c039d0",
       "family": "wakaru.learning_registry"
+    },
+    "cart_recovery/domain/store.py": {
+      "sha256": "447cb27cabc0ff759d4adfb1f5d8c4e8d8c820bafebf9628fbb7de1f3ae6bafe",
+      "family": "wakaru.knowledge_lifecycle"
     }
   },
   "lineage_controls": {
@@ -127,5 +143,8 @@
   "adaptive_migrations": {
     "cart_recovery/adaptive/migrations/001_journal.sql": "0d07f5482d419619e0dd65bf6eabfff78b643ff66cdc5dd3179915ea1c2e11e6",
     "cart_recovery/adaptive/migrations/002_erasure.sql": "68554ba26825337667a686fd2636c1d79f203b861f869a8f0184e0bd22c7e76a"
+  },
+  "knowledge_migrations": {
+    "cart_recovery/domain/migrations/001_knowledge.sql": "4ace32806ccc29b310f74d189fa2c6d85c4a0537affea186f48dd6ca50ae4e3a"
   }
 }
