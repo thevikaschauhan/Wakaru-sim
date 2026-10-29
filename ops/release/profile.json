@@ -1,0 +1,10 @@
+{
+  "version": "simulation_retirement_forward_v1",
+  "default_analysis_mode": "legacy_simulation",
+  "global_direct_mode_allowed": false,
+  "direct_admission": "authenticated_canonical_nonzero_merchant_allowlist",
+  "legacy_submission": "410_legacy_simulation_retired",
+  "legacy_queued_job": "retain_failed_without_retry",
+  "maintenance": "preserve_quarantine_no_scheduler",
+  "deployment_authorized": false
+}

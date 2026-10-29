@@ -1,0 +1,69 @@
+........................................................................ [ 11%]
+........................................................................ [ 23%]
+........................................................................ [ 35%]
+........................................................................ [ 47%]
+........................................................................ [ 59%]
+........................................................................ [ 71%]
+........................................................................ [ 83%]
+........................................................................ [ 95%]
+.........................                                                [100%]
+=============================== warnings summary ===============================
+tests/test_adaptive_followup.py: 2 warnings
+tests/test_api_auth.py: 9 warnings
+tests/test_buyer_state_http.py: 5 warnings
+tests/test_cart_recovery_hmac.py: 10 warnings
+tests/test_cart_recovery_jobs.py: 14 warnings
+tests/test_cart_recovery_merchant_id.py: 11 warnings
+tests/test_cart_recovery_pii.py: 3 warnings
+tests/test_cart_recovery_ratelimit_idempotency.py: 7 warnings
+tests/test_completion_slice.py: 1 warning
+tests/test_config_fail_fast.py: 1 warning
+tests/test_conversion_learning_http.py: 1 warning
+tests/test_error_handler.py: 7 warnings
+tests/test_lean_runtime.py: 2 warnings
+tests/test_logging.py: 1 warning
+tests/test_provider_failure_restart.py: 2 warnings
+tests/test_queue_health.py: 2 warnings
+tests/test_readiness.py: 7 warnings
+tests/test_request_id.py: 7 warnings
+tests/test_security_headers.py: 3 warnings
+tests/test_typesafe_review_intake.py: 34 warnings
+  /private/tmp/wakaru-combined-venv/lib/python3.12/site-packages/flask_limiter/extension.py:324: UserWarning: Using the in-memory storage for tracking rate limits as no storage was explicitly specified. This is not recommended for production use. See: https://flask-limiter.readthedocs.io#configuring-a-storage-backend for documentation about configuring the storage backend.
+    warnings.warn(
+
+tests/test_buyer_state_http.py: 16 warnings
+tests/test_cart_recovery_jobs.py: 28 warnings
+tests/test_cart_recovery_merchant_id.py: 13 warnings
+tests/test_cart_recovery_ratelimit_idempotency.py: 13 warnings
+tests/test_completion_slice.py: 4 warnings
+tests/test_conversion_learning_http.py: 3 warnings
+tests/test_lean_runtime.py: 6 warnings
+tests/test_provider_failure_restart.py: 8 warnings
+tests/test_queue_health.py: 5 warnings
+  /private/tmp/wakaru-combined-venv/lib/python3.12/site-packages/rq/utils.py:128: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return datetime.datetime.utcnow()
+
+tests/test_buyer_state_http.py::test_signed_ingest_queue_poll_returns_observations_without_simulation
+tests/test_cart_recovery_jobs.py::test_finished_job_returns_result_and_progress
+tests/test_cart_recovery_jobs.py::test_failed_job_is_pii_safe
+tests/test_cart_recovery_jobs.py::test_failed_job_log_record_carries_request_id_job_id_merchant_id
+tests/test_cart_recovery_jobs.py::test_job_meta_progress_is_pii_free
+  /private/tmp/wakaru-combined-venv/lib/python3.12/site-packages/rq/utils.py:227: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return calendar.timegm(datetime.datetime.utcnow().utctimetuple())
+
+tests/test_buyer_state_http.py::test_signed_ingest_queue_poll_returns_observations_without_simulation
+tests/test_cart_recovery_jobs.py::test_finished_job_returns_result_and_progress
+  /private/tmp/wakaru-combined-venv/lib/python3.12/site-packages/rq/job.py:860: DeprecationWarning: job.result is deprecated, use job.return_value instead.
+    warnings.warn("job.result is deprecated, use job.return_value instead.", DeprecationWarning)
+
+tests/test_cart_recovery_jobs.py::test_failed_job_is_pii_safe
+tests/test_cart_recovery_jobs.py::test_failed_job_is_pii_safe
+  /private/tmp/wakaru-combined-venv/lib/python3.12/site-packages/rq/job.py:796: DeprecationWarning: job.exc_info is deprecated, use job.latest_result() instead.
+    warnings.warn("job.exc_info is deprecated, use job.latest_result() instead.", DeprecationWarning)
+
+tests/test_error_handler.py::test_unhandled_exception_never_leaks_pii_or_secrets_to_sentry
+  /private/tmp/wakaru-combined-venv/lib/python3.12/site-packages/sentry_sdk/client.py:546: DeprecationWarning: The send_default_pii option is deprecated. Use data_collection instead. See https://docs.sentry.io/platforms/python/data-management/data-collected/
+    super(_Client, self).__init__(options=get_options(*args, **kwargs))
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+601 passed, 235 warnings in 47.34s

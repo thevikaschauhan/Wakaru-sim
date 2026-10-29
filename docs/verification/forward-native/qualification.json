@@ -1,0 +1,225 @@
+{
+  "passed": true,
+  "native_validation": "passed",
+  "production_access": false,
+  "deployment": false,
+  "host": {
+    "machine": "x86_64",
+    "system": "Linux",
+    "kernel": "7.0.0-1017-azure",
+    "cpu_vendor": "AuthenticAMD",
+    "cpu_model": "AMD EPYC 7763 64-Core Processor",
+    "docker_architecture": "x86_64",
+    "docker_os": "Ubuntu 24.04.5 LTS",
+    "docker_version": "28.0.4",
+    "docker_endpoint": "unix:///var/run/docker.sock"
+  },
+  "manifest_sha256": "238b61c076f0ae6d6d8a3bfd5a2a59b7fe65eba96297586a1755f50d45801b9e",
+  "forward_archive_sha256": "2af4f4ca6b34a170112d273a59be35f46b00a7d08638dd098ff2bbb96c942cbf",
+  "rollback_archive_sha256": "e7cb4b92ec800e2832be38c920fa89ee325d4213fc7c26d5d06abc56ff9aaec5",
+  "host_image_ids": {
+    "rollback": "sha256:ebaeee34f22ed39df16f2e4b986e311cb7a7588bc79de619ba3d8397885879f1",
+    "base": "sha256:e3d6f2b36945f65cb8ddfa35e6fd6722d1cc67e29bc2787e889172acca475be6",
+    "current": "sha256:4901aa6d2577c8efef50b05eccab42cc845e3e1aa2b919abc15899d1b21445f9",
+    "redis": "sha256:398c80d98196f34542de5c4046105120127978fe85d752251d8947989949f5bb",
+    "postgres": "sha256:a6638641707cdf047e5d5c2781f437e2e809323cab22c70b280be8389fbb7878",
+    "forward": "sha256:371abdbe96d26718ece4ed64359c2871abb6691767add046dd678ad91e5b6784"
+  },
+  "qualification_checks": [
+    {
+      "action": "package_checks",
+      "passed": true,
+      "phase": "rollback"
+    },
+    {
+      "action": "package_checks",
+      "passed": true,
+      "phase": "-forward"
+    },
+    {
+      "action": "baseline_startup_failure",
+      "passed": true
+    },
+    {
+      "action": "global_mode_rejected_web",
+      "passed": true
+    },
+    {
+      "action": "global_mode_rejected_worker",
+      "passed": true
+    },
+    {
+      "action": "default_denies",
+      "passed": true,
+      "phase": "rollback"
+    },
+    {
+      "action": "denied",
+      "passed": true,
+      "phase": "-forward"
+    },
+    {
+      "action": "seed_current",
+      "passed": true,
+      "phase": "rollback"
+    },
+    {
+      "action": "stage_pending",
+      "passed": true,
+      "phase": "rollback"
+    },
+    {
+      "action": "denied",
+      "passed": true,
+      "phase": "rollback"
+    },
+    {
+      "action": "rollback_drained",
+      "passed": true,
+      "phase": "rollback"
+    },
+    {
+      "action": "engine_real_image_410",
+      "passed": true
+    },
+    {
+      "action": "stage_restart",
+      "passed": true,
+      "phase": "rollback"
+    },
+    {
+      "action": "after_restart",
+      "passed": true,
+      "phase": "rollback"
+    },
+    {
+      "action": "restore_backup",
+      "passed": true,
+      "phase": "rollback"
+    },
+    {
+      "action": "stage_forward",
+      "passed": true,
+      "phase": "rollback"
+    },
+    {
+      "action": "denied",
+      "passed": true,
+      "phase": "-returned-forward"
+    },
+    {
+      "action": "engine_forward_real_image_410",
+      "passed": true
+    },
+    {
+      "action": "after_forward",
+      "passed": true,
+      "phase": "-returned-forward"
+    },
+    {
+      "action": "after_restart",
+      "passed": true,
+      "phase": "-returned-forward"
+    }
+  ],
+  "configuration_checks": [
+    {
+      "case": "global_direct",
+      "role": "web",
+      "passed": true
+    },
+    {
+      "case": "global_direct",
+      "role": "worker",
+      "passed": true
+    },
+    {
+      "case": "unknown_mode",
+      "role": "web",
+      "passed": true
+    },
+    {
+      "case": "unknown_mode",
+      "role": "worker",
+      "passed": true
+    },
+    {
+      "case": "empty_mode",
+      "role": "web",
+      "passed": true
+    },
+    {
+      "case": "empty_mode",
+      "role": "worker",
+      "passed": true
+    },
+    {
+      "case": "wildcard",
+      "role": "web",
+      "passed": true
+    },
+    {
+      "case": "wildcard",
+      "role": "worker",
+      "passed": true
+    },
+    {
+      "case": "malformed",
+      "role": "web",
+      "passed": true
+    },
+    {
+      "case": "malformed",
+      "role": "worker",
+      "passed": true
+    },
+    {
+      "case": "nil",
+      "role": "web",
+      "passed": true
+    },
+    {
+      "case": "nil",
+      "role": "worker",
+      "passed": true
+    },
+    {
+      "case": "noncanonical",
+      "role": "web",
+      "passed": true
+    },
+    {
+      "case": "noncanonical",
+      "role": "worker",
+      "passed": true
+    },
+    {
+      "case": "mixed",
+      "role": "web",
+      "passed": true
+    },
+    {
+      "case": "mixed",
+      "role": "worker",
+      "passed": true
+    },
+    {
+      "case": "runtime_policy_drift_before_network",
+      "passed": true
+    }
+  ],
+  "qualification_sha256": "75dc2add8ab065a4edab7c3103c53f9d49c6d7479cdc940f250eed81fe36eabf",
+  "run_id": 40852506614,
+  "run_url": "https://github.com/thevikaschauhan/wakaru-rollback-validation/actions/runs/40852506614",
+  "workflow_commit": "14de3d2e01810c7401395031c77994826450680d",
+  "configuration_checks_passed": 17,
+  "qualification_phases_passed": 20,
+  "cleanup": {
+    "containers": [],
+    "networks": [],
+    "volumes": []
+  },
+  "budget_restored": true,
+  "full_engine_process_integration": "pending",
+  "full_integration_stack": "pending"
+}

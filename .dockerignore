@@ -16,3 +16,6 @@ __pycache__
 .ruff_cache
 
 backend/uploads
+.env.*
+.gitnexus
+.codebase-memory

@@ -20,7 +20,7 @@ from rq import get_current_job
 
 from cart_recovery.shopify_formatter import ShopifyCartData
 
-from .cart_recovery_workflow import run_cart_recovery
+from .cart_recovery_workflow import LegacySimulationRetired, run_cart_recovery
 from ..utils.paths import SENTINEL_MERCHANT_ID
 
 logger = logging.getLogger("mirofish.cart_recovery")
@@ -52,9 +52,6 @@ def run_analysis_job(cart_dict: dict) -> dict:
     # the run's Zep graph is attributed in the lifecycle ledger (#72).
     merchant_id = (job.meta or {}).get("merchant_id", SENTINEL_MERCHANT_ID) if job is not None else SENTINEL_MERCHANT_ID
 
-    # Jobs created before the mode was persisted keep their old implementation.
-    cart = ShopifyCartData(**{ "analysis_mode": "legacy_simulation", **cart_dict })
-
     def on_progress(stage: str, state: object) -> None:
         # state dicts are PII-free by design (cart_recovery_workflow keeps
         # customer data out of every on_progress emission).
@@ -65,6 +62,19 @@ def run_analysis_job(cart_dict: dict) -> dict:
         job.save_meta()
 
     try:
+        # Missing-mode historical payloads are legacy, never an implicit direct
+        # rollout. Refuse unknown modes as well, before constructing the cart.
+        if not isinstance(cart_dict, dict) or cart_dict.get("analysis_mode") != "direct_v1":
+            if job is not None:
+                # Historical retry/zero-failure-TTL settings must not repeatedly
+                # execute or discard a blocked job. Retain it for reconciliation.
+                job.retries_left = 0
+                job.failure_ttl = -1
+                job.connection.hset(job.key, mapping={"retries_left": 0, "failure_ttl": -1})
+                job.meta["stage"] = "analysis_blocked"
+                job.meta["state"] = {"reason": "legacy_simulation_retired"}
+            raise LegacySimulationRetired("legacy_simulation_retired")
+        cart = ShopifyCartData(**cart_dict)
         insight = run_cart_recovery(cart, on_progress=on_progress, merchant_id=merchant_id)
     except Exception as e:
         # Mirror the /analyze handler: a sanitized Sentry message (no exception

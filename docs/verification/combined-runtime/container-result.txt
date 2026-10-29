@@ -1,0 +1,4 @@
+Could not connect to Redis at 127.0.0.1:6379: Connection refused
+{"adaptive_default_off": true, "release_binding": true, "integration_authenticated_sqlite_erasure": true}
+{"signed_http": true, "real_redis_worker": true, "lean_dependencies": true, "result": "passed"}
+{"image": "wakaru-combined-runtime:audit-20261028", "image_bytes": 328723373}

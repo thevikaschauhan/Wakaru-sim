@@ -1,0 +1,14 @@
+# Direct analysis, bounded intelligence, HTTP and worker runtime.
+flask>=3.0.0
+flask-cors>=6.0.0
+sentry-sdk[flask]>=2.0.0
+httpx>=0.27,<1
+python-dotenv>=1.0.0
+gunicorn>=22.0,<23
+redis==6.4.0
+rq>=1.16,<2
+flask-limiter>=3.5,<4
+# Integration contracts and the adaptive semantic journal.
+jsonschema[format-nongpl]==4.26.0
+psycopg[binary]>=3.2,<4
+rfc8785==0.1.4

@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "recovery_journey_v2"
+    },
+    "merchant_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+      "not": {
+        "const": "00000000-0000-0000-0000-000000000000"
+      }
+    },
+    "store_id": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "journey_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+      "not": {
+        "const": "00000000-0000-0000-0000-000000000000"
+      }
+    },
+    "origin_episode_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "recipient_key": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "owner": {
+      "const": "engine"
+    },
+    "contract": {
+      "const": "adaptive_followup_v2"
+    },
+    "state": {
+      "type": "string",
+      "enum": [
+        "active",
+        "waiting",
+        "drafting",
+        "awaiting_review",
+        "ready",
+        "held",
+        "paused",
+        "converted",
+        "suppressed",
+        "expired",
+        "exhausted",
+        "superseded",
+        "stopped"
+      ]
+    },
+    "identity_revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "evidence_revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "conversation_revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "control_revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "abandoned_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    }
+  },
+  "required": [
+    "schema_version",
+    "merchant_id",
+    "store_id",
+    "journey_id",
+    "origin_episode_id",
+    "recipient_key",
+    "owner",
+    "contract",
+    "state",
+    "identity_revision",
+    "evidence_revision",
+    "conversation_revision",
+    "control_revision",
+    "abandoned_at",
+    "expires_at"
+  ],
+  "additionalProperties": false
+}

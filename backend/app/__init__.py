@@ -16,9 +16,7 @@ warnings.filterwarnings("ignore", message=".*resource_tracker.*")
 
 from flask import Flask, g, jsonify, request
 from flask_cors import CORS
-from openai import OpenAI
 from werkzeug.exceptions import HTTPException
-from zep_cloud.client import Zep
 
 from .config import Config
 from .extensions import limiter
@@ -270,12 +268,6 @@ def create_app(config_class=Config):
     app.config["RATELIMIT_HEADERS_ENABLED"] = True
     limiter.init_app(app)
 
-    # 注册模拟进程清理函数（确保服务器关闭时终止所有模拟进程）
-    from .services.simulation_runner import SimulationRunner
-    SimulationRunner.register_cleanup()
-    if should_log_startup:
-        logger.info("已注册模拟进程清理函数")
-    
     # 请求日志中间件
     @app.before_request
     def log_request():
@@ -359,54 +351,24 @@ def create_app(config_class=Config):
     # uses the underlying services directly.
     from .api.cart_recovery import cart_recovery_bp
     app.register_blueprint(cart_recovery_bp, url_prefix='/api/cart-recovery')
+    from cart_recovery.adaptive.http import bp as adaptive_followup_bp
+    app.register_blueprint(adaptive_followup_bp)
+    from cart_recovery.adaptive.draft_http import bp as adaptive_draft_bp
+    app.register_blueprint(adaptive_draft_bp)
 
     # 健康检查
     @app.route('/health')
     def health():
         return {'status': 'ok', 'service': 'MiroFish Backend'}
 
-    # Issue #26: readiness — live, cheap, side-effect-free checks against Zep
-    # and the LLM provider, each bounded to a short per-call timeout
-    # independent of the clients' normal (much longer) construction-time
-    # timeouts. Same no-auth placement as /health (outside /api/*, so
-    # require_api_key doesn't gate it — Railway's prober can't supply an API
-    # key). Deliberately NOT wired into railway.toml's healthcheckPath: a
-    # transient Zep/LLM blip here would otherwise restart-loop the whole web
-    # service instead of just failing individual /analyze requests. Exception
-    # details are never returned in the body (matches handle_unexpected_error's
-    # opaque-error convention above) — only logged server-side.
-    #
-    # Rate-limited (unlike /health): this route makes two live, blocking
-    # upstream calls with real credentials, and this service runs on a small,
-    # fixed gunicorn worker pool (Dockerfile). Unauthenticated + unbounded, a
-    # handful of concurrent hits could saturate every worker and take down the
-    # paid cart-recovery traffic — a materially different risk than /health's
-    # in-process, instant response.
+    # Probe only dependencies required for analysis selected by this process.
+    # Liveness remains /health; semantic availability is enforced per request.
     @app.route('/readiness')
     @limiter.limit("10 per minute")
     def readiness():
-        checks = {}
-        try:
-            Zep(api_key=Config.ZEP_API_KEY).project.get(
-                request_options={"timeout_in_seconds": 2}
-            )
-            checks['zep'] = 'ok'
-        except Exception as exc:
-            logger.error(f"Readiness check failed for zep: {type(exc).__name__}")
-            checks['zep'] = 'unreachable'
-        try:
-            with OpenAI(
-                api_key=Config.LLM_API_KEY,
-                base_url=Config.LLM_BASE_URL,
-                max_retries=0,
-            ) as llm_client:
-                llm_client.models.list(timeout=2)
-            checks['llm'] = 'ok'
-        except Exception as exc:
-            logger.error(f"Readiness check failed for llm: {type(exc).__name__}")
-            checks['llm'] = 'unreachable'
-        ok = all(v == 'ok' for v in checks.values())
-        return jsonify(checks), 200 if ok else 503
+        from .services.readiness import analysis_readiness
+        checks = analysis_readiness(config_class)
+        return jsonify(checks), 200 if all(v == "ok" for v in checks.values()) else 503
 
     if should_log_startup:
         logger.info("MiroFish Backend 启动完成")

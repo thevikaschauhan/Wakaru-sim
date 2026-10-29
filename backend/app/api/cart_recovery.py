@@ -159,12 +159,16 @@ def _build_cart_from_body(request_id, merchant_id):
     # Build ShopifyCartData from request body
     try:
         from cart_recovery.buyer_state import validate_evidence
-        analysis_mode = os.getenv("RECOVERY_ANALYSIS_MODE", "legacy_simulation")
-        if analysis_mode not in {"direct_v1", "legacy_simulation"}:
+        from app.services.recovery_admission import AdmissionConfigurationError, approved_direct_merchants
+        try:
+            pilot_merchants = approved_direct_merchants()
+        except AdmissionConfigurationError:
             return None, (jsonify({"success": False, "error": "Analysis mode unavailable"}), 503)
-        pilot_merchants = {value.strip() for value in os.getenv("RECOVERY_DIRECT_MERCHANT_IDS", "").split(",") if value.strip()}
-        if merchant_id in pilot_merchants:
-            analysis_mode = "direct_v1"
+        # Retirement fence precedes idempotency claims, enqueue and inference.
+        # Do not silently promote non-pilot merchants to a new analysis mode.
+        if merchant_id not in pilot_merchants:
+            return None, (jsonify({"success": False, "error": "legacy_simulation_retired"}), 410)
+        analysis_mode = "direct_v1"
         episode_id = body.get("event_id", "")
         if not isinstance(episode_id, str) or len(episode_id) > 128:
             raise ValueError("invalid event_id")

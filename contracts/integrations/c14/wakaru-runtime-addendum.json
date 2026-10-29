@@ -1,0 +1,131 @@
+{
+  "version": "wakaru_runtime_privacy_addendum_v1",
+  "scope": "wakaru_combined_source_only",
+  "base_sha256": "9e03707cc7038eef2951b593ab587e8e371de5f74848e2254a0f5ff30434ecfb",
+  "whole_application_erasure_complete": false,
+  "retained_base_blockers": [
+    "engine.behavior_legacy",
+    "engine.identity_legacy",
+    "engine.merchant_records",
+    "engine.message_legacy",
+    "engine.orders_legacy",
+    "engine.recovery_legacy",
+    "engine.typesafe_legacy",
+    "external.downloads_blobs",
+    "inkwell.documents_legacy",
+    "inkwell.merchant_records",
+    "inkwell.typesafe_legacy",
+    "wakaru.adaptive_semantic",
+    "wakaru.learning_registry",
+    "wakaru.plan_journal",
+    "wakaru.redis_queue",
+    "wakaru.typesafe_sqlite",
+    "wakaru.workflow_files",
+    "wakaru.zep"
+  ],
+  "additional_families": [],
+  "writers": {
+    "backend/app/api/cart_recovery.py": {
+      "sha256": "43de66858dada1ee2871d6430cfbcac9e6905a89ece650f7997cd526b6f7ace6",
+      "family": "wakaru.workflow_files"
+    },
+    "backend/app/models/project.py": {
+      "sha256": "49b9e4660e704bf29ef21d1aa14440c34484d54cd72e983e0739923e565d5846",
+      "family": "wakaru.workflow_files"
+    },
+    "backend/app/services/cart_recovery_jobs.py": {
+      "sha256": "e0f2d53ba1989480d6334b212a24d4730e706e90f36979e469fc7dcffa27e26c",
+      "family": "wakaru.redis_queue"
+    },
+    "backend/app/services/graph_lifecycle.py": {
+      "sha256": "1ed53bcc3dc46322b4f6b833f011b59fa50b1f543596f9a5ca31c914f7f9b20a",
+      "family": "wakaru.redis_queue"
+    },
+    "backend/app/services/oasis_profile_generator.py": {
+      "sha256": "c71e7d68708ec5be5eb9ee9820b09146070a0c4b07cf8bfdca852cf169472b83",
+      "family": "wakaru.workflow_files"
+    },
+    "backend/app/services/report_agent.py": {
+      "sha256": "ce05ea8295b750a9e321397127d605001860cc6eb8d39497577c4811564b08a0",
+      "family": "wakaru.workflow_files"
+    },
+    "backend/app/services/simulation_ipc.py": {
+      "sha256": "2cd596faed552c29f8e486b6641677787c2c38eeab822a82512be07e9b4088d9",
+      "family": "wakaru.workflow_files"
+    },
+    "backend/app/services/simulation_manager.py": {
+      "sha256": "1af7f1f1c9ce88ca1de918c6152a7be6be7dc82d45d34c989810d5b4fd2d94e8",
+      "family": "wakaru.workflow_files"
+    },
+    "backend/app/services/simulation_runner.py": {
+      "sha256": "41cc858647e9a6528f3ad84acab7e973a0fb1f7e2cc1069f00c2dea0bd5e3a67",
+      "family": "wakaru.workflow_files"
+    },
+    "backend/worker.py": {
+      "sha256": "fe51282b268531eefe0fae7712576ed8ba7f8760985e0cbb1634eff8e11a57cf",
+      "family": "wakaru.redis_queue"
+    },
+    "cart_recovery/adaptive/erasure.py": {
+      "sha256": "9015999018223c70658a16bb3374c26cb66140a23fbd53862cde5102b49817fa",
+      "family": "wakaru.adaptive_semantic"
+    },
+    "cart_recovery/adaptive/journal.py": {
+      "sha256": "9ae3e283c28df7aaf8b364d6310b79e3f31e10381326ce2755ee3b89ab7d2f85",
+      "family": "wakaru.adaptive_semantic"
+    },
+    "cart_recovery/bounded_context_api.py": {
+      "sha256": "cf4501cc029e0895686a019a86aedc37b94dd887efb4055fb1af070b9d80f6dd",
+      "family": "wakaru.integration_sqlite"
+    },
+    "cart_recovery/integration_acceptance_fixture.py": {
+      "sha256": "4f797229097e3f46aafba2fc7a83fbdc2d6e592c2b1a0e4fc1c1b5bf2b4560d3",
+      "family": "wakaru.integration_sqlite"
+    },
+    "cart_recovery/integration_invalidation_fixture.py": {
+      "sha256": "7aba2847e4bf9c9317d99898de82502f1ed2030fe7d645745940f0ed8087fdc2",
+      "family": "wakaru.integration_sqlite"
+    },
+    "cart_recovery/integration_privacy.py": {
+      "sha256": "d4ece9b216acb2a684ae6f17ac7df5e6725f994ae9395adb17f272a8b4492344",
+      "family": "wakaru.integration_sqlite"
+    },
+    "cart_recovery/integration_service_fixture.py": {
+      "sha256": "c8e821bf34b7387a2b2bc115f0b3e8f58c43e1cc9a1259d2520f0d507365e4c0",
+      "family": "wakaru.integration_sqlite"
+    },
+    "cart_recovery/integration_worker_fixture.py": {
+      "sha256": "4ba1816f984082bdf11e9b8c70954588564e6b1d1596d8893c40a87b4fd87401",
+      "family": "wakaru.integration_sqlite"
+    },
+    "cart_recovery/intelligence/maintenance.py": {
+      "sha256": "cfa94769cbc2cce058fa2b58386ca5cb3c5e98cce547705a352c9c1aac653b1f",
+      "family": "wakaru.typesafe_sqlite"
+    },
+    "cart_recovery/intelligence/recovery.py": {
+      "sha256": "db650457ea5f96cddecce20aea78be472c4efe900d41e93ff96097f4388235cc",
+      "family": "wakaru.plan_journal"
+    },
+    "cart_recovery/intelligence/synthetic_recovery.py": {
+      "sha256": "c9aa76c146c6a96fc67c5c7f03e232e8aa83b2e7a57ab6baeb93cc8602d1dbaf",
+      "family": "wakaru.plan_journal"
+    },
+    "cart_recovery/intelligence/typesafe.py": {
+      "sha256": "6dad8d8083d8653eba63544191e79f84b1c088890c36ae7dca336fc44688dc20",
+      "family": "wakaru.typesafe_sqlite"
+    },
+    "cart_recovery/learning/registry.py": {
+      "sha256": "84e046fbd27a0c0332f3785203f121db90e85ed171ae4e28d1728c2738c039d0",
+      "family": "wakaru.learning_registry"
+    }
+  },
+  "lineage_controls": {
+    "backend/app/services/cart_recovery_workflow.py": "53dc7fa6811a0bc9151b5270171387df35790e567aa1da1b0b2589e61576a427",
+    "backend/app/services/legacy_cart_recovery.py": "a2eb4adc09614af19a4dc98e8398bec20c32acffd0d9bff006e1b39de31d5716",
+    "cart_recovery/adaptive/promotion.py": "0603894f534d9cf859097b7c78e794e6b480c3082968e17242c6bb8ddc832287",
+    "cart_recovery/integration_privacy.py": "d4ece9b216acb2a684ae6f17ac7df5e6725f994ae9395adb17f272a8b4492344"
+  },
+  "adaptive_migrations": {
+    "cart_recovery/adaptive/migrations/001_journal.sql": "0d07f5482d419619e0dd65bf6eabfff78b643ff66cdc5dd3179915ea1c2e11e6",
+    "cart_recovery/adaptive/migrations/002_erasure.sql": "68554ba26825337667a686fd2636c1d79f203b861f869a8f0184e0bd22c7e76a"
+  }
+}
