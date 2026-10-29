@@ -1,0 +1,15 @@
+{
+  "version": "knowledge_batch_v1",
+  "canonical_owner": "wakaru",
+  "activation": "local_contract_only",
+  "sha256": {
+    "contracts/knowledge/v1/schema.json": "6bce5fc87f5f3956cd29c27bffcd30e997f452d4b37c12c84a2ba3d480c5ad35",
+    "contracts/knowledge/v1/fixtures.json": "b74431fbc01456bafd3d09e95ffd537122d3976550cc3a23389eb1fdbd0cdd94",
+    "contracts/knowledge/v1/README.md": "cf2c71ebfdb147e2e9a2739a0f2a046d2960d20bcc098dc4a7bc35e83b7f7e4a",
+    "contracts/knowledge/v1/verify.py": "577055e056b3c209285e0a8f4d0a0fbe233699f79294c511c6619f5929d6d683",
+    "cart_recovery/domain/__init__.py": "5b54680bfad2f25298e5f5626c0b4571c5f108b97a26c0f953287b04e5c78bef",
+    "cart_recovery/domain/knowledge.py": "0efe5631197f5cccb1153e08ed92e6a1edf1626bc8c809ec12dffdd98c07ba20",
+    "docs/knowledge-ownership.md": "845f715036ff1a0e4db8587d29d23d7764306f1c29dca8a2be674ce9843571ff",
+    "tests/test_knowledge_contract.py": "f49623d169bde15161b1db977c789426f7c10234ae5cb2ecccfa1087c4a1cbcf"
+  }
+}

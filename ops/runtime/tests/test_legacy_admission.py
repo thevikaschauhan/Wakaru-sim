@@ -25,7 +25,7 @@ def client(database, monkeypatch):
     _, url = database
     for key, value in {'SECRET_KEY':'fixture-secret', 'WAKARU_API_KEY':'fixture-key',
         'WAKARU_INTERNAL_SECRET':'fixture-hmac', 'REDIS_URL':url, 'SENTRY_DSN':'',
-        'RECOVERY_ANALYSIS_MODE':'direct_v1', 'RECOVERY_DIRECT_MERCHANT_IDS':'',
+        'RECOVERY_ANALYSIS_MODE':'legacy_simulation', 'RECOVERY_DIRECT_MERCHANT_IDS':'',
         'TYPESAFE_RECOVERY_MODE':'off', 'TYPESAFE_RECOVERY_MERCHANTS':''}.items():
         monkeypatch.setenv(key, value)
     from app import create_app
@@ -76,7 +76,8 @@ Worker(['analyze'],connection=Redis.from_url(sys.argv[1]),log_job_description=Fa
         capture_output=True,text=True,timeout=30)
 
 
-def test_supported_sync_analysis_remains_direct(client,database):
+def test_supported_sync_analysis_remains_direct(client,database,monkeypatch):
+    monkeypatch.setenv('RECOVERY_DIRECT_MERCHANT_IDS',MERCHANT)
     response=post(client,'analyze')
     assert response.status_code==200,response.json
     assert response.json['data']['buyer_state']['version']=='buyer_state_v1'

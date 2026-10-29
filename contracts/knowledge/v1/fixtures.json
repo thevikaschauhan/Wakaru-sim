@@ -1,0 +1,1639 @@
+[
+  {
+    "name": "explicit_preference",
+    "bindings": {
+      "scope": {
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_kind": "shopper",
+        "subject_id": "shopper-a",
+        "identity_revision": 1,
+        "privacy_generation": 1
+      },
+      "sources": [
+        {
+          "source_id": "source-pref-a",
+          "revision": 1,
+          "scope": {
+            "merchant_id": "merchant-a",
+            "store_id": "store-a",
+            "subject_kind": "shopper",
+            "subject_id": "shopper-a",
+            "identity_revision": 1,
+            "privacy_generation": 1
+          },
+          "authority": "shopper_statement",
+          "observed_at": "2026-10-29T10:00:00Z",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "claims": [
+            {
+              "kind": "explicit_preference",
+              "value": {
+                "dimension": "size",
+                "value": "M",
+                "applies_to": {
+                  "kind": "brand",
+                  "id": "brand-a"
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "entities": [
+        {
+          "merchant_id": "merchant-a",
+          "store_id": "store-a",
+          "entity": {
+            "kind": "brand",
+            "id": "brand-a"
+          }
+        },
+        {
+          "merchant_id": "merchant-a",
+          "store_id": "store-a",
+          "entity": {
+            "kind": "product",
+            "id": "product-a"
+          }
+        },
+        {
+          "merchant_id": "merchant-a",
+          "store_id": "store-a",
+          "entity": {
+            "kind": "category",
+            "id": "category-a"
+          }
+        },
+        {
+          "merchant_id": "merchant-a",
+          "store_id": "store-a",
+          "entity": {
+            "kind": "policy",
+            "id": "policy-a"
+          }
+        }
+      ],
+      "at": "2026-10-29T12:00:00Z"
+    },
+    "payload": {
+      "version": "knowledge_batch_v1",
+      "scope": {
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_kind": "shopper",
+        "subject_id": "shopper-a",
+        "identity_revision": 1,
+        "privacy_generation": 1
+      },
+      "objects": [
+        {
+          "object_id": "pref-a",
+          "assertion_id": "pref-a",
+          "revision": 1,
+          "kind": "explicit_preference",
+          "value": {
+            "dimension": "size",
+            "value": "M",
+            "applies_to": {
+              "kind": "brand",
+              "id": "brand-a"
+            }
+          },
+          "status": "current",
+          "observed_at": "2026-10-29T10:00:00Z",
+          "recorded_at": "2026-10-29T10:00:00Z",
+          "valid_from": "2026-10-29T10:00:00Z",
+          "valid_to": null,
+          "expires_at": null,
+          "sources": [
+            {
+              "source_id": "source-pref-a",
+              "revision": 1
+            }
+          ],
+          "derivation": null
+        }
+      ],
+      "links": []
+    }
+  },
+  {
+    "name": "inferred_preference",
+    "bindings": {
+      "scope": {
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_kind": "shopper",
+        "subject_id": "shopper-a",
+        "identity_revision": 1,
+        "privacy_generation": 1
+      },
+      "sources": [
+        {
+          "source_id": "source-obs-a",
+          "revision": 1,
+          "scope": {
+            "merchant_id": "merchant-a",
+            "store_id": "store-a",
+            "subject_kind": "shopper",
+            "subject_id": "shopper-a",
+            "identity_revision": 1,
+            "privacy_generation": 1
+          },
+          "authority": "engine_observation",
+          "observed_at": "2026-10-29T10:00:00Z",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "claims": [
+            {
+              "kind": "observation",
+              "value": {
+                "event_type": "product_viewed",
+                "event_id": "event-a",
+                "episode_id": "episode-a"
+              }
+            }
+          ]
+        }
+      ],
+      "entities": [
+        {
+          "merchant_id": "merchant-a",
+          "store_id": "store-a",
+          "entity": {
+            "kind": "brand",
+            "id": "brand-a"
+          }
+        },
+        {
+          "merchant_id": "merchant-a",
+          "store_id": "store-a",
+          "entity": {
+            "kind": "product",
+            "id": "product-a"
+          }
+        },
+        {
+          "merchant_id": "merchant-a",
+          "store_id": "store-a",
+          "entity": {
+            "kind": "category",
+            "id": "category-a"
+          }
+        },
+        {
+          "merchant_id": "merchant-a",
+          "store_id": "store-a",
+          "entity": {
+            "kind": "policy",
+            "id": "policy-a"
+          }
+        }
+      ],
+      "at": "2026-10-29T12:00:00Z"
+    },
+    "payload": {
+      "version": "knowledge_batch_v1",
+      "scope": {
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_kind": "shopper",
+        "subject_id": "shopper-a",
+        "identity_revision": 1,
+        "privacy_generation": 1
+      },
+      "objects": [
+        {
+          "object_id": "obs-a",
+          "assertion_id": "obs-a",
+          "revision": 1,
+          "kind": "observation",
+          "value": {
+            "event_type": "product_viewed",
+            "event_id": "event-a",
+            "episode_id": "episode-a"
+          },
+          "status": "current",
+          "observed_at": "2026-10-29T10:00:00Z",
+          "recorded_at": "2026-10-29T10:00:00Z",
+          "valid_from": "2026-10-29T10:00:00Z",
+          "valid_to": null,
+          "expires_at": null,
+          "sources": [
+            {
+              "source_id": "source-obs-a",
+              "revision": 1
+            }
+          ],
+          "derivation": null
+        },
+        {
+          "object_id": "infer-a",
+          "assertion_id": "infer-a",
+          "revision": 1,
+          "kind": "inferred_preference",
+          "value": {
+            "dimension": "category_interest",
+            "value": "outdoor",
+            "applies_to": {
+              "kind": "category",
+              "id": "category-a"
+            }
+          },
+          "status": "current",
+          "observed_at": "2026-10-29T10:00:00Z",
+          "recorded_at": "2026-10-29T10:00:00Z",
+          "valid_from": "2026-10-29T10:00:00Z",
+          "valid_to": null,
+          "expires_at": "2026-11-01T10:00:00Z",
+          "sources": [
+            {
+              "source_id": "source-obs-a",
+              "revision": 1
+            }
+          ],
+          "derivation": {
+            "method": "rule",
+            "version": "interest-v1",
+            "model_version": null,
+            "input_ids": [
+              "obs-a"
+            ]
+          }
+        }
+      ],
+      "links": [
+        {
+          "relation": "supports",
+          "from": "obs-a",
+          "to": "infer-a"
+        }
+      ]
+    }
+  },
+  {
+    "name": "conflicting_preferences",
+    "bindings": {
+      "scope": {
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_kind": "shopper",
+        "subject_id": "shopper-a",
+        "identity_revision": 1,
+        "privacy_generation": 1
+      },
+      "sources": [
+        {
+          "source_id": "source-pref-a",
+          "revision": 1,
+          "scope": {
+            "merchant_id": "merchant-a",
+            "store_id": "store-a",
+            "subject_kind": "shopper",
+            "subject_id": "shopper-a",
+            "identity_revision": 1,
+            "privacy_generation": 1
+          },
+          "authority": "shopper_statement",
+          "observed_at": "2026-10-29T10:00:00Z",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "claims": [
+            {
+              "kind": "explicit_preference",
+              "value": {
+                "dimension": "size",
+                "value": "M",
+                "applies_to": {
+                  "kind": "brand",
+                  "id": "brand-a"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "source_id": "source-pref-b",
+          "revision": 1,
+          "scope": {
+            "merchant_id": "merchant-a",
+            "store_id": "store-a",
+            "subject_kind": "shopper",
+            "subject_id": "shopper-a",
+            "identity_revision": 1,
+            "privacy_generation": 1
+          },
+          "authority": "shopper_statement",
+          "observed_at": "2026-10-29T10:00:00Z",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "claims": [
+            {
+              "kind": "explicit_preference",
+              "value": {
+                "dimension": "size",
+                "value": "L",
+                "applies_to": {
+                  "kind": "brand",
+                  "id": "brand-a"
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "entities": [
+        {
+          "merchant_id": "merchant-a",
+          "store_id": "store-a",
+          "entity": {
+            "kind": "brand",
+            "id": "brand-a"
+          }
+        },
+        {
+          "merchant_id": "merchant-a",
+          "store_id": "store-a",
+          "entity": {
+            "kind": "product",
+            "id": "product-a"
+          }
+        },
+        {
+          "merchant_id": "merchant-a",
+          "store_id": "store-a",
+          "entity": {
+            "kind": "category",
+            "id": "category-a"
+          }
+        },
+        {
+          "merchant_id": "merchant-a",
+          "store_id": "store-a",
+          "entity": {
+            "kind": "policy",
+            "id": "policy-a"
+          }
+        }
+      ],
+      "at": "2026-10-29T12:00:00Z"
+    },
+    "payload": {
+      "version": "knowledge_batch_v1",
+      "scope": {
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_kind": "shopper",
+        "subject_id": "shopper-a",
+        "identity_revision": 1,
+        "privacy_generation": 1
+      },
+      "objects": [
+        {
+          "object_id": "pref-a",
+          "assertion_id": "pref-a",
+          "revision": 1,
+          "kind": "explicit_preference",
+          "value": {
+            "dimension": "size",
+            "value": "M",
+            "applies_to": {
+              "kind": "brand",
+              "id": "brand-a"
+            }
+          },
+          "status": "current",
+          "observed_at": "2026-10-29T10:00:00Z",
+          "recorded_at": "2026-10-29T10:00:00Z",
+          "valid_from": "2026-10-29T10:00:00Z",
+          "valid_to": null,
+          "expires_at": null,
+          "sources": [
+            {
+              "source_id": "source-pref-a",
+              "revision": 1
+            }
+          ],
+          "derivation": null
+        },
+        {
+          "object_id": "pref-b",
+          "assertion_id": "pref-b",
+          "revision": 1,
+          "kind": "explicit_preference",
+          "value": {
+            "dimension": "size",
+            "value": "L",
+            "applies_to": {
+              "kind": "brand",
+              "id": "brand-a"
+            }
+          },
+          "status": "current",
+          "observed_at": "2026-10-29T10:00:00Z",
+          "recorded_at": "2026-10-29T10:00:00Z",
+          "valid_from": "2026-10-29T10:00:00Z",
+          "valid_to": null,
+          "expires_at": null,
+          "sources": [
+            {
+              "source_id": "source-pref-b",
+              "revision": 1
+            }
+          ],
+          "derivation": null
+        }
+      ],
+      "links": [
+        {
+          "relation": "contradicts",
+          "from": "pref-a",
+          "to": "pref-b"
+        }
+      ]
+    }
+  },
+  {
+    "name": "corrected_preference",
+    "bindings": {
+      "scope": {
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_kind": "shopper",
+        "subject_id": "shopper-a",
+        "identity_revision": 1,
+        "privacy_generation": 1
+      },
+      "sources": [
+        {
+          "source_id": "source-pref-a",
+          "revision": 1,
+          "scope": {
+            "merchant_id": "merchant-a",
+            "store_id": "store-a",
+            "subject_kind": "shopper",
+            "subject_id": "shopper-a",
+            "identity_revision": 1,
+            "privacy_generation": 1
+          },
+          "authority": "shopper_statement",
+          "observed_at": "2026-10-29T10:00:00Z",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "claims": [
+            {
+              "kind": "explicit_preference",
+              "value": {
+                "dimension": "size",
+                "value": "M",
+                "applies_to": {
+                  "kind": "brand",
+                  "id": "brand-a"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "source_id": "source-pref-b",
+          "revision": 1,
+          "scope": {
+            "merchant_id": "merchant-a",
+            "store_id": "store-a",
+            "subject_kind": "shopper",
+            "subject_id": "shopper-a",
+            "identity_revision": 1,
+            "privacy_generation": 1
+          },
+          "authority": "shopper_statement",
+          "observed_at": "2026-10-29T10:00:00Z",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "claims": [
+            {
+              "kind": "explicit_preference",
+              "value": {
+                "dimension": "size",
+                "value": "L",
+                "applies_to": {
+                  "kind": "brand",
+                  "id": "brand-a"
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "entities": [
+        {
+          "merchant_id": "merchant-a",
+          "store_id": "store-a",
+          "entity": {
+            "kind": "brand",
+            "id": "brand-a"
+          }
+        },
+        {
+          "merchant_id": "merchant-a",
+          "store_id": "store-a",
+          "entity": {
+            "kind": "product",
+            "id": "product-a"
+          }
+        },
+        {
+          "merchant_id": "merchant-a",
+          "store_id": "store-a",
+          "entity": {
+            "kind": "category",
+            "id": "category-a"
+          }
+        },
+        {
+          "merchant_id": "merchant-a",
+          "store_id": "store-a",
+          "entity": {
+            "kind": "policy",
+            "id": "policy-a"
+          }
+        }
+      ],
+      "at": "2026-10-29T12:00:00Z"
+    },
+    "payload": {
+      "version": "knowledge_batch_v1",
+      "scope": {
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_kind": "shopper",
+        "subject_id": "shopper-a",
+        "identity_revision": 1,
+        "privacy_generation": 1
+      },
+      "objects": [
+        {
+          "object_id": "pref-a",
+          "assertion_id": "pref-a",
+          "revision": 1,
+          "kind": "explicit_preference",
+          "value": {
+            "dimension": "size",
+            "value": "M",
+            "applies_to": {
+              "kind": "brand",
+              "id": "brand-a"
+            }
+          },
+          "status": "superseded",
+          "observed_at": "2026-10-29T10:00:00Z",
+          "recorded_at": "2026-10-29T10:00:00Z",
+          "valid_from": "2026-10-29T10:00:00Z",
+          "valid_to": null,
+          "expires_at": null,
+          "sources": [
+            {
+              "source_id": "source-pref-a",
+              "revision": 1
+            }
+          ],
+          "derivation": null
+        },
+        {
+          "object_id": "pref-b",
+          "assertion_id": "pref-a",
+          "revision": 2,
+          "kind": "explicit_preference",
+          "value": {
+            "dimension": "size",
+            "value": "L",
+            "applies_to": {
+              "kind": "brand",
+              "id": "brand-a"
+            }
+          },
+          "status": "current",
+          "observed_at": "2026-10-29T10:00:00Z",
+          "recorded_at": "2026-10-29T10:00:00Z",
+          "valid_from": "2026-10-29T10:00:00Z",
+          "valid_to": null,
+          "expires_at": null,
+          "sources": [
+            {
+              "source_id": "source-pref-b",
+              "revision": 1
+            }
+          ],
+          "derivation": null
+        }
+      ],
+      "links": [
+        {
+          "relation": "supersedes",
+          "from": "pref-b",
+          "to": "pref-a"
+        }
+      ]
+    }
+  },
+  {
+    "name": "revoked_preference_record",
+    "bindings": {
+      "scope": {
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_kind": "shopper",
+        "subject_id": "shopper-a",
+        "identity_revision": 1,
+        "privacy_generation": 1
+      },
+      "sources": [
+        {
+          "source_id": "source-pref-a",
+          "revision": 1,
+          "scope": {
+            "merchant_id": "merchant-a",
+            "store_id": "store-a",
+            "subject_kind": "shopper",
+            "subject_id": "shopper-a",
+            "identity_revision": 1,
+            "privacy_generation": 1
+          },
+          "authority": "shopper_statement",
+          "observed_at": "2026-10-29T10:00:00Z",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "claims": [
+            {
+              "kind": "explicit_preference",
+              "value": {
+                "dimension": "size",
+                "value": "M",
+                "applies_to": {
+                  "kind": "brand",
+                  "id": "brand-a"
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "entities": [
+        {
+          "merchant_id": "merchant-a",
+          "store_id": "store-a",
+          "entity": {
+            "kind": "brand",
+            "id": "brand-a"
+          }
+        },
+        {
+          "merchant_id": "merchant-a",
+          "store_id": "store-a",
+          "entity": {
+            "kind": "product",
+            "id": "product-a"
+          }
+        },
+        {
+          "merchant_id": "merchant-a",
+          "store_id": "store-a",
+          "entity": {
+            "kind": "category",
+            "id": "category-a"
+          }
+        },
+        {
+          "merchant_id": "merchant-a",
+          "store_id": "store-a",
+          "entity": {
+            "kind": "policy",
+            "id": "policy-a"
+          }
+        }
+      ],
+      "at": "2026-10-29T12:00:00Z"
+    },
+    "payload": {
+      "version": "knowledge_batch_v1",
+      "scope": {
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_kind": "shopper",
+        "subject_id": "shopper-a",
+        "identity_revision": 1,
+        "privacy_generation": 1
+      },
+      "objects": [
+        {
+          "object_id": "pref-a",
+          "assertion_id": "pref-a",
+          "revision": 1,
+          "kind": "explicit_preference",
+          "value": {
+            "dimension": "size",
+            "value": "M",
+            "applies_to": {
+              "kind": "brand",
+              "id": "brand-a"
+            }
+          },
+          "status": "revoked",
+          "observed_at": "2026-10-29T10:00:00Z",
+          "recorded_at": "2026-10-29T10:00:00Z",
+          "valid_from": "2026-10-29T10:00:00Z",
+          "valid_to": null,
+          "expires_at": null,
+          "sources": [
+            {
+              "source_id": "source-pref-a",
+              "revision": 1
+            }
+          ],
+          "derivation": null
+        }
+      ],
+      "links": []
+    }
+  },
+  {
+    "name": "unknown",
+    "bindings": {
+      "scope": {
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_kind": "shopper",
+        "subject_id": "shopper-a",
+        "identity_revision": 1,
+        "privacy_generation": 1
+      },
+      "sources": [],
+      "entities": [
+        {
+          "merchant_id": "merchant-a",
+          "store_id": "store-a",
+          "entity": {
+            "kind": "brand",
+            "id": "brand-a"
+          }
+        },
+        {
+          "merchant_id": "merchant-a",
+          "store_id": "store-a",
+          "entity": {
+            "kind": "product",
+            "id": "product-a"
+          }
+        },
+        {
+          "merchant_id": "merchant-a",
+          "store_id": "store-a",
+          "entity": {
+            "kind": "category",
+            "id": "category-a"
+          }
+        },
+        {
+          "merchant_id": "merchant-a",
+          "store_id": "store-a",
+          "entity": {
+            "kind": "policy",
+            "id": "policy-a"
+          }
+        }
+      ],
+      "at": "2026-10-29T12:00:00Z"
+    },
+    "payload": {
+      "version": "knowledge_batch_v1",
+      "scope": {
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_kind": "shopper",
+        "subject_id": "shopper-a",
+        "identity_revision": 1,
+        "privacy_generation": 1
+      },
+      "objects": [
+        {
+          "object_id": "unknown-a",
+          "assertion_id": "unknown-a",
+          "revision": 1,
+          "kind": "unknown",
+          "value": {
+            "topic": "preference",
+            "reason": "not_observed"
+          },
+          "status": "current",
+          "observed_at": "2026-10-29T10:00:00Z",
+          "recorded_at": "2026-10-29T10:00:00Z",
+          "valid_from": "2026-10-29T10:00:00Z",
+          "valid_to": null,
+          "expires_at": null,
+          "sources": [],
+          "derivation": null
+        }
+      ],
+      "links": []
+    }
+  },
+  {
+    "name": "channel_is_not_consent",
+    "bindings": {
+      "scope": {
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_kind": "shopper",
+        "subject_id": "shopper-a",
+        "identity_revision": 1,
+        "privacy_generation": 1
+      },
+      "sources": [
+        {
+          "source_id": "source-channel-a",
+          "revision": 1,
+          "scope": {
+            "merchant_id": "merchant-a",
+            "store_id": "store-a",
+            "subject_kind": "shopper",
+            "subject_id": "shopper-a",
+            "identity_revision": 1,
+            "privacy_generation": 1
+          },
+          "authority": "shopper_statement",
+          "observed_at": "2026-10-29T10:00:00Z",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "claims": [
+            {
+              "kind": "explicit_preference",
+              "value": {
+                "dimension": "communication_channel",
+                "value": "email",
+                "applies_to": {
+                  "kind": "brand",
+                  "id": "brand-a"
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "entities": [
+        {
+          "merchant_id": "merchant-a",
+          "store_id": "store-a",
+          "entity": {
+            "kind": "brand",
+            "id": "brand-a"
+          }
+        },
+        {
+          "merchant_id": "merchant-a",
+          "store_id": "store-a",
+          "entity": {
+            "kind": "product",
+            "id": "product-a"
+          }
+        },
+        {
+          "merchant_id": "merchant-a",
+          "store_id": "store-a",
+          "entity": {
+            "kind": "category",
+            "id": "category-a"
+          }
+        },
+        {
+          "merchant_id": "merchant-a",
+          "store_id": "store-a",
+          "entity": {
+            "kind": "policy",
+            "id": "policy-a"
+          }
+        }
+      ],
+      "at": "2026-10-29T12:00:00Z"
+    },
+    "payload": {
+      "version": "knowledge_batch_v1",
+      "scope": {
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_kind": "shopper",
+        "subject_id": "shopper-a",
+        "identity_revision": 1,
+        "privacy_generation": 1
+      },
+      "objects": [
+        {
+          "object_id": "channel-a",
+          "assertion_id": "channel-a",
+          "revision": 1,
+          "kind": "explicit_preference",
+          "value": {
+            "dimension": "communication_channel",
+            "value": "email",
+            "applies_to": {
+              "kind": "brand",
+              "id": "brand-a"
+            }
+          },
+          "status": "current",
+          "observed_at": "2026-10-29T10:00:00Z",
+          "recorded_at": "2026-10-29T10:00:00Z",
+          "valid_from": "2026-10-29T10:00:00Z",
+          "valid_to": null,
+          "expires_at": null,
+          "sources": [
+            {
+              "source_id": "source-channel-a",
+              "revision": 1
+            }
+          ],
+          "derivation": null
+        }
+      ],
+      "links": []
+    }
+  },
+  {
+    "name": "shopper_relationship",
+    "bindings": {
+      "scope": {
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_kind": "shopper",
+        "subject_id": "shopper-a",
+        "identity_revision": 1,
+        "privacy_generation": 1
+      },
+      "sources": [
+        {
+          "source_id": "source-rel-a",
+          "revision": 1,
+          "scope": {
+            "merchant_id": "merchant-a",
+            "store_id": "store-a",
+            "subject_kind": "shopper",
+            "subject_id": "shopper-a",
+            "identity_revision": 1,
+            "privacy_generation": 1
+          },
+          "authority": "shopper_statement",
+          "observed_at": "2026-10-29T10:00:00Z",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "claims": [
+            {
+              "kind": "relationship",
+              "value": {
+                "predicate": "interested_in",
+                "from": {
+                  "kind": "subject",
+                  "id": "shopper-a"
+                },
+                "to": {
+                  "kind": "product",
+                  "id": "product-a"
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "entities": [
+        {
+          "merchant_id": "merchant-a",
+          "store_id": "store-a",
+          "entity": {
+            "kind": "brand",
+            "id": "brand-a"
+          }
+        },
+        {
+          "merchant_id": "merchant-a",
+          "store_id": "store-a",
+          "entity": {
+            "kind": "product",
+            "id": "product-a"
+          }
+        },
+        {
+          "merchant_id": "merchant-a",
+          "store_id": "store-a",
+          "entity": {
+            "kind": "category",
+            "id": "category-a"
+          }
+        },
+        {
+          "merchant_id": "merchant-a",
+          "store_id": "store-a",
+          "entity": {
+            "kind": "policy",
+            "id": "policy-a"
+          }
+        }
+      ],
+      "at": "2026-10-29T12:00:00Z"
+    },
+    "payload": {
+      "version": "knowledge_batch_v1",
+      "scope": {
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_kind": "shopper",
+        "subject_id": "shopper-a",
+        "identity_revision": 1,
+        "privacy_generation": 1
+      },
+      "objects": [
+        {
+          "object_id": "rel-a",
+          "assertion_id": "rel-a",
+          "revision": 1,
+          "kind": "relationship",
+          "value": {
+            "predicate": "interested_in",
+            "from": {
+              "kind": "subject",
+              "id": "shopper-a"
+            },
+            "to": {
+              "kind": "product",
+              "id": "product-a"
+            }
+          },
+          "status": "current",
+          "observed_at": "2026-10-29T10:00:00Z",
+          "recorded_at": "2026-10-29T10:00:00Z",
+          "valid_from": "2026-10-29T10:00:00Z",
+          "valid_to": null,
+          "expires_at": null,
+          "sources": [
+            {
+              "source_id": "source-rel-a",
+              "revision": 1
+            }
+          ],
+          "derivation": null
+        }
+      ],
+      "links": []
+    }
+  },
+  {
+    "name": "episode_constraint",
+    "bindings": {
+      "scope": {
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_kind": "shopper",
+        "subject_id": "shopper-a",
+        "identity_revision": 1,
+        "privacy_generation": 1
+      },
+      "sources": [
+        {
+          "source_id": "source-ep-a",
+          "revision": 1,
+          "scope": {
+            "merchant_id": "merchant-a",
+            "store_id": "store-a",
+            "subject_kind": "shopper",
+            "subject_id": "shopper-a",
+            "identity_revision": 1,
+            "privacy_generation": 1
+          },
+          "authority": "shopper_statement",
+          "observed_at": "2026-10-29T10:00:00Z",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "claims": [
+            {
+              "kind": "episode_state",
+              "value": {
+                "episode_id": "episode-a",
+                "constraint": "delivery_deadline",
+                "detail": "Delivery after Friday will not work."
+              }
+            }
+          ]
+        }
+      ],
+      "entities": [
+        {
+          "merchant_id": "merchant-a",
+          "store_id": "store-a",
+          "entity": {
+            "kind": "brand",
+            "id": "brand-a"
+          }
+        },
+        {
+          "merchant_id": "merchant-a",
+          "store_id": "store-a",
+          "entity": {
+            "kind": "product",
+            "id": "product-a"
+          }
+        },
+        {
+          "merchant_id": "merchant-a",
+          "store_id": "store-a",
+          "entity": {
+            "kind": "category",
+            "id": "category-a"
+          }
+        },
+        {
+          "merchant_id": "merchant-a",
+          "store_id": "store-a",
+          "entity": {
+            "kind": "policy",
+            "id": "policy-a"
+          }
+        }
+      ],
+      "at": "2026-10-29T12:00:00Z"
+    },
+    "payload": {
+      "version": "knowledge_batch_v1",
+      "scope": {
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_kind": "shopper",
+        "subject_id": "shopper-a",
+        "identity_revision": 1,
+        "privacy_generation": 1
+      },
+      "objects": [
+        {
+          "object_id": "ep-a",
+          "assertion_id": "ep-a",
+          "revision": 1,
+          "kind": "episode_state",
+          "value": {
+            "episode_id": "episode-a",
+            "constraint": "delivery_deadline",
+            "detail": "Delivery after Friday will not work."
+          },
+          "status": "current",
+          "observed_at": "2026-10-29T10:00:00Z",
+          "recorded_at": "2026-10-29T10:00:00Z",
+          "valid_from": "2026-10-29T10:00:00Z",
+          "valid_to": null,
+          "expires_at": "2026-10-30T10:00:00Z",
+          "sources": [
+            {
+              "source_id": "source-ep-a",
+              "revision": 1
+            }
+          ],
+          "derivation": null
+        }
+      ],
+      "links": []
+    }
+  },
+  {
+    "name": "observed_outcome",
+    "bindings": {
+      "scope": {
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_kind": "shopper",
+        "subject_id": "shopper-a",
+        "identity_revision": 1,
+        "privacy_generation": 1
+      },
+      "sources": [
+        {
+          "source_id": "source-out-a",
+          "revision": 1,
+          "scope": {
+            "merchant_id": "merchant-a",
+            "store_id": "store-a",
+            "subject_kind": "shopper",
+            "subject_id": "shopper-a",
+            "identity_revision": 1,
+            "privacy_generation": 1
+          },
+          "authority": "engine_observation",
+          "observed_at": "2026-10-29T10:00:00Z",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "claims": [
+            {
+              "kind": "outcome",
+              "value": {
+                "event_type": "purchase",
+                "event_id": "purchase-a",
+                "episode_id": "episode-a",
+                "attribution": "observed_only"
+              }
+            }
+          ]
+        }
+      ],
+      "entities": [
+        {
+          "merchant_id": "merchant-a",
+          "store_id": "store-a",
+          "entity": {
+            "kind": "brand",
+            "id": "brand-a"
+          }
+        },
+        {
+          "merchant_id": "merchant-a",
+          "store_id": "store-a",
+          "entity": {
+            "kind": "product",
+            "id": "product-a"
+          }
+        },
+        {
+          "merchant_id": "merchant-a",
+          "store_id": "store-a",
+          "entity": {
+            "kind": "category",
+            "id": "category-a"
+          }
+        },
+        {
+          "merchant_id": "merchant-a",
+          "store_id": "store-a",
+          "entity": {
+            "kind": "policy",
+            "id": "policy-a"
+          }
+        }
+      ],
+      "at": "2026-10-29T12:00:00Z"
+    },
+    "payload": {
+      "version": "knowledge_batch_v1",
+      "scope": {
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_kind": "shopper",
+        "subject_id": "shopper-a",
+        "identity_revision": 1,
+        "privacy_generation": 1
+      },
+      "objects": [
+        {
+          "object_id": "out-a",
+          "assertion_id": "out-a",
+          "revision": 1,
+          "kind": "outcome",
+          "value": {
+            "event_type": "purchase",
+            "event_id": "purchase-a",
+            "episode_id": "episode-a",
+            "attribution": "observed_only"
+          },
+          "status": "current",
+          "observed_at": "2026-10-29T10:00:00Z",
+          "recorded_at": "2026-10-29T10:00:00Z",
+          "valid_from": "2026-10-29T10:00:00Z",
+          "valid_to": null,
+          "expires_at": null,
+          "sources": [
+            {
+              "source_id": "source-out-a",
+              "revision": 1
+            }
+          ],
+          "derivation": null
+        }
+      ],
+      "links": []
+    }
+  },
+  {
+    "name": "approved_merchant_policy",
+    "bindings": {
+      "scope": {
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_kind": "merchant",
+        "subject_id": "merchant-a",
+        "identity_revision": 1,
+        "privacy_generation": 1
+      },
+      "sources": [
+        {
+          "source_id": "source-policy-a",
+          "revision": 1,
+          "scope": {
+            "merchant_id": "merchant-a",
+            "store_id": "store-a",
+            "subject_kind": "merchant",
+            "subject_id": "merchant-a",
+            "identity_revision": 1,
+            "privacy_generation": 1
+          },
+          "authority": "merchant_approved",
+          "observed_at": "2026-10-29T10:00:00Z",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "claims": [
+            {
+              "kind": "merchant_knowledge",
+              "value": {
+                "topic": "returns",
+                "claim": "Approved unopened items may be returned within 30 days.",
+                "applies_to": {
+                  "kind": "policy",
+                  "id": "policy-a"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "source_id": "source-rel-policy",
+          "revision": 1,
+          "scope": {
+            "merchant_id": "merchant-a",
+            "store_id": "store-a",
+            "subject_kind": "merchant",
+            "subject_id": "merchant-a",
+            "identity_revision": 1,
+            "privacy_generation": 1
+          },
+          "authority": "merchant_approved",
+          "observed_at": "2026-10-29T10:00:00Z",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "claims": [
+            {
+              "kind": "relationship",
+              "value": {
+                "predicate": "governed_by",
+                "from": {
+                  "kind": "product",
+                  "id": "product-a"
+                },
+                "to": {
+                  "kind": "policy",
+                  "id": "policy-a"
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "entities": [
+        {
+          "merchant_id": "merchant-a",
+          "store_id": "store-a",
+          "entity": {
+            "kind": "brand",
+            "id": "brand-a"
+          }
+        },
+        {
+          "merchant_id": "merchant-a",
+          "store_id": "store-a",
+          "entity": {
+            "kind": "product",
+            "id": "product-a"
+          }
+        },
+        {
+          "merchant_id": "merchant-a",
+          "store_id": "store-a",
+          "entity": {
+            "kind": "category",
+            "id": "category-a"
+          }
+        },
+        {
+          "merchant_id": "merchant-a",
+          "store_id": "store-a",
+          "entity": {
+            "kind": "policy",
+            "id": "policy-a"
+          }
+        }
+      ],
+      "at": "2026-10-29T12:00:00Z"
+    },
+    "payload": {
+      "version": "knowledge_batch_v1",
+      "scope": {
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_kind": "merchant",
+        "subject_id": "merchant-a",
+        "identity_revision": 1,
+        "privacy_generation": 1
+      },
+      "objects": [
+        {
+          "object_id": "policy-a",
+          "assertion_id": "policy-a",
+          "revision": 1,
+          "kind": "merchant_knowledge",
+          "value": {
+            "topic": "returns",
+            "claim": "Approved unopened items may be returned within 30 days.",
+            "applies_to": {
+              "kind": "policy",
+              "id": "policy-a"
+            }
+          },
+          "status": "current",
+          "observed_at": "2026-10-29T10:00:00Z",
+          "recorded_at": "2026-10-29T10:00:00Z",
+          "valid_from": "2026-10-29T10:00:00Z",
+          "valid_to": null,
+          "expires_at": null,
+          "sources": [
+            {
+              "source_id": "source-policy-a",
+              "revision": 1
+            }
+          ],
+          "derivation": null
+        },
+        {
+          "object_id": "rel-policy",
+          "assertion_id": "rel-policy",
+          "revision": 1,
+          "kind": "relationship",
+          "value": {
+            "predicate": "governed_by",
+            "from": {
+              "kind": "product",
+              "id": "product-a"
+            },
+            "to": {
+              "kind": "policy",
+              "id": "policy-a"
+            }
+          },
+          "status": "current",
+          "observed_at": "2026-10-29T10:00:00Z",
+          "recorded_at": "2026-10-29T10:00:00Z",
+          "valid_from": "2026-10-29T10:00:00Z",
+          "valid_to": null,
+          "expires_at": null,
+          "sources": [
+            {
+              "source_id": "source-rel-policy",
+              "revision": 1
+            }
+          ],
+          "derivation": null
+        }
+      ],
+      "links": []
+    }
+  },
+  {
+    "name": "model_hypothesis",
+    "bindings": {
+      "scope": {
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_kind": "shopper",
+        "subject_id": "shopper-a",
+        "identity_revision": 1,
+        "privacy_generation": 1
+      },
+      "sources": [
+        {
+          "source_id": "source-obs-a",
+          "revision": 1,
+          "scope": {
+            "merchant_id": "merchant-a",
+            "store_id": "store-a",
+            "subject_kind": "shopper",
+            "subject_id": "shopper-a",
+            "identity_revision": 1,
+            "privacy_generation": 1
+          },
+          "authority": "engine_observation",
+          "observed_at": "2026-10-29T10:00:00Z",
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "claims": [
+            {
+              "kind": "observation",
+              "value": {
+                "event_type": "product_viewed",
+                "event_id": "event-a",
+                "episode_id": "episode-a"
+              }
+            }
+          ]
+        }
+      ],
+      "entities": [
+        {
+          "merchant_id": "merchant-a",
+          "store_id": "store-a",
+          "entity": {
+            "kind": "brand",
+            "id": "brand-a"
+          }
+        },
+        {
+          "merchant_id": "merchant-a",
+          "store_id": "store-a",
+          "entity": {
+            "kind": "product",
+            "id": "product-a"
+          }
+        },
+        {
+          "merchant_id": "merchant-a",
+          "store_id": "store-a",
+          "entity": {
+            "kind": "category",
+            "id": "category-a"
+          }
+        },
+        {
+          "merchant_id": "merchant-a",
+          "store_id": "store-a",
+          "entity": {
+            "kind": "policy",
+            "id": "policy-a"
+          }
+        }
+      ],
+      "at": "2026-10-29T12:00:00Z"
+    },
+    "payload": {
+      "version": "knowledge_batch_v1",
+      "scope": {
+        "merchant_id": "merchant-a",
+        "store_id": "store-a",
+        "subject_kind": "shopper",
+        "subject_id": "shopper-a",
+        "identity_revision": 1,
+        "privacy_generation": 1
+      },
+      "objects": [
+        {
+          "object_id": "obs-a",
+          "assertion_id": "obs-a",
+          "revision": 1,
+          "kind": "observation",
+          "value": {
+            "event_type": "product_viewed",
+            "event_id": "event-a",
+            "episode_id": "episode-a"
+          },
+          "status": "current",
+          "observed_at": "2026-10-29T10:00:00Z",
+          "recorded_at": "2026-10-29T10:00:00Z",
+          "valid_from": "2026-10-29T10:00:00Z",
+          "valid_to": null,
+          "expires_at": null,
+          "sources": [
+            {
+              "source_id": "source-obs-a",
+              "revision": 1
+            }
+          ],
+          "derivation": null
+        },
+        {
+          "object_id": "infer-a",
+          "assertion_id": "infer-a",
+          "revision": 1,
+          "kind": "inferred_preference",
+          "value": {
+            "dimension": "category_interest",
+            "value": "outdoor",
+            "applies_to": {
+              "kind": "category",
+              "id": "category-a"
+            }
+          },
+          "status": "current",
+          "observed_at": "2026-10-29T10:00:00Z",
+          "recorded_at": "2026-10-29T10:00:00Z",
+          "valid_from": "2026-10-29T10:00:00Z",
+          "valid_to": null,
+          "expires_at": "2026-11-01T10:00:00Z",
+          "sources": [
+            {
+              "source_id": "source-obs-a",
+              "revision": 1
+            }
+          ],
+          "derivation": {
+            "method": "model",
+            "version": "interest-v1",
+            "model_version": "pinned-model-v1",
+            "input_ids": [
+              "obs-a"
+            ]
+          }
+        }
+      ],
+      "links": [
+        {
+          "relation": "supports",
+          "from": "obs-a",
+          "to": "infer-a"
+        }
+      ]
+    }
+  }
+]
