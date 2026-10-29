@@ -9,7 +9,18 @@ import psycopg
 import pytest
 from psycopg import sql
 
-PG = Path('/opt/homebrew/opt/postgresql@16/bin')
+def postgres_bin():
+    """Use one installed PostgreSQL toolchain on both macOS and Linux."""
+    configured = os.environ.get('KNOWLEDGE_TEST_PG_BIN')
+    directory = Path(configured or subprocess.check_output(
+        ['pg_config', '--bindir'], text=True).strip())
+    for binary in ('initdb', 'pg_ctl', 'pg_dump', 'psql'):
+        if not os.access(directory/binary, os.X_OK):
+            raise RuntimeError(f'{directory/binary} missing; set KNOWLEDGE_TEST_PG_BIN to a PostgreSQL server bin directory')
+    return directory
+
+
+PG = postgres_bin()
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -17,7 +28,8 @@ ROOT = Path(__file__).resolve().parents[2]
 def cluster(tmp_path_factory):
     folder = tmp_path_factory.mktemp('knowledge-pg')
     data = folder/'data'
-    socket_folder = tempfile.TemporaryDirectory(prefix='wkpg-',dir='/private/tmp')
+    # A short POSIX path avoids the Unix socket path limit on macOS and Linux.
+    socket_folder = tempfile.TemporaryDirectory(prefix='wkpg-',dir='/tmp')
     socket = Path(socket_folder.name)
     env = {**os.environ, 'LC_ALL':'C', 'LANG':'C'}
     subprocess.run([str(PG/'initdb'),'-D',str(data),'-A','trust','--no-locale','--encoding=UTF8'],check=True,capture_output=True,env=env)
