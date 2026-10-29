@@ -1,7 +1,7 @@
 {
   "version": "wakaru_runtime_privacy_addendum_v1",
   "scope": "wakaru_combined_source_only",
-  "base_sha256": "9e03707cc7038eef2951b593ab587e8e371de5f74848e2254a0f5ff30434ecfb",
+  "base_sha256": "83e46eadadd4396d8f7c7e0231ee1b84af1c33af4b21ae5650aa13ad007aad02",
   "whole_application_erasure_complete": false,
   "retained_base_blockers": [
     "engine.behavior_legacy",
