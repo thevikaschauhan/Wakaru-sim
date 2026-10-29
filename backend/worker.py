@@ -31,7 +31,7 @@ from app.services.cart_recovery_jobs import run_analysis_job  # noqa: E402,F401
 def main() -> None:
     # create_app() runs the issue-#6 boot gate (validate() -> fail-fast on
     # missing SECRET_KEY/LLM_API_KEY/ZEP_API_KEY), installs the PII-scrubbing
-    # Sentry hooks (issue #17), registers OASIS subprocess cleanup, and inserts
+    # Sentry hooks (issue #17), and inserts
     # the repo root on sys.path (via the cart_recovery blueprint import) so the
     # job body's `from cart_recovery...` imports resolve in this process.
     create_app()
@@ -47,7 +47,7 @@ def main() -> None:
 
     from rq import Worker
 
-    # create_app() above did the config/Sentry/cleanup setup; this process is a
+    # create_app() above did the config/Sentry setup; this process is a
     # non-HTTP RQ consumer, so we deliberately do NOT call app.run() (contrast
     # run.py's web entrypoint). It serves no HTTP — hence no /health (see docstring).
     # log_job_description=False: defense-in-depth so RQ never logs a job

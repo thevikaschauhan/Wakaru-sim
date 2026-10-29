@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install Python deps first (layer cache)
-COPY backend/requirements.txt ./backend/
+COPY backend/requirements*.txt ./backend/
 
 # Install CPU-only PyTorch first to avoid pulling in multi-GB CUDA packages
 # (camel-oasis/camel-ai depend on torch but MiroFish only needs CPU inference)

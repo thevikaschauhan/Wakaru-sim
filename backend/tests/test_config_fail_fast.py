@@ -36,14 +36,14 @@ def test_create_app_raises_with_all_three_errors_joined(monkeypatch):
     # Exercises the collect-and-join path: all three required vars missing
     # must produce a single RuntimeError naming all three (review round 1).
     monkeypatch.delenv("SECRET_KEY", raising=False)
-    monkeypatch.delenv("LLM_API_KEY", raising=False)
-    monkeypatch.delenv("ZEP_API_KEY", raising=False)
+    monkeypatch.delenv("WAKARU_API_KEY", raising=False)
+    monkeypatch.delenv("WAKARU_INTERNAL_SECRET", raising=False)
     with pytest.raises(RuntimeError) as exc:
         create_app()
     msg = str(exc.value)
     assert "SECRET_KEY" in msg
-    assert "LLM_API_KEY" in msg
-    assert "ZEP_API_KEY" in msg
+    assert "WAKARU_API_KEY" in msg
+    assert "WAKARU_INTERNAL_SECRET" in msg
 
 
 def test_flask_debug_defaults_false(app):

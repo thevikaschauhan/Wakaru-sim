@@ -1,0 +1,4490 @@
+{
+  "version": "integration_privacy_inventory_c14_v1",
+  "receipt_inventory": "integration_c5_v1",
+  "sink_sources": {
+    "engine": {
+      "internal/schemamigrate/runner.go": {
+        "family": "engine.system",
+        "sha256": "becfca3ee6959db24487d6890656fbda5fa85ff64ce15e18b63c76aaf22503da"
+      },
+      "services/legacy_retirement.go": {
+        "sha256": "dbd8e7ddda1d5b2762c1868fe16b3ce567e7c0a2d559580b36f6e67bd5eaa0d2",
+        "family": "engine.recovery_legacy"
+      },
+      "services/provider_refusal.go": {
+        "family": "engine.recovery_legacy",
+        "sha256": "64ca000b6b627cf2049103fe68330275df1063c591dd5eed31edc3fa9a255a73"
+      },
+      "services/unknown_recovery.go": {
+        "family": "engine.recovery_legacy",
+        "sha256": "add5b02fc5a0e10604c4e2d3ccf201f0cd8967d98eb49329ea69dfdde124d9e6"
+      },
+      "cmd/judgeme-fixture/main.go": {
+        "sha256": "d3ca0a1c803083bb8621598b9b184a10827feab2dc061dea1f8bc1fb0d2b232a",
+        "family": "engine.merchant_records"
+      },
+      "cmd/migrate-merchants-uuid/main.go": {
+        "sha256": "10cb20cf175a69800517256901488b5db9fe7984001cc089352145553dbf0976",
+        "family": "engine.merchant_records"
+      },
+      "cmd/verify-migration/main.go": {
+        "sha256": "991f90af766594d4167a8a98bf160c9eed99b2fb68e8400e54bacf18ef2fe4b3",
+        "family": "engine.merchant_records"
+      },
+      "config/config.go": {
+        "sha256": "b194759adafc2845f8675c3c7b1cea8c8f828414566581abcf131ea9a5c719aa",
+        "family": "engine.merchant_records"
+      },
+      "database/client.go": {
+        "sha256": "d4215b4e4e1cd7154673bee4cb8d287247c473c3d32bf742d7e27776e24efdc9",
+        "family": "engine.merchant_records"
+      },
+      "database/customer_history.go": {
+        "sha256": "8dbecb6b7c1671440caf8a92c27c201723696d9cc87ab47c36d51b3e9d6b9f85",
+        "family": "engine.behavior_legacy"
+      },
+      "database/customers.go": {
+        "sha256": "6613ed41867b30ec546204ba6588257df9c35e6fbb9da08c8765da5df0e7f787",
+        "family": "engine.behavior_legacy"
+      },
+      "database/discount_catalog.go": {
+        "sha256": "174d8fd42f69806cea1791e0f86528bc69b25ae100058c6200efbd338fa2deb3",
+        "family": "engine.merchant_records"
+      },
+      "database/discount_creation.go": {
+        "sha256": "5de56ddfc176705c46d9631b58bab48bbd7eabe6c41aaa010cb359286a4de07a",
+        "family": "engine.merchant_records"
+      },
+      "database/discount_offers.go": {
+        "sha256": "dafe9049ddac525da334cc980e5ad2a11bf865b9f5b02808cc1228136a2eb197",
+        "family": "engine.merchant_records"
+      },
+      "database/discount_projection.go": {
+        "sha256": "324ddd11ae459c07aead4e5531cb8642cb222cb7b143746060d59abe43d8cfae",
+        "family": "engine.merchant_records"
+      },
+      "database/discount_webhooks.go": {
+        "sha256": "72a326fa969c21985b64cd334717b8f07f0bd5936fff1bcf712d6bf49cc82162",
+        "family": "engine.merchant_records"
+      },
+      "database/discounts.go": {
+        "sha256": "69b49185a0d199f6d8a2a31cd0f5b7532de2e1b678afdd9b84ff79e52c64d58c",
+        "family": "engine.merchant_records"
+      },
+      "database/email_renditions.go": {
+        "sha256": "87c02091fdbe88e1dcb99a388ba405a291dbaf445f3fee1664c7172e645a069a",
+        "family": "engine.message_legacy"
+      },
+      "database/migrate.go": {
+        "sha256": "0127d4def657d8ac844f0fb3dc963ab608671cd26f9e5b10162935f2dfdfbcc6",
+        "family": "engine.merchant_records"
+      },
+      "database/order_inbox.go": {
+        "sha256": "73345ed66523205e566d9d9b9e799ced449b1fa54067e6457abb009043a24be3",
+        "family": "engine.orders_legacy"
+      },
+      "database/order_outcomes.go": {
+        "sha256": "55d2d6cce10e70c74fedcf13fdb33246650028e607041cda3c92935f0df0cd29",
+        "family": "engine.orders_legacy"
+      },
+      "database/pixel_batch.go": {
+        "sha256": "aa87ca2057834ed1b01945d23aa8c4e908ea8914c4f8defba9df58a2901d6389",
+        "family": "engine.behavior_legacy"
+      },
+      "database/pixel_identity.go": {
+        "sha256": "067fd31285bb027f14b1cc0fc529fa37ceb24c7280e1a3cf2900f01fc8e0067e",
+        "family": "engine.identity_legacy"
+      },
+      "database/pixel_registration.go": {
+        "sha256": "a2528a8049b7e0dc7abb80e51a8d16214c1475fdd46d84dc2966574fab4b3d24",
+        "family": "engine.merchant_records"
+      },
+      "database/platform_settings.go": {
+        "sha256": "c17148f16a0fa65394caa55b7c33697e0d143c065d4f7238c12dee17cb30b6c6",
+        "family": "engine.merchant_records"
+      },
+      "database/provider_identity.go": {
+        "sha256": "b8a7706c87cc3aa12a0817f44665c325fb3db6ce3b2d04b4762b508f3e805637",
+        "family": "engine.identity_legacy"
+      },
+      "database/queries.go": {
+        "sha256": "a0a4064fb1a112fbd2e92ec33fa3f3f9379df9d3369616d7d8986af5bfd9798d",
+        "family": "engine.merchant_records"
+      },
+      "database/recovery_completion.go": {
+        "sha256": "66aded7a0807e12721639e33ae8d7e5afe71c37c5636de4d73f489decd9b5c8e",
+        "family": "engine.recovery_legacy"
+      },
+      "database/recovery_coordination.go": {
+        "sha256": "d2a5d68941b889b3f582e42e41ca6d19b7008a240536ece1ae95025a60c0cde5",
+        "family": "engine.recovery_legacy"
+      },
+      "database/recovery_execution.go": {
+        "sha256": "e6f7f3b1decd24121e108737a4b24269a2b38c6d069e40d6886b20729e19e83f",
+        "family": "engine.recovery_legacy"
+      },
+      "database/recovery_identity_snapshot.go": {
+        "sha256": "28d6faa0f5ed495c52911ee16dc08a13525acdc56689df7bdf8cd112c4c2341a",
+        "family": "engine.identity_legacy"
+      },
+      "database/recovery_learning.go": {
+        "sha256": "975697bb6d5bca7f7c83c05e9efbf1ee2105b72f2716fc77b529f511abf305c9",
+        "family": "engine.recovery_legacy"
+      },
+      "database/recovery_learning_archive.go": {
+        "sha256": "4f99b7665373179ae51b71d764f9542989cc738af16072fd3602067a089c4fdc",
+        "family": "engine.recovery_legacy"
+      },
+      "database/sender_launch.go": {
+        "sha256": "c0eed4c55627be9907ab73feef4035e8484f932c42317a5ce406815a3027457f",
+        "family": "engine.merchant_records"
+      },
+      "database/sendgrid.go": {
+        "sha256": "19248af4a2c0d202181680fb024924a339e97363d4e8af0fe65cf3163e80c0a0",
+        "family": "engine.message_legacy"
+      },
+      "database/shopify_brand_app.go": {
+        "family": "engine.merchant_records",
+        "sha256": "b218f54bbff30a6e1109855624440b869d8eb0ff54f32346ed691c84125cc969"
+      },
+      "database/shopify_brand_app_connect.go": {
+        "sha256": "6248ae694d29062c7f783169479ce71440353e80b9a7664dd5a3d9cedbb747c0",
+        "family": "engine.merchant_records"
+      },
+      "database/shopify_webhook_registration.go": {
+        "sha256": "b24168e1ca386a4220c7ae0071e7e18ee9771d3371aed188f1288be0729455c8",
+        "family": "engine.merchant_records"
+      },
+      "database/supabase.go": {
+        "sha256": "056fdbf6677c7070fa4d5bc114f8d9a816c816bb3461265c5f386d3f5cb51bf8",
+        "family": "engine.merchant_records"
+      },
+      "handlers/websocket.go": {
+        "sha256": "76e7cd70a93110dd989304b8ab95e2dfe02b7e5d06e4f6497b25ab44b2ccc32c",
+        "family": "engine.merchant_records"
+      },
+      "internal/custompixel/vakaru-custom-pixel.js": {
+        "sha256": "2e6d3dacbe8abf2ee068a0da776bf3f39740804caecedaf312a42a8e4668ca0c",
+        "family": "engine.merchant_records"
+      },
+      "internal/identitybridge/provider-context.js": {
+        "sha256": "373a3e27c8fdec9541a5f342e6c9a1b32446b1dc3790c4f0a48a61feb4a492c8",
+        "family": "engine.identity_legacy"
+      },
+      "internal/integrations/connections.go": {
+        "sha256": "669d5dbe7461ad4329143d8aaea9e32f819663b6d6ae07189d9ed12195ef7b20",
+        "family": "engine.integration_control"
+      },
+      "internal/integrations/context_compiler.go": {
+        "sha256": "654dc24a00a48343326a680a3f239ee66115467470fd6ea50cf3e1e8e3a32f48",
+        "family": "engine.projections"
+      },
+      "internal/integrations/gorgias_client.go": {
+        "sha256": "bacd77c1bd3d9cf1d8bbf6311537ba3eb07b3dc127f81cd84a49edf4a200c0ba",
+        "family": "engine.integration_control"
+      },
+      "internal/integrations/gorgias_notifications.go": {
+        "sha256": "5703f51a4e8e5983b0c5275e27285def9a175a3e4db3ce8268884d284d7cf977",
+        "family": "engine.integration_control"
+      },
+      "internal/integrations/gorgias_projection.go": {
+        "sha256": "a08ac5c69b9580a9cf143a8c7f6133daf79b328b90daa983c445250b14bfd37e",
+        "family": "engine.projections"
+      },
+      "internal/integrations/invalidation_relay.go": {
+        "family": "engine.support",
+        "sha256": "58e57575f504cf5603bdb63108012ddf7fc3d370bb55c7355b6e6fab1cd14e63"
+      },
+      "internal/integrations/invalidation_worker.go": {
+        "family": "engine.support",
+        "sha256": "92bf71ee4150d24c2d9fc7cbacbcdd45557d02aab7838fc11d76f788e8d78299"
+      },
+      "internal/integrations/privacy.go": {
+        "sha256": "e5a0bf9e9cbb4f482c2b67afd05c54a912367d051a989a4224e1f140bdf45764",
+        "family": "engine.privacy_ledger"
+      },
+      "internal/integrations/scheduling.go": {
+        "family": "engine.integration_control",
+        "sha256": "d661d1f83d113bac86b662054e56429966fcac719b68f653ee369fdf23549140"
+      },
+      "internal/integrations/shopify_projection.go": {
+        "sha256": "7da0e2f83932c5c173495d115d9f4daa7184ad275ca13b8357e4a89cccb212f6",
+        "family": "engine.projections"
+      },
+      "internal/integrations/support_projection.go": {
+        "sha256": "5106d61fd69bd8db6c5c32dda94eac9104bd96dd5691c3c45d6b40f5211fa75b",
+        "family": "engine.support"
+      },
+      "internal/integrations/support_store.go": {
+        "sha256": "330fe174389a85a7810e20869e868c839f13282d6359c08c38efbbbd924e54ba",
+        "family": "engine.support"
+      },
+      "internal/integrations/worker.go": {
+        "sha256": "ddc9a4d7787714158c506d332b3345951e3d3f7a4bb0451d4707a60e92583afb",
+        "family": "engine.integration_control"
+      },
+      "internal/typesafe/store.go": {
+        "sha256": "3e2609046eed2b65a6a78d297cdd0a4a99eb588bfdb8c2c21f37ac282f32828d",
+        "family": "engine.typesafe_legacy"
+      },
+      "models/mirofish.go": {
+        "sha256": "3e4d5d7f2378ab13e98daeb67da18da335249c7aa453e40004db71a2ccfd377b",
+        "family": "engine.recovery_legacy"
+      },
+      "services/abandonment_detector.go": {
+        "sha256": "85917f0a53c6c199ee828156a286a9050b5ea0b8f0ad44f8a116cb03ba916817",
+        "family": "engine.behavior_legacy"
+      },
+      "services/mirofish_service.go": {
+        "sha256": "d5b2eb63bb02a45f8d6a4136b0dc3c5401cec785d6aedb8ced8a2635b97e393c",
+        "family": "engine.recovery_legacy"
+      },
+      "services/order_forwarder.go": {
+        "family": "engine.orders_legacy",
+        "sha256": "3a027d6fd4a1fb19c359bb9f30917270d5c2716b44d2b3dd8f3aa8433dbcc07a"
+      },
+      "services/sender_maintenance.go": {
+        "family": "engine.merchant_records",
+        "sha256": "dd833890449521bf759916507d887ad32d422703cc38ab91df07471d05bea762"
+      },
+      "utils/copy_persistence.go": {
+        "sha256": "651c9a79232051c4d1357ee6b3277e970edee9f92f2f8c0bc48418abd8bed4b4",
+        "family": "engine.merchant_records"
+      },
+      "utils/knowledge_base.go": {
+        "sha256": "8db6ef650415f550195550c8f43ca30d41d5b9e81552e1ea927ca577b9f7d07e",
+        "family": "engine.merchant_records"
+      },
+      "utils/policy_capture.go": {
+        "sha256": "d02c36cddeb842a79d3910f7366ea0f17a16e2a552d4847bf4d049508637f9ec",
+        "family": "engine.merchant_records"
+      }
+    },
+    "inkwell": {
+      "auth/rbac.go": {
+        "sha256": "c3d8ade79d8c539809a0ced63c1e154b96ac9012ee96c6bd5cf140f68a8b1d44",
+        "family": "inkwell.documents_legacy"
+      },
+      "cmd/api/main.go": {
+        "sha256": "7746c3d591aea77b3c62b93816e7286cb285cf8473820deccee686bf73659eeb",
+        "family": "inkwell.documents_legacy"
+      },
+      "internal/api/bootstrap_transform.go": {
+        "sha256": "872219cefa7a48d5c554e184791d99799644c335f101ffbba6daddde193f8b1f",
+        "family": "inkwell.documents_legacy"
+      },
+      "internal/api/brand_contracts_bootstrap.go": {
+        "sha256": "b94bc4ddf47a4f55ea78528b1e4b9e1f70f896607e90a63ab8a598f2d0530323",
+        "family": "inkwell.merchant_records"
+      },
+      "internal/api/canary.go": {
+        "sha256": "beaaeb59dc09822d2a963c08167c676f471e783f5d6d6c7a0890a411365832e0",
+        "family": "inkwell.documents_legacy"
+      },
+      "internal/api/cart_abandoned.go": {
+        "family": "inkwell.documents_legacy",
+        "sha256": "2be95880db7193e67fae0a4af6ea6beebfff155a81fbdfb52122ce999017c69e"
+      },
+      "internal/api/demo_regenerate.go": {
+        "sha256": "ace72a7ff72e90e80e77896c6f152425b1a9868329c70748fc611e458f86dfd3",
+        "family": "inkwell.documents_legacy"
+      },
+      "internal/api/email_review.go": {
+        "sha256": "376d9205f68b3cdf9830f399d7c5a70722eb242b68edc8205de1af1eed9d80f8",
+        "family": "inkwell.documents_legacy"
+      },
+      "internal/api/email_status.go": {
+        "family": "inkwell.documents_legacy",
+        "sha256": "9671f9f26ed864c822ec31e736917e9f297e8062692e8af9dcfeac3277a61f3e"
+      },
+      "internal/api/font_face_verification.go": {
+        "sha256": "1e5ca68b6fd7b371a15c9af51bbc3e91869ac5320f58e7a3c967e33c2ff1d10f",
+        "family": "inkwell.merchant_records"
+      },
+      "internal/api/font_sanitation.go": {
+        "sha256": "17ddb24df40098e4e5ae495fd70957e997393dea53329564b7b31f0a96b8df1e",
+        "family": "inkwell.merchant_records"
+      },
+      "internal/api/font_source_capture.go": {
+        "sha256": "3eb351ad6ee7eadecf3a4c2cc1e7a0e4fbedc95b2679ae97f8d6289e37e042f2",
+        "family": "inkwell.merchant_records"
+      },
+      "internal/api/font_usage.go": {
+        "sha256": "b2bdf93eb6eba041b07809c94f419e12587c845ea6710480d775ae25d0a50423",
+        "family": "inkwell.merchant_records"
+      },
+      "internal/api/policy_review.go": {
+        "sha256": "380f6845a1a604ba888902b8125dbe41353b504c372aa4d81207b8fab99f6f66",
+        "family": "inkwell.merchant_records"
+      },
+      "internal/api/recovery_decisions.go": {
+        "sha256": "3d64dadcf1b84f8450cbe709a9742ac6c1b396d480de9c763506513e746e1be1",
+        "family": "inkwell.documents_legacy"
+      },
+      "internal/api/recovery_feedback.go": {
+        "sha256": "7189b88e9059411dfefe5ce120a676b6513184cee6c3382d084fa683e10cd14d",
+        "family": "inkwell.documents_legacy"
+      },
+      "internal/api/sender_resume.go": {
+        "sha256": "dd0dea7c47d12a4f4a5d3aa3d41add37df1a9a67d72ec06defff1671e4e80b36",
+        "family": "inkwell.documents_legacy"
+      },
+      "internal/api/server.go": {
+        "sha256": "9f04ed9649e0ac4b3fecf442658a2469d50ba65a7d4545459b5f9da529d5d6b9",
+        "family": "inkwell.documents_legacy"
+      },
+      "internal/composer/asynqtask.go": {
+        "sha256": "6fea7c4db8652092667f9a29bd689fa133a3acd07a2ece1bb9a1dab70bfcab12",
+        "family": "inkwell.documents_legacy"
+      },
+      "internal/composer/composer.go": {
+        "sha256": "b0d011db91c4e6b5bc1b57f6ab51095785023058f3228a3f6e6c85009004c8d3",
+        "family": "inkwell.documents_legacy"
+      },
+      "internal/composer/enqueue.go": {
+        "sha256": "d7444307339de09b98c50966cad1caa043e253544fa7b7ac11e4087738430ef4",
+        "family": "inkwell.documents_legacy"
+      },
+      "internal/db/brand_contracts.sql.go": {
+        "sha256": "48e6551729af9433eaebe10addbcd446c4968f768b99f35f7ff735bbbe5c1738",
+        "family": "inkwell.merchant_records"
+      },
+      "internal/db/build_plans.sql.go": {
+        "sha256": "bab08f8b393eba090db8f7e4eace6636a0a241fc6a732e45aecc256249761504",
+        "family": "inkwell.documents_legacy"
+      },
+      "internal/db/db.go": {
+        "sha256": "209195f69d0268bc9a4a9f592327431c7b7fcdf92bebcbd97f006fb45169719d",
+        "family": "inkwell.documents_legacy"
+      },
+      "internal/db/discount_codes.sql.go": {
+        "sha256": "c6a936cb4c8ab97a2c49db698be81bd34d86cb949ab19064ef9d22b8270e5685",
+        "family": "inkwell.documents_legacy"
+      },
+      "internal/db/document_discount_offers.go": {
+        "sha256": "5aa057ddd07e2a016f57ab59757082d7b389ccca1920e29531f324a6dadb32d3",
+        "family": "inkwell.documents_legacy"
+      },
+      "internal/db/email_documents.sql.go": {
+        "sha256": "cf6272c66359aeab03497907c7ac7ade575b9dd6e6d9ee8cacdb2554300f3183",
+        "family": "inkwell.documents_legacy"
+      },
+      "internal/db/email_events.sql.go": {
+        "sha256": "aa7b2b0263d36aab71fd7fbe4abaf2f7806b55aa2ea0a0686b12d602b1801a2b",
+        "family": "inkwell.documents_legacy"
+      },
+      "internal/db/embeddings.sql.go": {
+        "sha256": "e61e4d8eaea1f4c584ce9cc83facc0e3f252c1e04941d47aa67ed439552b4590",
+        "family": "inkwell.documents_legacy"
+      },
+      "internal/db/feature_flags.sql.go": {
+        "sha256": "e5d809d86ee06f6775ebf583e93afcbc2919010b46872a3c036eeab310201646",
+        "family": "inkwell.merchant_records"
+      },
+      "internal/db/harm.sql.go": {
+        "sha256": "e1ffb779e00ab1489f32166ce4d00169be8d64678f8db1fb03d3accb90d11670",
+        "family": "inkwell.documents_legacy"
+      },
+      "internal/db/order_events.sql.go": {
+        "sha256": "350544d778727a825991d0a5daa4dedde5f0480d576d3e12eab826b8fdd70d3b",
+        "family": "inkwell.documents_legacy"
+      },
+      "internal/db/send_attempts.sql.go": {
+        "sha256": "0dc930a787029cca7756b6cfd047790682415b6b49d1fa567a707418f59e0e6e",
+        "family": "inkwell.documents_legacy"
+      },
+      "internal/db/tools.sql.go": {
+        "sha256": "8d7f25860bd3aaa83ea41222ddc04c3a5ad6724f04876fd107940b9d1cfbb1a9",
+        "family": "inkwell.documents_legacy"
+      },
+      "internal/demo/demo.go": {
+        "sha256": "a519551ba638bb58f2ed794b59c8e493320fd961725cab33b9aa7ab64e32b9de",
+        "family": "inkwell.documents_legacy"
+      },
+      "internal/demo/generated_repair.go": {
+        "family": "inkwell.documents_legacy",
+        "sha256": "e50c2b74642ec88d4e285d7cdfb61175a1a20a549753913740ba0b45691fd435"
+      },
+      "internal/demo/pipeline.go": {
+        "sha256": "34ecd4582ccb0a7283ca87f4fd8d4ce4f8985890b9569eca3e6a86feadf936cf",
+        "family": "inkwell.documents_legacy"
+      },
+      "internal/demo/targeted_repair.go": {
+        "family": "inkwell.documents_legacy",
+        "sha256": "1e0faadd2342d5ff7dec8849e099a3c33d4f2bc4e705de4e3db67151a93c3e7f"
+      },
+      "internal/demoruns/plan.go": {
+        "family": "inkwell.documents_legacy",
+        "sha256": "9b9e9289984eee72de40781489c21f0b71e828bd3398060babf98b2fb20b08bc"
+      },
+      "internal/demoruns/store.go": {
+        "sha256": "e6413123e54d4d4371f8c1ca66234325d1907a5168b34924c6fe8b343ac8eed8",
+        "family": "inkwell.documents_legacy"
+      },
+      "internal/engineclient/types.go": {
+        "sha256": "b3121f349d13e2dd5b1c8c1e8c383317c9551b4a34bd6466cd072c1425eaa0b3",
+        "family": "inkwell.documents_legacy"
+      },
+      "internal/fontacceptance/bundle.go": {
+        "sha256": "45473d1f9448b637250089be6f683c53e253d54c70ff4ce0893019f51b579b76",
+        "family": "inkwell.merchant_records"
+      },
+      "internal/fontsanitize/build.py": {
+        "sha256": "ef163b3a1b5a2838cc3993f0a2d60ea71f97370e41cd8e4b985be59588409951",
+        "family": "inkwell.merchant_records"
+      },
+      "internal/integrationprivacy/copy.go": {
+        "sha256": "0c6544aefe57795e506229bfe1642182d44a2211db51d8733b650b2bbce57ad5",
+        "family": "inkwell.artifacts"
+      },
+      "internal/integrationprivacy/invalidation.go": {
+        "sha256": "422b00daff3bf3112a0b4712ea600f72a4cecb35876b7785087d4680b7ff7b0e",
+        "family": "inkwell.artifacts"
+      },
+      "internal/integrationprivacy/invalidation_worker.go": {
+        "family": "inkwell.privacy_ledger",
+        "sha256": "eaf1bb5a59ca63ad4eb08fa670c095d60233e74c0455c72b5de7093275f83eac"
+      },
+      "internal/integrationprivacy/store.go": {
+        "sha256": "d494c05bd19b67a7b7d145e819920227d15e93aa34d23f92d01390b73630cd36",
+        "family": "inkwell.artifacts"
+      },
+      "internal/integrationprivacy/support.go": {
+        "sha256": "a5d7be45b6e0aa0cc36148ddd3e237041d89ab3aa7887d19cb09bf456057c354",
+        "family": "inkwell.artifacts"
+      },
+      "internal/recovery/enqueue.go": {
+        "sha256": "87acd06e877c751f5dc17f279bd7c8036762527553ee1a8f44db63ea8cc01d74",
+        "family": "inkwell.documents_legacy"
+      },
+      "internal/recovery/store.go": {
+        "sha256": "57cd6db6564d0cc6a3202b4cb2985eb8383736f5b5e6794094957094ff88f3f3",
+        "family": "inkwell.documents_legacy"
+      },
+      "internal/sender/asynqtask.go": {
+        "sha256": "a3937b97dd48f49dc8589d60861132673d8b3a9ee0cb1a811da10e5e483f6202",
+        "family": "inkwell.documents_legacy"
+      },
+      "internal/sender/enqueue.go": {
+        "sha256": "e10a81dd8ff4b8f5d8cf86cd7cfb1b2a1a5bfc021e2a188b82afdf096baaff8d",
+        "family": "inkwell.documents_legacy"
+      },
+      "internal/sender/sender.go": {
+        "sha256": "fb6165f49e382a7a09221d927c46748ea57f98f4570988355e2760cc33bde7f2",
+        "family": "inkwell.documents_legacy"
+      },
+      "internal/tools/validate.go": {
+        "family": "inkwell.documents_legacy",
+        "sha256": "bed8299de52964cf00ab77777ab3cdd5ee462ce4e81f0385bc69ed028e2730e8"
+      },
+      "internal/typesafe/store.go": {
+        "sha256": "66b1d900555b5e39033ebfe41ddaef2a510e921c38bd120ccba5df2d0106a908",
+        "family": "inkwell.typesafe_legacy"
+      }
+    },
+    "wakaru": {
+      "cart_recovery/adaptive/erasure.py": {
+        "sha256": "9015999018223c70658a16bb3374c26cb66140a23fbd53862cde5102b49817fa",
+        "family": "wakaru.adaptive_semantic"
+      },
+      "cart_recovery/adaptive/journal.py": {
+        "sha256": "9ae3e283c28df7aaf8b364d6310b79e3f31e10381326ce2755ee3b89ab7d2f85",
+        "family": "wakaru.adaptive_semantic"
+      },
+      "cart_recovery/bounded_context_api.py": {
+        "sha256": "cf4501cc029e0895686a019a86aedc37b94dd887efb4055fb1af070b9d80f6dd",
+        "family": "wakaru.integration_sqlite"
+      },
+      "cart_recovery/integration_acceptance_fixture.py": {
+        "sha256": "4f797229097e3f46aafba2fc7a83fbdc2d6e592c2b1a0e4fc1c1b5bf2b4560d3",
+        "family": "wakaru.integration_sqlite"
+      },
+      "cart_recovery/integration_invalidation_fixture.py": {
+        "sha256": "7aba2847e4bf9c9317d99898de82502f1ed2030fe7d645745940f0ed8087fdc2",
+        "family": "wakaru.integration_sqlite"
+      },
+      "cart_recovery/integration_privacy.py": {
+        "sha256": "d4ece9b216acb2a684ae6f17ac7df5e6725f994ae9395adb17f272a8b4492344",
+        "family": "wakaru.integration_sqlite"
+      },
+      "cart_recovery/integration_service_fixture.py": {
+        "sha256": "c8e821bf34b7387a2b2bc115f0b3e8f58c43e1cc9a1259d2520f0d507365e4c0",
+        "family": "wakaru.integration_sqlite"
+      },
+      "cart_recovery/integration_worker_fixture.py": {
+        "sha256": "4ba1816f984082bdf11e9b8c70954588564e6b1d1596d8893c40a87b4fd87401",
+        "family": "wakaru.integration_sqlite"
+      },
+      "backend/app/api/cart_recovery.py": {
+        "sha256": "43de66858dada1ee2871d6430cfbcac9e6905a89ece650f7997cd526b6f7ace6",
+        "family": "wakaru.workflow_files"
+      },
+      "backend/app/models/project.py": {
+        "sha256": "49b9e4660e704bf29ef21d1aa14440c34484d54cd72e983e0739923e565d5846",
+        "family": "wakaru.workflow_files"
+      },
+      "backend/app/services/cart_recovery_jobs.py": {
+        "sha256": "e0f2d53ba1989480d6334b212a24d4730e706e90f36979e469fc7dcffa27e26c",
+        "family": "wakaru.redis_queue"
+      },
+      "backend/app/services/graph_lifecycle.py": {
+        "sha256": "1ed53bcc3dc46322b4f6b833f011b59fa50b1f543596f9a5ca31c914f7f9b20a",
+        "family": "wakaru.redis_queue"
+      },
+      "backend/app/services/oasis_profile_generator.py": {
+        "sha256": "c71e7d68708ec5be5eb9ee9820b09146070a0c4b07cf8bfdca852cf169472b83",
+        "family": "wakaru.workflow_files"
+      },
+      "backend/app/services/report_agent.py": {
+        "sha256": "ce05ea8295b750a9e321397127d605001860cc6eb8d39497577c4811564b08a0",
+        "family": "wakaru.workflow_files"
+      },
+      "backend/app/services/simulation_ipc.py": {
+        "sha256": "2cd596faed552c29f8e486b6641677787c2c38eeab822a82512be07e9b4088d9",
+        "family": "wakaru.workflow_files"
+      },
+      "backend/app/services/simulation_manager.py": {
+        "sha256": "1af7f1f1c9ce88ca1de918c6152a7be6be7dc82d45d34c989810d5b4fd2d94e8",
+        "family": "wakaru.workflow_files"
+      },
+      "backend/app/services/simulation_runner.py": {
+        "sha256": "41cc858647e9a6528f3ad84acab7e973a0fb1f7e2cc1069f00c2dea0bd5e3a67",
+        "family": "wakaru.workflow_files"
+      },
+      "backend/worker.py": {
+        "sha256": "fe51282b268531eefe0fae7712576ed8ba7f8760985e0cbb1634eff8e11a57cf",
+        "family": "wakaru.redis_queue"
+      },
+      "cart_recovery/intelligence/maintenance.py": {
+        "sha256": "cfa94769cbc2cce058fa2b58386ca5cb3c5e98cce547705a352c9c1aac653b1f",
+        "family": "wakaru.typesafe_sqlite"
+      },
+      "cart_recovery/intelligence/recovery.py": {
+        "sha256": "db650457ea5f96cddecce20aea78be472c4efe900d41e93ff96097f4388235cc",
+        "family": "wakaru.plan_journal"
+      },
+      "cart_recovery/intelligence/synthetic_recovery.py": {
+        "sha256": "c9aa76c146c6a96fc67c5c7f03e232e8aa83b2e7a57ab6baeb93cc8602d1dbaf",
+        "family": "wakaru.plan_journal"
+      },
+      "cart_recovery/intelligence/typesafe.py": {
+        "sha256": "6dad8d8083d8653eba63544191e79f84b1c088890c36ae7dca336fc44688dc20",
+        "family": "wakaru.typesafe_sqlite"
+      },
+      "cart_recovery/learning/registry.py": {
+        "sha256": "84e046fbd27a0c0332f3785203f121db90e85ed171ae4e28d1728c2738c039d0",
+        "family": "wakaru.learning_registry"
+      }
+    },
+    "web": {
+      "app/email-builder/brand/review/page.tsx": {
+        "sha256": "30fd0c1e4df9ff94d67443f295e37993c5b5b6c83edacd7080f84620e812627a",
+        "family": "external.downloads_blobs"
+      },
+      "app/integrations/judgeme/callback/route.ts": {
+        "sha256": "4e61a5cb6ee54e7efd25074e5b706cf1127ca6c5c73c504d6f9dba6adc9793c0",
+        "family": "web.credentials"
+      },
+      "app/invite/[token]/page.tsx": {
+        "sha256": "480917b2e4a0a7219e4037f81214e67be844a8cda2614ed21cfc73ba32a36e46",
+        "family": "web.credentials"
+      },
+      "app/page.tsx": {
+        "sha256": "80ab9e8fd185d9bfbb7d3c023e1b0606e4982bde9935516a2382fd07cf9699ca",
+        "family": "web.credentials"
+      },
+      "app/setup/page.tsx": {
+        "sha256": "926342beba7376cb68f4221cad9342f285fae6fc591da1b7fdc41640f7d06abc",
+        "family": "web.credentials"
+      },
+      "components/brand/demo-preview-panel.tsx": {
+        "sha256": "4d557159d6c52879facfd95d29582dc018eb7b7a7c20709d65c5ce9aded07ea7",
+        "family": "external.downloads_blobs"
+      },
+      "components/judgeme-connection.tsx": {
+        "sha256": "dfc0b20bb38562eb440d6f8d8437670a3586495623167e09caf89629ce863c0f",
+        "family": "web.credentials"
+      },
+      "components/reconciled-report.tsx": {
+        "sha256": "4e48060893ecb57ed07dbff33cd0fc8707e44782c9734b245c076f4584f8c37b",
+        "family": "external.downloads_blobs"
+      },
+      "components/recovery-execution-history.tsx": {
+        "sha256": "cd7f3c508fd916c27d1c6d068812917d97b429bca7157687f082a81255fb02b4",
+        "family": "external.downloads_blobs"
+      },
+      "lib/api.ts": {
+        "sha256": "58387c353b1bd70ac953a5533e24881c39fca2caa8ab39749143b9ddd5b44b24",
+        "family": "web.credentials"
+      },
+      "lib/engine-uploads.ts": {
+        "sha256": "db4e89ff76b7abaac08bd9797e3a7a96d2dd461e454551c6dfc8e9e6e02c58e4",
+        "family": "web.credentials"
+      },
+      "lib/inkwell-api.ts": {
+        "sha256": "5f839a2a85cdeafc7aaefd64aaa0398a7b85f34426ff95ee665198b318f1c768",
+        "family": "web.credentials"
+      },
+      "lib/inkwell-types.gen.ts": {
+        "sha256": "b1605c43e5d0bcb998e51725bafa79c2b7f1ef68cd46f3fae5135134d9256db9",
+        "family": "external.downloads_blobs"
+      }
+    }
+  },
+  "families": [
+    {
+      "id": "engine.projections",
+      "owner": "Engine",
+      "status": "scoped_fenced",
+      "subject_selector": "merchant + store + exact provider/account/kind/id closure; source revision hashes",
+      "export": "RequestPrivacy export; bounded C5 contents",
+      "erasure": "RequestPrivacy stop then ProcessPrivacyEngine physical closure; source removal withdraws snapshots",
+      "retention": "90-day metadata maximum, five-minute context; ExpirePrivacy exact-revision fences",
+      "restore": "Restore newest C5 and C6 request ledger before replay; retain oldest stops",
+      "blocker": "C5 scoped completion only; historical order tables excluded",
+      "evidence": [
+        {
+          "repo": "engine",
+          "path": "internal/integrations/privacy.go",
+          "sha256": "e5a0bf9e9cbb4f482c2b67afd05c54a912367d051a989a4224e1f140bdf45764"
+        },
+        {
+          "repo": "engine",
+          "path": "internal/integrations/context_compiler.go",
+          "sha256": "654dc24a00a48343326a680a3f239ee66115467470fd6ea50cf3e1e8e3a32f48"
+        }
+      ]
+    },
+    {
+      "id": "engine.integration_control",
+      "owner": "Engine",
+      "status": "scoped_fenced",
+      "subject_selector": "merchant/store verified connections; scoped jobs and generations",
+      "export": "Connection metadata only; credentials never in subject export",
+      "erasure": "C5 cancels jobs and clears cursors; store erase disconnects and revokes credentials",
+      "retention": "No support bodies; checkpoints require separately accepted operational policy",
+      "restore": "Do not restart jobs or restore credentials to active use; latest generation and stops first",
+      "blocker": "Provider-authorized credentials and retention policy remain activation gates",
+      "evidence": [
+        {
+          "repo": "engine",
+          "path": "internal/integrations/privacy.go",
+          "sha256": "e5a0bf9e9cbb4f482c2b67afd05c54a912367d051a989a4224e1f140bdf45764"
+        },
+        {
+          "repo": "engine",
+          "path": "internal/integrations/connections.go",
+          "sha256": "669d5dbe7461ad4329143d8aaea9e32f819663b6d6ae07189d9ed12195ef7b20"
+        }
+      ]
+    },
+    {
+      "id": "engine.privacy_ledger",
+      "owner": "Engine",
+      "status": "retained_fence",
+      "subject_selector": "merchant/store/request fingerprints and pseudonymous subject/source keys",
+      "export": "Restricted authorized ledger inspection; no broad browser export",
+      "erasure": "Retain stops and exact receipts; no ordinary cascade deletion authority",
+      "retention": "Restricted replay fences, no TTL cleanup; policy acceptance required",
+      "restore": "Independently retain current scopes, jobs, targets, tombstones, receipts, context request ledger",
+      "blocker": "Backup provenance and restricted ledger retention require operator signoff",
+      "evidence": [
+        {
+          "repo": "engine",
+          "path": "migrations/071_integration_privacy.sql",
+          "sha256": "c820c3709a684ecb50974bf297f5246bd14072463b94fa686d4e92179bc5f92f"
+        },
+        {
+          "repo": "engine",
+          "path": "migrations/072_integration_context_snapshots.sql",
+          "sha256": "cfa39d4ddcadacfe233a06a96d7c6bd50ddcde0b5680942c5f9558da774add04"
+        }
+      ]
+    },
+    {
+      "id": "engine.support",
+      "owner": "Engine",
+      "status": "scoped_fenced",
+      "subject_selector": "merchant/store/subject keys and source references",
+      "export": "C5 bounded context export; operational state inspected separately",
+      "erasure": "C5 withdrawal invalidates support; registration never authorizes send",
+      "retention": "Freshness bounded C7/C11; no body content",
+      "restore": "Restore enrollment, epoch/cutoff and pending destination state; old leases never mean acknowledgement",
+      "blocker": "Authenticated host/grants and independent source reconciliation remain blocked",
+      "evidence": [
+        {
+          "repo": "engine",
+          "path": "internal/integrations/support_store.go",
+          "sha256": "330fe174389a85a7810e20869e868c839f13282d6359c08c38efbbbd924e54ba"
+        },
+        {
+          "repo": "engine",
+          "path": "migrations/076_integration_invalidation.sql",
+          "sha256": "59b72da853f3070f90ccee2c9c2a777a4598e32f93b6e34bf7fc5784df3c93f7"
+        }
+      ]
+    },
+    {
+      "id": "engine.identity_legacy",
+      "owner": "Engine",
+      "status": "legacy_blocked",
+      "subject_selector": "store + authorized event/customer/profile binding; never email similarity",
+      "export": "Not covered by integration_c5_v1; authorized scoped export needs lineage and immutable-field review",
+      "erasure": "Existing EraseProviderIdentity covers only its enumerated identity rows; add verified alias map and receipt for other links",
+      "retention": "Proof expiry exists; historical pixel/account aliases need policy",
+      "restore": "Keep restored consumers quarantined; ledger-first restore does not certify these legacy bytes",
+      "blocker": "Missing independently verified subject/source cleanup and export evidence",
+      "evidence": [
+        {
+          "repo": "engine",
+          "path": "database/provider_identity.go",
+          "sha256": "b8a7706c87cc3aa12a0817f44665c325fb3db6ce3b2d04b4762b508f3e805637"
+        },
+        {
+          "repo": "engine",
+          "path": "migrations/035_tenant_scoped_shopper_identity.sql",
+          "sha256": "eaadf2cb786af44ef97eff7f5d303b10ce090a40b0a583a02995ae72e2a379a1"
+        }
+      ]
+    },
+    {
+      "id": "engine.behavior_legacy",
+      "owner": "Engine",
+      "status": "legacy_blocked",
+      "subject_selector": "store/merchant + anonymous_id or explicit identity alias closure",
+      "export": "Not covered by integration_c5_v1; authorized scoped export needs lineage and immutable-field review",
+      "erasure": "Need scoped reference migration and fenced purge for events, profiles, analyses and snapshots",
+      "retention": "Existing profile timestamps do not establish subject retention coverage",
+      "restore": "Keep restored consumers quarantined; ledger-first restore does not certify these legacy bytes",
+      "blocker": "Missing independently verified subject/source cleanup and export evidence",
+      "evidence": [
+        {
+          "repo": "engine",
+          "path": "migrations/022_add_shopper_profiles.sql",
+          "sha256": "805f40fff22621ce3cba7a3df64244cace4e76d94a5edff73dc17a347e19d343"
+        },
+        {
+          "repo": "engine",
+          "path": "migrations/048_customer_history.sql",
+          "sha256": "f9ef1c31a7a89820b0c146923a351bf345909ed425e7dc011f55612627258387"
+        }
+      ]
+    },
+    {
+      "id": "engine.orders_legacy",
+      "owner": "Engine",
+      "status": "legacy_blocked",
+      "subject_selector": "store + explicit Shopify order/customer IDs and authorized identity mapping",
+      "export": "Not covered by integration_c5_v1; authorized scoped export needs lineage and immutable-field review",
+      "erasure": "Need scoped inbox/raw-payload deletion or redaction, immutable evidence policy and exact receipt",
+      "retention": "Financial evidence retention and raw payload retention must be decided separately",
+      "restore": "Keep restored consumers quarantined; ledger-first restore does not certify these legacy bytes",
+      "blocker": "Missing independently verified subject/source cleanup and export evidence",
+      "evidence": [
+        {
+          "repo": "engine",
+          "path": "migrations/045_order_webhook_inbox.sql",
+          "sha256": "b32abda203173450ed44cf4a26dae323c6b046fdf3f5e8c6f083fee875c03170"
+        },
+        {
+          "repo": "engine",
+          "path": "migrations/046_order_outcomes.sql",
+          "sha256": "f94becfc1c3e8857957281c7ff9bfd07ba77dfc3659b5c612f7b8e636a035583"
+        }
+      ]
+    },
+    {
+      "id": "engine.recovery_legacy",
+      "owner": "Engine",
+      "status": "legacy_blocked",
+      "subject_selector": "merchant/store + episode/event/anonymous IDs and request lineage",
+      "export": "Not covered by integration_c5_v1; authorized scoped export needs lineage and immutable-field review",
+      "erasure": "Need lineage registration, immutable evidence redaction strategy and outbox/job fences; no tenant-wide delete",
+      "retention": "Assignment/learning ledgers include pseudonymous identities and JSON; deletion helper is not subject proof",
+      "restore": "Keep restored consumers quarantined; ledger-first restore does not certify these legacy bytes",
+      "blocker": "Missing independently verified subject/source cleanup and export evidence",
+      "evidence": [
+        {
+          "repo": "engine",
+          "path": "migrations/049_recovery_forward_snapshots.sql",
+          "sha256": "2919cf01ca532d3ccf1a070bf6680fa05add44b46f0b97bf724c81bfd1c57389"
+        },
+        {
+          "repo": "engine",
+          "path": "migrations/052_recovery_coordination.sql",
+          "sha256": "7a54af545391af0157530cb401fd4ca49f0cde1fa163b29da4c5dff44e286c14"
+        },
+        {
+          "repo": "engine",
+          "path": "migrations/056_recovery_learning.sql",
+          "sha256": "4eaafe8717d542918996bb41b40ef1618c7149136593f25c780e4d6397773960"
+        }
+      ]
+    },
+    {
+      "id": "engine.message_legacy",
+      "owner": "Engine",
+      "status": "legacy_blocked",
+      "subject_selector": "merchant/store + explicit recipient/document identifiers and downstream blob keys",
+      "export": "Not covered by integration_c5_v1; authorized scoped export needs lineage and immutable-field review",
+      "erasure": "Need scoped message/raw personalization cleanup plus provider receipts; suppression fences must survive",
+      "retention": "Email and suppression retention decisions are distinct",
+      "restore": "Keep restored consumers quarantined; ledger-first restore does not certify these legacy bytes",
+      "blocker": "Missing independently verified subject/source cleanup and export evidence",
+      "evidence": [
+        {
+          "repo": "engine",
+          "path": "migrations/014_add_customers_discounts_sendgrid_tables.sql",
+          "sha256": "189b9a6a8e0d55dcd2dac7e360e3a0446c64f559485e5918ade773c6adb63c2e"
+        },
+        {
+          "repo": "engine",
+          "path": "migrations/037_send_checks_suppressions.sql",
+          "sha256": "ef9afe3d1098a75fb39490cd459777f9823baf490a47624675d022f9cfd1406e"
+        }
+      ]
+    },
+    {
+      "id": "engine.merchant_records",
+      "owner": "Engine",
+      "status": "legacy_blocked",
+      "subject_selector": "authenticated merchant/store ownership, separate customer/merchant request scope",
+      "export": "Not covered by integration_c5_v1; authorized scoped export needs lineage and immutable-field review",
+      "erasure": "Need authorized merchant offboarding and typed payload audit before asserting absence of customer data",
+      "retention": "Account, billing, brand, discount and sender records require separate declared policy",
+      "restore": "Keep restored consumers quarantined; ledger-first restore does not certify these legacy bytes",
+      "blocker": "Missing independently verified subject/source cleanup and export evidence",
+      "evidence": [
+        {
+          "repo": "engine",
+          "path": "migrations/001_initial_schema.sql",
+          "sha256": "6b7d2042c6f26dde5802fc535e1a4f0f1c473b9ee73e986182dd7b9b514359b3"
+        },
+        {
+          "repo": "engine",
+          "path": "migrations/064_discount_catalog.sql",
+          "sha256": "f2b036c8025da90929a83c283fff13186c852d7db4557ffc038e6c1743bda0f6"
+        }
+      ]
+    },
+    {
+      "id": "engine.typesafe_legacy",
+      "owner": "Engine",
+      "status": "legacy_blocked",
+      "subject_selector": "tenant/request_key only; missing exact subject/source linkage",
+      "export": "Not covered by integration_c5_v1; authorized scoped export needs lineage and immutable-field review",
+      "erasure": "DeleteTenant is tenant-scoped and cannot fulfill a subject erasure; register lineage or prove no integration bytes",
+      "retention": "Raw output purge exists; selected and judgment journals need scoped retention policy",
+      "restore": "Keep restored consumers quarantined; ledger-first restore does not certify these legacy bytes",
+      "blocker": "Missing independently verified subject/source cleanup and export evidence",
+      "evidence": [
+        {
+          "repo": "engine",
+          "path": "internal/typesafe/store.go",
+          "sha256": "3e2609046eed2b65a6a78d297cdd0a4a99eb588bfdb8c2c21f37ac282f32828d"
+        }
+      ]
+    },
+    {
+      "id": "engine.system",
+      "owner": "Engine",
+      "status": "system_only",
+      "subject_selector": "migration version metadata only",
+      "export": "No customer export content",
+      "erasure": "Do not delete schema history to satisfy subject erasure",
+      "retention": "Retain migration provenance",
+      "restore": "Verify exact historical migration chain",
+      "blocker": "No customer fulfillment claim",
+      "evidence": [
+        {
+          "repo": "engine",
+          "path": "scripts/setup-integration-db.py",
+          "sha256": "e6f6c530ee1d316e1ab525121fa043a2c2ce2fbf085df5aceeaddc05768fcfe5"
+        }
+      ]
+    },
+    {
+      "id": "inkwell.artifacts",
+      "owner": "Inkwell",
+      "status": "scoped_fenced",
+      "subject_selector": "merchant/store/subject/source keys; artifacts own support derivatives",
+      "export": "Store.Apply export bounded to C5 inventory",
+      "erasure": "Store.Apply stop then physical artifacts cascade; purge exact revisions",
+      "retention": "90-day cap, earlier evidence expiry; pending scheduler remains disabled",
+      "restore": "Newest scopes/tombstones/requests/withdrawal fence before artifact visibility; replay all erase/expire tasks even if complete",
+      "blocker": "Legacy documents, provider data and blobs require separate evidence",
+      "evidence": [
+        {
+          "repo": "inkwell",
+          "path": "internal/integrationprivacy/store.go",
+          "sha256": "d494c05bd19b67a7b7d145e819920227d15e93aa34d23f92d01390b73630cd36"
+        },
+        {
+          "repo": "inkwell",
+          "path": "migrations/0059_integration_support_revisions.sql",
+          "sha256": "4aa7f1205348fe2b91dc26c4568d48289499f223f676c18af970d7d38c61b7de"
+        }
+      ]
+    },
+    {
+      "id": "inkwell.privacy_ledger",
+      "owner": "Inkwell",
+      "status": "retained_fence",
+      "subject_selector": "merchant/store and request-bound pseudonymous source/subject keys",
+      "export": "Restricted ledger reads only",
+      "erasure": "Never delete stops to quiet health or unblock old copy",
+      "retention": "No TTL; restricted retention policy",
+      "restore": "Independently retain scopes, tombstones, requests and invalidation_scopes; do not downgrade epochs",
+      "blocker": "Target restore ownership and ledger provenance need separate qualification",
+      "evidence": [
+        {
+          "repo": "inkwell",
+          "path": "migrations/0058_integration_privacy.sql",
+          "sha256": "ae9a39c53da128f8f10dbf5e5f03c668f966727a7e27b836ac12dcd6c9013b6f"
+        },
+        {
+          "repo": "inkwell",
+          "path": "migrations/0060_integration_invalidation.sql",
+          "sha256": "f152cba6b233b8e115a03fa3917ead819fa13014783de3ba951c7c7a8036dd11"
+        }
+      ]
+    },
+    {
+      "id": "inkwell.documents_legacy",
+      "owner": "Inkwell",
+      "status": "legacy_blocked",
+      "subject_selector": "merchant + explicit cart/customer/document IDs and blob references",
+      "export": "Authorized scoped export missing; no C5 coverage",
+      "erasure": "Need scoped redaction/purge adapter and immutable-history policy; preserve terminal/in-flight delivery evidence",
+      "retention": "Separate legacy retention policy and immutable evidence boundaries required",
+      "restore": "Restored legacy consumers remain disabled until separate reconciliation",
+      "blocker": "Missing subject/source coverage or exact external deletion receipt",
+      "evidence": [
+        {
+          "repo": "inkwell",
+          "path": "migrations/0059_integration_support_revisions.sql",
+          "sha256": "4aa7f1205348fe2b91dc26c4568d48289499f223f676c18af970d7d38c61b7de"
+        },
+        {
+          "repo": "inkwell",
+          "path": "internal/integrationprivacy/support.go",
+          "sha256": "a5d7be45b6e0aa0cc36148ddd3e237041d89ab3aa7887d19cb09bf456057c354"
+        }
+      ]
+    },
+    {
+      "id": "inkwell.merchant_records",
+      "owner": "Inkwell",
+      "status": "legacy_blocked",
+      "subject_selector": "merchant/brand contract or reviewed asset ownership",
+      "export": "Authorized scoped export missing; no C5 coverage",
+      "erasure": "Merchant offboarding and payload review required; generic C5 receipt does not include these tables",
+      "retention": "Separate legacy retention policy and immutable evidence boundaries required",
+      "restore": "Restored legacy consumers remain disabled until separate reconciliation",
+      "blocker": "Missing subject/source coverage or exact external deletion receipt",
+      "evidence": [
+        {
+          "repo": "inkwell",
+          "path": "internal/db/db.go",
+          "sha256": "209195f69d0268bc9a4a9f592327431c7b7fcdf92bebcbd97f006fb45169719d"
+        }
+      ]
+    },
+    {
+      "id": "inkwell.typesafe_legacy",
+      "owner": "Inkwell",
+      "status": "legacy_blocked",
+      "subject_selector": "tenant/request key, not source/subject",
+      "export": "Authorized scoped export missing; no C5 coverage",
+      "erasure": "DeleteTenant cannot fulfill individual customer requests; add exact lineage",
+      "retention": "Separate legacy retention policy and immutable evidence boundaries required",
+      "restore": "Restored legacy consumers remain disabled until separate reconciliation",
+      "blocker": "Missing subject/source coverage or exact external deletion receipt",
+      "evidence": [
+        {
+          "repo": "inkwell",
+          "path": "internal/typesafe/store.go",
+          "sha256": "66b1d900555b5e39033ebfe41ddaef2a510e921c38bd120ccba5df2d0106a908"
+        }
+      ]
+    },
+    {
+      "id": "inkwell.system",
+      "owner": "Inkwell",
+      "status": "system_only",
+      "subject_selector": "migration metadata only",
+      "export": "No customer content",
+      "erasure": "Retain schema history",
+      "retention": "Retain migration provenance",
+      "restore": "Verify Goose version and full migration path",
+      "blocker": "No customer fulfillment claim",
+      "evidence": [
+        {
+          "repo": "inkwell",
+          "path": "internal/db/db.go",
+          "sha256": "209195f69d0268bc9a4a9f592327431c7b7fcdf92bebcbd97f006fb45169719d"
+        }
+      ]
+    },
+    {
+      "id": "wakaru.integration_sqlite",
+      "owner": "Wakaru",
+      "status": "scoped_fenced",
+      "subject_selector": "merchant/store/subject/source keys; six artifact kinds",
+      "export": "PrivacyStore.apply export; no browser authority",
+      "erasure": "Commit stops before physical artifacts deletion; replay requests and exact revision retention",
+      "retention": "90-day cap, source expiry; secure_delete, WAL/backups remain separate media policy",
+      "restore": "sqlite3.backup + independently retained privacy_scopes/tombstones/requests/invalidation_scopes; atomic overlay before opening service",
+      "blocker": "Storage media and old exports need separate evidence",
+      "evidence": [
+        {
+          "repo": "wakaru",
+          "path": "cart_recovery/integration_privacy.py",
+          "sha256": "d4ece9b216acb2a684ae6f17ac7df5e6725f994ae9395adb17f272a8b4492344"
+        }
+      ]
+    },
+    {
+      "id": "wakaru.typesafe_sqlite",
+      "owner": "Wakaru",
+      "status": "legacy_blocked",
+      "subject_selector": "merchant/request lineage in selected, attempts, results, judgments, raw_outputs, leases, budgets",
+      "export": "Authorized scoped export missing; excludes external copies",
+      "erasure": "delete_tenant covers a tenant; subject mapping and late-write stop missing",
+      "retention": "Purge does not establish subject-level erase",
+      "restore": "Quarantine files/queue/graphs before restoring; newest independent stop precedes replay",
+      "blocker": "No verified subject/source cleanup and export closure",
+      "evidence": [
+        {
+          "repo": "wakaru",
+          "path": "cart_recovery/intelligence/typesafe.py",
+          "sha256": "6dad8d8083d8653eba63544191e79f84b1c088890c36ae7dca336fc44688dc20"
+        }
+      ]
+    },
+    {
+      "id": "wakaru.plan_journal",
+      "owner": "Wakaru",
+      "status": "legacy_blocked",
+      "subject_selector": "merchant/revision in recovery_plans; no exact source/subject",
+      "export": "Authorized scoped export missing; excludes external copies",
+      "erasure": "Need reference registration and scoped tombstone-aware adapter",
+      "retention": "Seven-day opportunistic load cleanup is not complete erasure",
+      "restore": "Quarantine files/queue/graphs before restoring; newest independent stop precedes replay",
+      "blocker": "No verified subject/source cleanup and export closure",
+      "evidence": [
+        {
+          "repo": "wakaru",
+          "path": "cart_recovery/intelligence/recovery.py",
+          "sha256": "db650457ea5f96cddecce20aea78be472c4efe900d41e93ff96097f4388235cc"
+        }
+      ]
+    },
+    {
+      "id": "wakaru.learning_registry",
+      "owner": "Wakaru",
+      "status": "legacy_blocked",
+      "subject_selector": "model dataset merchant IDs; no individual subject attribution",
+      "export": "Authorized scoped export missing; excludes external copies",
+      "erasure": "delete_merchant removes pooled weights and revokes models; individual dataset/export erasure remains separate",
+      "retention": "Private dataset files and report copies require operator retention",
+      "restore": "Quarantine files/queue/graphs before restoring; newest independent stop precedes replay",
+      "blocker": "No verified subject/source cleanup and export closure",
+      "evidence": [
+        {
+          "repo": "wakaru",
+          "path": "cart_recovery/learning/registry.py",
+          "sha256": "84e046fbd27a0c0332f3785203f121db90e85ed171ae4e28d1728c2738c039d0"
+        }
+      ]
+    },
+    {
+      "id": "wakaru.redis_queue",
+      "owner": "Wakaru",
+      "status": "legacy_blocked",
+      "subject_selector": "RQ job meta merchant and job ID; graph registry merchant/graph ID",
+      "export": "Authorized scoped export missing; excludes external copies",
+      "erasure": "Stop queue, enumerate queued/running/completed/failed/scheduled artifacts and caches; explicit job ownership; prove worker termination",
+      "retention": "RQ results/failures have TTL; active queue and graph ledger are not subject deletion proof",
+      "restore": "Quarantine files/queue/graphs before restoring; newest independent stop precedes replay",
+      "blocker": "No verified subject/source cleanup and export closure",
+      "evidence": [
+        {
+          "repo": "wakaru",
+          "path": "backend/app/services/job_queue.py",
+          "sha256": "7e91319b113e44ae17b5ede559e3c919a3eb4718a4117a24fe2c970eeafb28c3"
+        },
+        {
+          "repo": "wakaru",
+          "path": "backend/app/services/cart_recovery_jobs.py",
+          "sha256": "e0f2d53ba1989480d6334b212a24d4730e706e90f36979e469fc7dcffa27e26c"
+        },
+        {
+          "repo": "wakaru",
+          "path": "backend/app/services/graph_lifecycle.py",
+          "sha256": "1ed53bcc3dc46322b4f6b833f011b59fa50b1f543596f9a5ca31c914f7f9b20a"
+        }
+      ]
+    },
+    {
+      "id": "wakaru.workflow_files",
+      "owner": "Wakaru",
+      "status": "legacy_blocked",
+      "subject_selector": "project/simulation/job path and trusted merchant ownership; no subject index",
+      "export": "Authorized scoped export missing; excludes external copies",
+      "erasure": "Need path-bounded inventory and scoped deletion; never infer arbitrary filesystem paths from payload",
+      "retention": "Uploads, workflow JSON, OASIS SQLite, reports and IPC logs need explicit policy",
+      "restore": "Quarantine files/queue/graphs before restoring; newest independent stop precedes replay",
+      "blocker": "No verified subject/source cleanup and export closure",
+      "evidence": [
+        {
+          "repo": "wakaru",
+          "path": "backend/app/models/project.py",
+          "sha256": "49b9e4660e704bf29ef21d1aa14440c34484d54cd72e983e0739923e565d5846"
+        },
+        {
+          "repo": "wakaru",
+          "path": "backend/app/services/simulation_runner.py",
+          "sha256": "41cc858647e9a6528f3ad84acab7e973a0fb1f7e2cc1069f00c2dea0bd5e3a67"
+        },
+        {
+          "repo": "wakaru",
+          "path": "backend/app/services/simulation_ipc.py",
+          "sha256": "2cd596faed552c29f8e486b6641677787c2c38eeab822a82512be07e9b4088d9"
+        },
+        {
+          "repo": "wakaru",
+          "path": "backend/app/services/cart_recovery_workflow.py",
+          "sha256": "53dc7fa6811a0bc9151b5270171387df35790e567aa1da1b0b2589e61576a427"
+        },
+        {
+          "repo": "wakaru",
+          "path": "backend/app/services/legacy_cart_recovery.py",
+          "sha256": "a2eb4adc09614af19a4dc98e8398bec20c32acffd0d9bff006e1b39de31d5716"
+        }
+      ]
+    },
+    {
+      "id": "wakaru.zep",
+      "owner": "Wakaru + provider operator",
+      "status": "external_blocked",
+      "subject_selector": "merchant graph or scratch graph ID with verified source/subject lineage",
+      "export": "Vendor export authorization and exact graph inventory required",
+      "erasure": "Scratch sweep and local Redis deletion do not prove vendor erasure; require confirmed per-graph delete and retries",
+      "retention": "Vendor retention and scratch TTL are separate from pooled graph policy",
+      "restore": "Do not recreate erased graph IDs or ingest restored files; verify vendor deletion separately",
+      "blocker": "Provider access disabled; no vendor receipt claimed",
+      "evidence": [
+        {
+          "repo": "wakaru",
+          "path": "backend/app/services/zep_graph_sweeper.py",
+          "sha256": "903e9da3bcafb262694cd7e88153e059bf3ad9ec2033a9fa7916bf940ad2c18f"
+        },
+        {
+          "repo": "wakaru",
+          "path": "backend/app/services/zep_graph_memory_updater.py",
+          "sha256": "a14b0a31e93777d0432051c60765055f4a9d7a19b235b870712ec56632e50bed"
+        }
+      ]
+    },
+    {
+      "id": "web.context_memory",
+      "owner": "Web",
+      "status": "scoped_fenced",
+      "subject_selector": "session merchant/store plus subject/source keys and generation",
+      "export": "Memory only; C5 receipt aggregation is explicitly scoped",
+      "erasure": "IntegrationContextCache invalidates entries and rejects old generation; recreate at session boundary",
+      "retention": "Bounded entry expiry; no integration persistence to browser storage",
+      "restore": "Never rehydrate from legacy storage; late responses and old generations reject",
+      "blocker": "Browser is not an erasure participant or a send authority",
+      "evidence": [
+        {
+          "repo": "web",
+          "path": "lib/integration-privacy.ts",
+          "sha256": "7695609f4f1df2b2bf28d4d5f3ac0c3107f38d73c2896dc4f45295a242dcda16"
+        },
+        {
+          "repo": "web",
+          "path": "lib/integration-worker-health.ts",
+          "sha256": "4f1fe23b96e624cc7372ca477ead36a3b0849344bda38b499af3e715638447d2"
+        },
+        {
+          "repo": "web",
+          "path": "components/merchant-integrations.tsx",
+          "sha256": "9d5875c2ea5b19d72a952517d9d09b20d2f95e8798c85541e5904668ec60b7cb"
+        }
+      ]
+    },
+    {
+      "id": "web.credentials",
+      "owner": "Web",
+      "status": "merchant_only",
+      "subject_selector": "merchant session auth token/user profile; OAuth session state",
+      "export": "Not part of customer data export",
+      "erasure": "Existing clearAuthToken and session expiry; do not claim control over other browser sessions",
+      "retention": "Credential/session policy separate",
+      "restore": "Sign out/clear old session state; no service credentials in browser",
+      "blocker": "Active session revocation requires authorized operations",
+      "evidence": [
+        {
+          "repo": "web",
+          "path": "lib/api.ts",
+          "sha256": "58387c353b1bd70ac953a5533e24881c39fca2caa8ab39749143b9ddd5b44b24"
+        },
+        {
+          "repo": "web",
+          "path": "lib/inkwell-api.ts",
+          "sha256": "5f839a2a85cdeafc7aaefd64aaa0398a7b85f34426ff95ee665198b318f1c768"
+        },
+        {
+          "repo": "web",
+          "path": "components/judgeme-connection.tsx",
+          "sha256": "dfc0b20bb38562eb440d6f8d8437670a3586495623167e09caf89629ce863c0f"
+        }
+      ]
+    },
+    {
+      "id": "external.downloads_blobs",
+      "owner": "Engine + Inkwell + Web + operator",
+      "status": "external_blocked",
+      "subject_selector": "document/merchant + exact object/export/recipient IDs; no broad bucket deletion",
+      "export": "Protected export recipient and expiry policy required",
+      "erasure": "Exact provider/object deletion receipts and CDN invalidation; downloaded copies cannot be silently recalled",
+      "retention": "Backups, object versions, CDNs, exports, telemetry and provider copies require independent retention decisions",
+      "restore": "Restore object index only into quarantine; do not restore signed URLs or old approvals",
+      "blocker": "No live provider/object store access or customer-wide completion evidence",
+      "evidence": [
+        {
+          "repo": "inkwell",
+          "path": "internal/db/models.go",
+          "sha256": "aa3b9e639e9e96d02c84237744b35f49b977a9a145e922d209a9478ccf2fd400"
+        },
+        {
+          "repo": "web",
+          "path": "components/brand/demo-preview-panel.tsx",
+          "sha256": "4d557159d6c52879facfd95d29582dc018eb7b7a7c20709d65c5ce9aded07ea7"
+        },
+        {
+          "repo": "web",
+          "path": "components/recovery-execution-history.tsx",
+          "sha256": "cd7f3c508fd916c27d1c6d068812917d97b429bca7157687f082a81255fb02b4"
+        },
+        {
+          "repo": "engine",
+          "path": "migrations/061_email_renditions.sql",
+          "sha256": "de54fe622ee3e7f99bb3aa5a060bc154e2a79a35f3d291638193121c4cccea9f"
+        }
+      ]
+    },
+    {
+      "id": "wakaru.adaptive_semantic",
+      "owner": "Wakaru semantic service and privacy operator",
+      "status": "legacy_blocked",
+      "subject_selector": "Authoritative merchant/journey binding; pre-AF11 unmapped rows require explicit reconciliation",
+      "export": "Approved subject/source export adapter and source coverage remain a release gate",
+      "erasure": "AF11 journey tombstones fence late writes; erase journal payloads while preserving charged and unknown aggregate spend",
+      "retention": "Use approved policy and qualified maintenance role; qualification fixtures are not production retention acceptance",
+      "restore": "Quarantine restored journals; independently retained journey erasure fences precede reads and replay",
+      "blocker": "Combined source ownership, vendor/export copies, migration lineage, restricted-role and target-environment fulfillment qualification remain open",
+      "evidence": [
+        {
+          "repo": "wakaru",
+          "path": "cart_recovery/adaptive/journal.py",
+          "sha256": "9ae3e283c28df7aaf8b364d6310b79e3f31e10381326ce2755ee3b89ab7d2f85"
+        },
+        {
+          "repo": "wakaru",
+          "path": "cart_recovery/adaptive/erasure.py",
+          "sha256": "9015999018223c70658a16bb3374c26cb66140a23fbd53862cde5102b49817fa"
+        },
+        {
+          "repo": "wakaru",
+          "path": "cart_recovery/adaptive/migrations/001_journal.sql",
+          "sha256": "0d07f5482d419619e0dd65bf6eabfff78b643ff66cdc5dd3179915ea1c2e11e6"
+        },
+        {
+          "repo": "wakaru",
+          "path": "cart_recovery/adaptive/migrations/002_erasure.sql",
+          "sha256": "68554ba26825337667a686fd2636c1d79f203b861f869a8f0184e0bd22c7e76a"
+        }
+      ]
+    }
+  ],
+  "relations": {
+    "engine": [
+      {
+        "relation": "intelligence.attempt_results",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "attempt_id",
+          "merchant_id",
+          "result"
+        ],
+        "family": "engine.typesafe_legacy"
+      },
+      {
+        "relation": "intelligence.attempts",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "id",
+          "merchant_id",
+          "request_key",
+          "started_at",
+          "reserved_cost"
+        ],
+        "family": "engine.typesafe_legacy"
+      },
+      {
+        "relation": "intelligence.budgets",
+        "kind": "r",
+        "rls": false,
+        "force_rls": false,
+        "columns": [
+          "budget_key",
+          "day",
+          "spent"
+        ],
+        "family": "engine.typesafe_legacy"
+      },
+      {
+        "relation": "intelligence.judgments",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "id",
+          "merchant_id",
+          "request_key",
+          "record",
+          "created_at"
+        ],
+        "family": "engine.typesafe_legacy"
+      },
+      {
+        "relation": "intelligence.raw_outputs",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "attempt_id",
+          "merchant_id",
+          "body",
+          "created_at"
+        ],
+        "family": "engine.typesafe_legacy"
+      },
+      {
+        "relation": "intelligence.repairs",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "merchant_id",
+          "document_id",
+          "created_at"
+        ],
+        "family": "engine.typesafe_legacy"
+      },
+      {
+        "relation": "intelligence.selected",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "merchant_id",
+          "request_key",
+          "judgment",
+          "created_at"
+        ],
+        "family": "engine.typesafe_legacy"
+      },
+      {
+        "relation": "public._merchant_id_migration_map",
+        "kind": "r",
+        "rls": false,
+        "force_rls": false,
+        "columns": [
+          "uuid_id",
+          "int_id",
+          "migrated_at"
+        ],
+        "family": "engine.identity_legacy"
+      },
+      {
+        "relation": "public.abandonment_detections",
+        "kind": "r",
+        "rls": false,
+        "force_rls": false,
+        "columns": [
+          "anonymous_id",
+          "checkout_started_at",
+          "detected_at",
+          "source",
+          "shopify_store_id",
+          "episode_type",
+          "episode_uuid"
+        ],
+        "family": "engine.behavior_legacy"
+      },
+      {
+        "relation": "public.api_usage",
+        "kind": "r",
+        "rls": false,
+        "force_rls": false,
+        "columns": [
+          "id",
+          "shopify_store_id",
+          "endpoint",
+          "method",
+          "response_code",
+          "response_time_ms",
+          "tokens_used",
+          "cost_usd",
+          "created_at"
+        ],
+        "family": "engine.merchant_records"
+      },
+      {
+        "relation": "public.auth_codes",
+        "kind": "r",
+        "rls": false,
+        "force_rls": false,
+        "columns": [
+          "id",
+          "email",
+          "code",
+          "code_type",
+          "expires_at",
+          "is_used",
+          "used_at",
+          "shopify_store_id",
+          "created_at"
+        ],
+        "family": "engine.merchant_records"
+      },
+      {
+        "relation": "public.billing_details",
+        "kind": "r",
+        "rls": false,
+        "force_rls": false,
+        "columns": [
+          "id",
+          "email",
+          "company_name",
+          "street_address",
+          "city",
+          "state",
+          "zip",
+          "country",
+          "payment_method",
+          "max_monthly_limit",
+          "card_number",
+          "expiry_date",
+          "cvv",
+          "routing_number",
+          "account_number",
+          "account_type",
+          "created_at",
+          "updated_at",
+          "merchant_id"
+        ],
+        "family": "engine.merchant_records"
+      },
+      {
+        "relation": "public.brand_copy_extraction_runs",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "id",
+          "shopify_store_id",
+          "receipt",
+          "inputs",
+          "result",
+          "applied",
+          "created_at"
+        ],
+        "family": "engine.merchant_records"
+      },
+      {
+        "relation": "public.brand_knowledge_base",
+        "kind": "r",
+        "rls": false,
+        "force_rls": false,
+        "columns": [
+          "id",
+          "shopify_store_id",
+          "brand_name",
+          "primary_color",
+          "secondary_color",
+          "signature_phrases",
+          "cta_styles",
+          "subject_line_styles",
+          "value_props",
+          "top_categories",
+          "review_themes",
+          "policies_data",
+          "created_at",
+          "updated_at",
+          "background_color",
+          "font_color",
+          "font_family",
+          "brand_icon_url",
+          "brand_images",
+          "design_tokens",
+          "logos",
+          "image_assets",
+          "screenshot_url",
+          "socials",
+          "brand_links",
+          "slogan",
+          "description",
+          "primary_language",
+          "voice",
+          "enrichment_source",
+          "copy_extraction"
+        ],
+        "family": "engine.merchant_records"
+      },
+      {
+        "relation": "public.brand_policy_reviews",
+        "kind": "r",
+        "rls": false,
+        "force_rls": false,
+        "columns": [
+          "shopify_store_id",
+          "revision",
+          "captured_at",
+          "report"
+        ],
+        "family": "engine.merchant_records"
+      },
+      {
+        "relation": "public.cart_abandonment_analysis",
+        "kind": "r",
+        "rls": false,
+        "force_rls": false,
+        "columns": [
+          "id",
+          "anonymous_id",
+          "analysis_type",
+          "ontology_code",
+          "confidence_score",
+          "intent",
+          "analysis",
+          "reasoning",
+          "events_analyzed",
+          "shopify_store_id",
+          "created_at",
+          "mirofish_job_id",
+          "mirofish_status",
+          "mirofish_predicted_reason",
+          "analysis_started_at",
+          "analysis_completed_at",
+          "forwarded_to_inkwell",
+          "forwarded_at",
+          "mirofish_merchant_id",
+          "session_end_at",
+          "episode_type",
+          "recovery_snapshot"
+        ],
+        "family": "engine.behavior_legacy"
+      },
+      {
+        "relation": "public.customers",
+        "kind": "r",
+        "rls": false,
+        "force_rls": false,
+        "columns": [
+          "id",
+          "anonymous_id",
+          "email",
+          "name",
+          "location",
+          "device",
+          "status",
+          "cart_value",
+          "cart_items",
+          "total_spent",
+          "orders_count",
+          "recovery_attempts",
+          "mirofish_reason",
+          "mirofish_emotional_state",
+          "mirofish_confidence",
+          "last_seen",
+          "created_at",
+          "updated_at",
+          "merchant_id"
+        ],
+        "family": "engine.behavior_legacy"
+      },
+      {
+        "relation": "public.discount_catalog_codes",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "id",
+          "promotion_id",
+          "merchant_id",
+          "provider_id",
+          "code",
+          "allow_recovery",
+          "revision",
+          "available"
+        ],
+        "family": "engine.merchant_records"
+      },
+      {
+        "relation": "public.discount_catalog_promotions",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "id",
+          "merchant_id",
+          "store_id",
+          "connection_id",
+          "provider_id",
+          "origin",
+          "payload",
+          "generation",
+          "verified_at",
+          "unavailable_reason"
+        ],
+        "family": "engine.merchant_records"
+      },
+      {
+        "relation": "public.discount_creation_intents",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "id",
+          "merchant_id",
+          "store_id",
+          "connection_id",
+          "idempotency_key",
+          "request_hash",
+          "request",
+          "code",
+          "document_id",
+          "state",
+          "provider_id",
+          "error_code",
+          "created_at",
+          "updated_at",
+          "reconcile_after"
+        ],
+        "family": "engine.merchant_records"
+      },
+      {
+        "relation": "public.discount_offers",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "id",
+          "merchant_id",
+          "document_id",
+          "approval_hash",
+          "request_hash",
+          "payload",
+          "state",
+          "dispatch_attempt",
+          "dispatched_at",
+          "created_at"
+        ],
+        "family": "engine.merchant_records"
+      },
+      {
+        "relation": "public.discount_source_audit",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "id",
+          "merchant_id",
+          "source",
+          "revision",
+          "created_at"
+        ],
+        "family": "engine.merchant_records"
+      },
+      {
+        "relation": "public.discount_source_settings",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "merchant_id",
+          "source",
+          "revision",
+          "updated_at"
+        ],
+        "family": "engine.merchant_records"
+      },
+      {
+        "relation": "public.discount_sync_runs",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "id",
+          "merchant_id",
+          "store_id",
+          "connection_id",
+          "status",
+          "scan_complete",
+          "cursor",
+          "visited_cursors",
+          "pages",
+          "promotions",
+          "codes",
+          "error_code",
+          "lease_id",
+          "lease_until",
+          "created_at",
+          "finished_at",
+          "refresh_requested_at"
+        ],
+        "family": "engine.merchant_records"
+      },
+      {
+        "relation": "public.discount_sync_staging",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "run_id",
+          "provider_id",
+          "payload"
+        ],
+        "family": "engine.merchant_records"
+      },
+      {
+        "relation": "public.discounts",
+        "kind": "r",
+        "rls": false,
+        "force_rls": false,
+        "columns": [
+          "id",
+          "shopify_discount_id",
+          "title",
+          "code",
+          "type",
+          "value",
+          "enabled",
+          "usage_count",
+          "expires_at",
+          "created_at",
+          "updated_at",
+          "merchant_id"
+        ],
+        "family": "engine.merchant_records"
+      },
+      {
+        "relation": "public.email_campaigns",
+        "kind": "r",
+        "rls": false,
+        "force_rls": false,
+        "columns": [
+          "id",
+          "anonymous_id",
+          "email_address",
+          "template_id",
+          "subject",
+          "html_body",
+          "text_body",
+          "personalization_data",
+          "user_journey",
+          "abandonment_reason",
+          "status",
+          "sent_at",
+          "delivered_at",
+          "opened_at",
+          "clicked_at",
+          "error_message",
+          "shopify_store_id",
+          "created_at",
+          "updated_at",
+          "store_id",
+          "delivery_channel",
+          "confidence_score",
+          "ab_test_id",
+          "sequence_run_id",
+          "angle_used",
+          "ontology_code"
+        ],
+        "family": "engine.message_legacy"
+      },
+      {
+        "relation": "public.email_renditions",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "merchant_id",
+          "content_hash",
+          "payload",
+          "width",
+          "height",
+          "created_at"
+        ],
+        "family": "engine.message_legacy"
+      },
+      {
+        "relation": "public.email_suppressions",
+        "kind": "r",
+        "rls": false,
+        "force_rls": false,
+        "columns": [
+          "id",
+          "email",
+          "reason",
+          "source",
+          "sendgrid_event_id",
+          "created_at",
+          "merchant_id",
+          "occurred_at"
+        ],
+        "family": "engine.message_legacy"
+      },
+      {
+        "relation": "public.events",
+        "kind": "r",
+        "rls": false,
+        "force_rls": false,
+        "columns": [
+          "id",
+          "event_name",
+          "anonymous_id",
+          "user_email",
+          "data",
+          "context",
+          "timestamp",
+          "shopify_store_id",
+          "created_at",
+          "updated_at",
+          "source_event_id"
+        ],
+        "family": "engine.behavior_legacy"
+      },
+      {
+        "relation": "public.integration_account_budgets",
+        "kind": "r",
+        "rls": false,
+        "force_rls": false,
+        "columns": [
+          "provider",
+          "external_account",
+          "next_request_at"
+        ],
+        "family": "engine.integration_control"
+      },
+      {
+        "relation": "public.integration_authorizations",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "merchant_id",
+          "connection_id",
+          "attempt_id",
+          "generation",
+          "state_hash",
+          "expires_at"
+        ],
+        "family": "engine.integration_control"
+      },
+      {
+        "relation": "public.integration_capabilities",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "merchant_id",
+          "connection_id",
+          "capability",
+          "coverage",
+          "verified_at",
+          "scope",
+          "error_code"
+        ],
+        "family": "engine.integration_control"
+      },
+      {
+        "relation": "public.integration_checkpoints",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "merchant_id",
+          "connection_id",
+          "generation",
+          "capability",
+          "cursor",
+          "completed_at"
+        ],
+        "family": "engine.integration_control"
+      },
+      {
+        "relation": "public.integration_connections",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "id",
+          "merchant_id",
+          "store_id",
+          "provider",
+          "external_account",
+          "state",
+          "generation",
+          "connected_at",
+          "verified_at",
+          "health",
+          "scopes",
+          "updated_at"
+        ],
+        "family": "engine.integration_control"
+      },
+      {
+        "relation": "public.integration_context_requests",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "merchant_id",
+          "store_id",
+          "request_key",
+          "fingerprint",
+          "context_generation"
+        ],
+        "family": "engine.privacy_ledger"
+      },
+      {
+        "relation": "public.integration_context_snapshots",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "id",
+          "merchant_id",
+          "store_id",
+          "request_key",
+          "fingerprint",
+          "subject_key",
+          "episode_id",
+          "context_generation",
+          "privacy_generation",
+          "as_of",
+          "expires_at",
+          "customer_context",
+          "source_keys",
+          "connection_pins",
+          "payload",
+          "approved_content_health"
+        ],
+        "family": "engine.projections"
+      },
+      {
+        "relation": "public.integration_credentials",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "merchant_id",
+          "connection_id",
+          "ciphertext",
+          "key_version",
+          "revision",
+          "legacy_aad",
+          "refresh_owner",
+          "refresh_until"
+        ],
+        "family": "engine.integration_control"
+      },
+      {
+        "relation": "public.integration_fixture_records",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "merchant_id",
+          "connection_id",
+          "generation",
+          "capability",
+          "object_id",
+          "revision",
+          "value"
+        ],
+        "family": "engine.integration_control"
+      },
+      {
+        "relation": "public.integration_gorgias_bindings",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "merchant_id",
+          "store_id",
+          "connection_id",
+          "generation",
+          "native_integration_id",
+          "shop_domain",
+          "notification_id",
+          "notification_hash",
+          "notification_verified"
+        ],
+        "family": "engine.integration_control"
+      },
+      {
+        "relation": "public.integration_gorgias_hints",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "merchant_id",
+          "connection_id",
+          "generation",
+          "hint_key",
+          "kind",
+          "object_id",
+          "queued_job_id",
+          "capability",
+          "created_at"
+        ],
+        "family": "engine.integration_control"
+      },
+      {
+        "relation": "public.integration_gorgias_observations",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "merchant_id",
+          "store_id",
+          "connection_id",
+          "generation",
+          "revision_id",
+          "job_id",
+          "capability",
+          "verified_at",
+          "observed_at"
+        ],
+        "family": "engine.projections"
+      },
+      {
+        "relation": "public.integration_gorgias_revisions",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "id",
+          "merchant_id",
+          "store_id",
+          "connection_id",
+          "generation",
+          "kind",
+          "object_id",
+          "source_updated_at",
+          "observed_at",
+          "content_hash",
+          "projection"
+        ],
+        "family": "engine.projections"
+      },
+      {
+        "relation": "public.integration_gorgias_scans",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "job_id",
+          "merchant_id",
+          "connection_id",
+          "generation",
+          "capability",
+          "parameters",
+          "completed_at"
+        ],
+        "family": "engine.integration_control"
+      },
+      {
+        "relation": "public.integration_inbox",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "merchant_id",
+          "connection_id",
+          "generation",
+          "capability",
+          "event_id",
+          "digest",
+          "job_id",
+          "observed_at"
+        ],
+        "family": "engine.integration_control"
+      },
+      {
+        "relation": "public.integration_invalidation_deliveries",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "merchant_id",
+          "store_id",
+          "service",
+          "acknowledged_epoch",
+          "lease_id",
+          "lease_until",
+          "lease_epoch",
+          "lease_cutoff_us",
+          "attempts",
+          "next_attempt_at",
+          "last_error",
+          "pending_since",
+          "last_attempt_at",
+          "last_success_at",
+          "worker_seen_at"
+        ],
+        "family": "engine.support"
+      },
+      {
+        "relation": "public.integration_invalidation_scopes",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "merchant_id",
+          "store_id",
+          "epoch",
+          "cutoff_us"
+        ],
+        "family": "engine.support"
+      },
+      {
+        "relation": "public.integration_jobs",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "id",
+          "merchant_id",
+          "connection_id",
+          "generation",
+          "capability",
+          "dedupe_key",
+          "cursor",
+          "state",
+          "lease_token",
+          "lease_until",
+          "attempts",
+          "pages",
+          "next_attempt_at",
+          "error_code",
+          "created_at"
+        ],
+        "family": "engine.integration_control"
+      },
+      {
+        "relation": "public.integration_outbox",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "id",
+          "merchant_id",
+          "connection_id",
+          "generation",
+          "kind",
+          "created_at",
+          "acknowledged_at"
+        ],
+        "family": "engine.integration_control"
+      },
+      {
+        "relation": "public.integration_privacy_jobs",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "id",
+          "merchant_id",
+          "store_id",
+          "request_key",
+          "fingerprint",
+          "subject_key",
+          "generation",
+          "operation",
+          "scope",
+          "state",
+          "created_at",
+          "completed_at"
+        ],
+        "family": "engine.privacy_ledger"
+      },
+      {
+        "relation": "public.integration_privacy_receipts",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "merchant_id",
+          "job_id",
+          "generation",
+          "operation",
+          "service",
+          "completed_at"
+        ],
+        "family": "engine.privacy_ledger"
+      },
+      {
+        "relation": "public.integration_privacy_refs",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "merchant_id",
+          "store_id",
+          "reference_key",
+          "artifact_kind",
+          "artifact_id",
+          "connection_id",
+          "expires_at"
+        ],
+        "family": "engine.projections"
+      },
+      {
+        "relation": "public.integration_privacy_scopes",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "merchant_id",
+          "store_id",
+          "generation",
+          "store_erased"
+        ],
+        "family": "engine.privacy_ledger"
+      },
+      {
+        "relation": "public.integration_privacy_targets",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "merchant_id",
+          "job_id",
+          "reference_key"
+        ],
+        "family": "engine.privacy_ledger"
+      },
+      {
+        "relation": "public.integration_privacy_tombstones",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "merchant_id",
+          "store_id",
+          "reference_key",
+          "generation",
+          "job_id"
+        ],
+        "family": "engine.privacy_ledger"
+      },
+      {
+        "relation": "public.integration_shopify_customer_observations",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "merchant_id",
+          "store_id",
+          "connection_id",
+          "generation",
+          "revision_id",
+          "job_id",
+          "verified_at",
+          "observed_at"
+        ],
+        "family": "engine.projections"
+      },
+      {
+        "relation": "public.integration_shopify_customer_revisions",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "id",
+          "merchant_id",
+          "store_id",
+          "connection_id",
+          "generation",
+          "customer_id",
+          "source_updated_at",
+          "observed_at",
+          "content_hash",
+          "projection"
+        ],
+        "family": "engine.projections"
+      },
+      {
+        "relation": "public.integration_support_bindings",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "id",
+          "merchant_id",
+          "store_id",
+          "snapshot_id",
+          "context_hash",
+          "subject_key",
+          "episode_id",
+          "cart_key",
+          "recipient_key",
+          "since",
+          "generation",
+          "subject_revision",
+          "expires_at",
+          "source_keys"
+        ],
+        "family": "engine.support"
+      },
+      {
+        "relation": "public.integration_support_enrollments",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "merchant_id",
+          "store_id",
+          "generation",
+          "policy_version",
+          "enrollment_actor",
+          "enrolled_at"
+        ],
+        "family": "engine.support"
+      },
+      {
+        "relation": "public.integration_support_outbox",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "merchant_id",
+          "store_id",
+          "subject_key",
+          "generation",
+          "subject_revision",
+          "changed_at"
+        ],
+        "family": "engine.support"
+      },
+      {
+        "relation": "public.integration_support_states",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "id",
+          "merchant_id",
+          "store_id",
+          "subject_key",
+          "revision",
+          "source_generation",
+          "input_hash",
+          "reasons",
+          "verified_at",
+          "expires_at",
+          "source_keys"
+        ],
+        "family": "engine.support"
+      },
+      {
+        "relation": "public.invite_tokens",
+        "kind": "r",
+        "rls": false,
+        "force_rls": false,
+        "columns": [
+          "id",
+          "token",
+          "expires_at",
+          "used_at",
+          "created_at",
+          "merchant_id"
+        ],
+        "family": "engine.merchant_records"
+      },
+      {
+        "relation": "public.merchant_sender_settings",
+        "kind": "r",
+        "rls": false,
+        "force_rls": false,
+        "columns": [
+          "merchant_id",
+          "selected_domain_id",
+          "display_name",
+          "local_part",
+          "reply_to",
+          "settings_revision",
+          "enabled"
+        ],
+        "family": "engine.merchant_records"
+      },
+      {
+        "relation": "public.merchants",
+        "kind": "r",
+        "rls": false,
+        "force_rls": false,
+        "columns": [
+          "email",
+          "password",
+          "first_name",
+          "last_name",
+          "onboarding_complete",
+          "is_active",
+          "is_verified",
+          "last_login_at",
+          "shopify_store_id",
+          "created_at",
+          "updated_at",
+          "klaviyo_api_key",
+          "klaviyo_fallback_enabled",
+          "klaviyo_fallback_threshold",
+          "status",
+          "role",
+          "google_id",
+          "business_name",
+          "business_category",
+          "location",
+          "revenue_figure",
+          "conversion_channel",
+          "sales_notes",
+          "plan_tier",
+          "onboarding_dismissed",
+          "poc_name",
+          "poc_mobile",
+          "poc_email",
+          "id"
+        ],
+        "family": "engine.merchant_records"
+      },
+      {
+        "relation": "public.migrations",
+        "kind": "r",
+        "rls": false,
+        "force_rls": false,
+        "columns": [
+          "version",
+          "description",
+          "applied_at"
+        ],
+        "family": "engine.system"
+      },
+      {
+        "relation": "public.order_outcome_events",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "id",
+          "shop_domain",
+          "topic",
+          "delivery_key",
+          "payload_hash",
+          "shopify_order_id",
+          "source_event_at",
+          "received_at",
+          "evidence",
+          "error_code",
+          "reconciled_revision_id"
+        ],
+        "family": "engine.orders_legacy"
+      },
+      {
+        "relation": "public.order_outcome_observations",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "shopify_store_id",
+          "run_id",
+          "revision_id",
+          "observed_at"
+        ],
+        "family": "engine.orders_legacy"
+      },
+      {
+        "relation": "public.order_outcome_reconciliations",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "shopify_store_id",
+          "event_id",
+          "run_id",
+          "revision_id",
+          "observed_at"
+        ],
+        "family": "engine.orders_legacy"
+      },
+      {
+        "relation": "public.order_outcome_revisions",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "id",
+          "shopify_store_id",
+          "shopify_order_id",
+          "schema_version",
+          "source_updated_at",
+          "observed_at",
+          "content_hash",
+          "snapshot"
+        ],
+        "family": "engine.orders_legacy"
+      },
+      {
+        "relation": "public.order_outcome_runs",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "id",
+          "shopify_store_id",
+          "api_version",
+          "created_from",
+          "created_through",
+          "started_at",
+          "finished_at",
+          "status",
+          "access_scopes",
+          "error_code",
+          "pages"
+        ],
+        "family": "engine.orders_legacy"
+      },
+      {
+        "relation": "public.order_webhook_inbox",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "id",
+          "shop_domain",
+          "shopify_order_id",
+          "webhook_id",
+          "payload",
+          "received_at",
+          "processed_at",
+          "attempts",
+          "next_attempt_at",
+          "last_error_code"
+        ],
+        "family": "engine.orders_legacy"
+      },
+      {
+        "relation": "public.orders",
+        "kind": "r",
+        "rls": false,
+        "force_rls": false,
+        "columns": [
+          "id",
+          "shopify_order_id",
+          "shopify_store_id",
+          "email",
+          "checkout_token",
+          "cart_token",
+          "matched_anonymous_id",
+          "total_price",
+          "currency",
+          "order_number",
+          "line_items",
+          "raw_payload",
+          "shopify_created_at",
+          "created_at",
+          "updated_at",
+          "forwarded_to_inkwell",
+          "forwarded_at"
+        ],
+        "family": "engine.orders_legacy"
+      },
+      {
+        "relation": "public.pixel_collection_receipts",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "event_id",
+          "content_hash",
+          "first_received_at",
+          "last_received_at",
+          "attempts"
+        ],
+        "family": "engine.behavior_legacy"
+      },
+      {
+        "relation": "public.pixel_identity_observations",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "event_id",
+          "shopify_store_id",
+          "source_event_id",
+          "anonymous_id",
+          "session_id",
+          "occurred_at",
+          "received_at",
+          "collector_version",
+          "browser_family",
+          "identity",
+          "checkout_token",
+          "content_hash"
+        ],
+        "family": "engine.identity_legacy"
+      },
+      {
+        "relation": "public.platform_setting_changes",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "id",
+          "setting",
+          "old_value",
+          "new_value",
+          "changed_by",
+          "changed_at"
+        ],
+        "family": "engine.merchant_records"
+      },
+      {
+        "relation": "public.platform_settings",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "id",
+          "shopify_setup_route",
+          "updated_by",
+          "updated_at"
+        ],
+        "family": "engine.merchant_records"
+      },
+      {
+        "relation": "public.provider_binding_revocations",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "shopify_store_id",
+          "token_hash",
+          "observed_at",
+          "reason"
+        ],
+        "family": "engine.identity_legacy"
+      },
+      {
+        "relation": "public.provider_browser_bindings",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "token_hash",
+          "shopify_store_id",
+          "profile_id",
+          "exchange_hash",
+          "observed_at",
+          "expires_at"
+        ],
+        "family": "engine.identity_legacy"
+      },
+      {
+        "relation": "public.provider_identity_links",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "event_id",
+          "shopify_store_id",
+          "proof_hash",
+          "observed_at"
+        ],
+        "family": "engine.identity_legacy"
+      },
+      {
+        "relation": "public.provider_identity_policies",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "shopify_store_id",
+          "enabled",
+          "updated_at"
+        ],
+        "family": "engine.identity_legacy"
+      },
+      {
+        "relation": "public.provider_identity_proofs",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "proof_hash",
+          "shopify_store_id",
+          "token_hash",
+          "source",
+          "source_at",
+          "observed_at",
+          "expires_at"
+        ],
+        "family": "engine.identity_legacy"
+      },
+      {
+        "relation": "public.provider_lookup_budgets",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "shopify_store_id",
+          "bucket",
+          "calls"
+        ],
+        "family": "engine.identity_legacy"
+      },
+      {
+        "relation": "public.recovery_completion_receipts",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "id",
+          "assignment_id",
+          "merchant_id",
+          "provider",
+          "provider_event_id",
+          "event_type",
+          "document_id",
+          "attempt_id",
+          "recipient_hash",
+          "route_hash",
+          "message_hash",
+          "evidence_hash",
+          "occurred_at",
+          "recorded_at"
+        ],
+        "family": "engine.recovery_legacy"
+      },
+      {
+        "relation": "public.recovery_coordination_policies",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "merchant_id",
+          "enabled",
+          "send_fence_active",
+          "remedies",
+          "updated_at"
+        ],
+        "family": "engine.recovery_legacy"
+      },
+      {
+        "relation": "public.recovery_execution_events",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "ordinal",
+          "assignment_id",
+          "merchant_id",
+          "state",
+          "reason",
+          "recorded_at"
+        ],
+        "family": "engine.recovery_legacy"
+      },
+      {
+        "relation": "public.recovery_execution_jobs",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "assignment_id",
+          "merchant_id",
+          "recipient_hash",
+          "route_hash",
+          "profile_hash",
+          "owner",
+          "state",
+          "attempts",
+          "next_attempt_at",
+          "document_id",
+          "attempt_id",
+          "payload_sha256",
+          "created_at",
+          "completion_contract",
+          "attempt_started_at",
+          "completed_at",
+          "release_not_before",
+          "completion_receipt_id"
+        ],
+        "family": "engine.recovery_legacy"
+      },
+      {
+        "relation": "public.recovery_execution_policies",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "merchant_id",
+          "enabled",
+          "flow_id",
+          "flow_sha256",
+          "metric_id",
+          "review_reference",
+          "credential_hash",
+          "verified_at",
+          "expires_at"
+        ],
+        "family": "engine.recovery_legacy"
+      },
+      {
+        "relation": "public.recovery_execution_sources",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "assignment_id",
+          "merchant_id",
+          "captured_event_ids",
+          "as_of",
+          "cart_id",
+          "abandoned_at"
+        ],
+        "family": "engine.recovery_legacy"
+      },
+      {
+        "relation": "public.recovery_forward_snapshots",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "shopify_store_id",
+          "anonymous_id",
+          "job_id",
+          "payload",
+          "observed_at"
+        ],
+        "family": "engine.recovery_legacy"
+      },
+      {
+        "relation": "public.recovery_learning_datasets",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "merchant_id",
+          "dataset_sha256",
+          "as_of",
+          "schema_version",
+          "payload",
+          "created_at"
+        ],
+        "family": "engine.recovery_legacy"
+      },
+      {
+        "relation": "public.recovery_learning_policies",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "merchant_id",
+          "experiment_id",
+          "specification",
+          "created_at"
+        ],
+        "family": "engine.recovery_legacy"
+      },
+      {
+        "relation": "public.recovery_learning_units",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "merchant_id",
+          "unit_sha256",
+          "experiment_id",
+          "assignment",
+          "assigned_at",
+          "protected_through"
+        ],
+        "family": "engine.recovery_legacy"
+      },
+      {
+        "relation": "public.recovery_owner_assignments",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "id",
+          "merchant_id",
+          "shopify_store_id",
+          "anonymous_id",
+          "episode_id",
+          "input_sha256",
+          "receipt",
+          "recorded_at"
+        ],
+        "family": "engine.recovery_legacy"
+      },
+      {
+        "relation": "public.sender_dispatch_audit",
+        "kind": "r",
+        "rls": false,
+        "force_rls": false,
+        "columns": [
+          "id",
+          "merchant_id",
+          "domain_id",
+          "settings_revision",
+          "email_document_id",
+          "send_attempt_id",
+          "from_email",
+          "display_name",
+          "reply_to",
+          "created_at"
+        ],
+        "family": "engine.merchant_records"
+      },
+      {
+        "relation": "public.sender_domain_claims",
+        "kind": "r",
+        "rls": false,
+        "force_rls": false,
+        "columns": [
+          "provider_account",
+          "domain",
+          "merchant_id"
+        ],
+        "family": "engine.merchant_records"
+      },
+      {
+        "relation": "public.sender_domain_operations",
+        "kind": "r",
+        "rls": false,
+        "force_rls": false,
+        "columns": [
+          "id",
+          "merchant_id",
+          "idempotency_key",
+          "request_hash",
+          "domain_id",
+          "state",
+          "provider_result",
+          "error_code",
+          "created_at",
+          "updated_at"
+        ],
+        "family": "engine.merchant_records"
+      },
+      {
+        "relation": "public.sender_domains",
+        "kind": "r",
+        "rls": false,
+        "force_rls": false,
+        "columns": [
+          "id",
+          "sendgrid_domain_id",
+          "domain",
+          "subdomain",
+          "valid",
+          "dns_records",
+          "last_verified_at",
+          "created_at",
+          "updated_at",
+          "merchant_id",
+          "revision",
+          "provider_account",
+          "provisioning_state",
+          "verification_state",
+          "last_checked_at",
+          "verification_expires_at",
+          "last_error",
+          "cleanup_state",
+          "next_check_at"
+        ],
+        "family": "engine.merchant_records"
+      },
+      {
+        "relation": "public.shopify_brand_app_audit",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "id",
+          "store_id",
+          "shop_domain",
+          "merchant_id",
+          "action",
+          "client_id",
+          "created_at"
+        ],
+        "family": "engine.merchant_records"
+      },
+      {
+        "relation": "public.shopify_brand_app_credentials",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "store_id",
+          "client_id",
+          "client_secret_enc",
+          "key_version",
+          "verified_at",
+          "last_mint_error",
+          "created_at",
+          "updated_at"
+        ],
+        "family": "engine.merchant_records"
+      },
+      {
+        "relation": "public.shopify_install_intents",
+        "kind": "r",
+        "rls": false,
+        "force_rls": false,
+        "columns": [
+          "shop_domain",
+          "created_at",
+          "updated_at",
+          "merchant_id"
+        ],
+        "family": "engine.merchant_records"
+      },
+      {
+        "relation": "public.shopify_pixel_registrations",
+        "kind": "r",
+        "rls": false,
+        "force_rls": false,
+        "columns": [
+          "shopify_store_id",
+          "status",
+          "pixel_id",
+          "last_error",
+          "attempts",
+          "requested_at",
+          "verified_at",
+          "next_attempt_at",
+          "lease_id",
+          "lease_until",
+          "updated_at"
+        ],
+        "family": "engine.merchant_records"
+      },
+      {
+        "relation": "public.shopify_stores",
+        "kind": "r",
+        "rls": false,
+        "force_rls": false,
+        "columns": [
+          "id",
+          "shop_domain",
+          "shop_name",
+          "access_token",
+          "webhook_secret",
+          "api_version",
+          "is_active",
+          "plan_type",
+          "created_at",
+          "updated_at",
+          "access_token_expires_at",
+          "refresh_token",
+          "refresh_token_expires_at",
+          "auth_mode",
+          "granted_scopes"
+        ],
+        "family": "engine.merchant_records"
+      },
+      {
+        "relation": "public.shopify_webhook_registrations",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "store_id",
+          "connection_id",
+          "status",
+          "verified_at",
+          "coverage_started_at",
+          "next_attempt_at",
+          "attempts",
+          "last_error",
+          "lease_id",
+          "lease_until"
+        ],
+        "family": "engine.merchant_records"
+      },
+      {
+        "relation": "public.shopper_account_links",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "event_id",
+          "shopify_store_id",
+          "proof_hash",
+          "observed_at"
+        ],
+        "family": "engine.identity_legacy"
+      },
+      {
+        "relation": "public.shopper_account_proofs",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "proof_hash",
+          "shopify_store_id",
+          "customer_id",
+          "source_at",
+          "observed_at",
+          "expires_at"
+        ],
+        "family": "engine.identity_legacy"
+      },
+      {
+        "relation": "public.shopper_identity_revocations",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "event_id",
+          "observed_at",
+          "reason"
+        ],
+        "family": "engine.identity_legacy"
+      },
+      {
+        "relation": "public.shopper_profiles",
+        "kind": "r",
+        "rls": false,
+        "force_rls": false,
+        "columns": [
+          "id",
+          "anonymous_id",
+          "visit_count",
+          "first_seen_at",
+          "last_seen_at",
+          "avg_days_between_visits",
+          "primary_device",
+          "primary_traffic_source",
+          "journey_state",
+          "checkout_high_water",
+          "abandon_points",
+          "purchase_count",
+          "lifetime_value",
+          "last_purchase_at",
+          "emails_sent",
+          "emails_opened",
+          "emails_clicked",
+          "last_recovery_angle",
+          "last_recovery_outcome",
+          "zep_enrolled",
+          "archetype",
+          "archetype_confidence",
+          "created_at",
+          "updated_at",
+          "merchant_id"
+        ],
+        "family": "engine.behavior_legacy"
+      },
+      {
+        "relation": "public.webhook_events",
+        "kind": "r",
+        "rls": false,
+        "force_rls": false,
+        "columns": [
+          "id",
+          "webhook_id",
+          "topic",
+          "shop_domain",
+          "payload",
+          "processed",
+          "processed_at",
+          "error_message",
+          "shopify_store_id",
+          "created_at"
+        ],
+        "family": "engine.orders_legacy"
+      }
+    ],
+    "inkwell": [
+      {
+        "relation": "inkwell.audit_log",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "id",
+          "merchant_id",
+          "created_at",
+          "actor",
+          "actor_id",
+          "event_type",
+          "target_type",
+          "target_id",
+          "before",
+          "after",
+          "trace_id",
+          "input",
+          "output"
+        ],
+        "family": "inkwell.documents_legacy"
+      },
+      {
+        "relation": "inkwell.brand_contract_examples",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "id",
+          "brand_contract_id",
+          "position",
+          "kind",
+          "content"
+        ],
+        "family": "inkwell.merchant_records"
+      },
+      {
+        "relation": "inkwell.brand_contracts",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "id",
+          "merchant_id",
+          "version",
+          "status",
+          "created_at",
+          "created_by",
+          "visual_identity",
+          "voice_spec",
+          "structural_template",
+          "policy",
+          "brand_facts",
+          "canvas_archetype",
+          "curated_images"
+        ],
+        "family": "inkwell.merchant_records"
+      },
+      {
+        "relation": "inkwell.build_plans",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "id",
+          "merchant_id",
+          "cart_id",
+          "brand_contract_version",
+          "reason_category",
+          "recommended_angle",
+          "planner_confidence",
+          "tone_modulation",
+          "send_timing",
+          "active_slots",
+          "incentive_decision",
+          "created_at",
+          "experiment_id",
+          "arm",
+          "recipe_id",
+          "variant_ids",
+          "treatment_version",
+          "cohort_start",
+          "fact_resolved_at",
+          "fact_set_version",
+          "cart_value_tier",
+          "cutoff_version",
+          "cart_value_currency",
+          "fact_source_version"
+        ],
+        "family": "inkwell.documents_legacy"
+      },
+      {
+        "relation": "inkwell.demo_run_attempts",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "run_id",
+          "merchant_id",
+          "attempt",
+          "owner_token",
+          "started_at",
+          "finished_at",
+          "status",
+          "inputs",
+          "error_code"
+        ],
+        "family": "inkwell.documents_legacy"
+      },
+      {
+        "relation": "inkwell.demo_runs",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "id",
+          "merchant_id",
+          "contract_id",
+          "status",
+          "created_at",
+          "deadline_at",
+          "finished_at",
+          "attempt",
+          "owner_token",
+          "document_id",
+          "error_code",
+          "artifact",
+          "purpose",
+          "email_plan"
+        ],
+        "family": "inkwell.documents_legacy"
+      },
+      {
+        "relation": "inkwell.discount_codes",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "id",
+          "merchant_id",
+          "document_id",
+          "code",
+          "shopify_discount_id",
+          "expires_at",
+          "created_at"
+        ],
+        "family": "inkwell.documents_legacy"
+      },
+      {
+        "relation": "inkwell.document_discount_offers",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "document_id",
+          "merchant_id",
+          "approval_hash",
+          "offer",
+          "updated_at"
+        ],
+        "family": "inkwell.documents_legacy"
+      },
+      {
+        "relation": "inkwell.email_documents",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "id",
+          "merchant_id",
+          "cart_id",
+          "customer_id",
+          "brand_contract_version",
+          "build_plan_id",
+          "abandonment_insight",
+          "rendered_html_s3_key",
+          "rendered_html_hash",
+          "validation_trace",
+          "validation_passed",
+          "status",
+          "reasoning",
+          "created_at",
+          "sent_at",
+          "cart_snapshot",
+          "customer_snapshot",
+          "subject",
+          "kind",
+          "abandoned_at",
+          "sending_at",
+          "preheader",
+          "review_version",
+          "review_revision",
+          "review_required",
+          "approved_review_revision",
+          "approved_preview_hash",
+          "support_superseded"
+        ],
+        "family": "inkwell.documents_legacy"
+      },
+      {
+        "relation": "inkwell.email_events",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "id",
+          "merchant_id",
+          "email_document_id",
+          "event",
+          "sg_message_id",
+          "occurred_at",
+          "reason",
+          "received_at"
+        ],
+        "family": "inkwell.documents_legacy"
+      },
+      {
+        "relation": "inkwell.email_reviews",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "id",
+          "merchant_id",
+          "document_id",
+          "revision",
+          "preview_token",
+          "action",
+          "reason",
+          "note",
+          "actor_id",
+          "snapshot",
+          "recorded_at"
+        ],
+        "family": "inkwell.documents_legacy"
+      },
+      {
+        "relation": "inkwell.embeddings",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "id",
+          "merchant_id",
+          "source_type",
+          "source_id",
+          "embedding",
+          "created_at",
+          "model"
+        ],
+        "family": "inkwell.documents_legacy"
+      },
+      {
+        "relation": "inkwell.experiment_exposures",
+        "kind": "v",
+        "rls": false,
+        "force_rls": false,
+        "columns": [
+          "merchant_id",
+          "experiment_id",
+          "arm",
+          "recipe_id",
+          "variant_ids",
+          "reason_category",
+          "treatment_version",
+          "cohort_start",
+          "email_document_id",
+          "cart_id",
+          "customer_id",
+          "sent_at",
+          "shopify_order_id",
+          "total_price",
+          "currency",
+          "purchased_at",
+          "status"
+        ],
+        "family": "inkwell.documents_legacy"
+      },
+      {
+        "relation": "inkwell.feature_flags",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "id",
+          "merchant_id",
+          "flag_name",
+          "enabled",
+          "created_at",
+          "updated_at"
+        ],
+        "family": "inkwell.merchant_records"
+      },
+      {
+        "relation": "inkwell.font_face_verifications",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "grant_id",
+          "merchant_id",
+          "contract_id",
+          "sha256",
+          "validator_sha256",
+          "receipt"
+        ],
+        "family": "inkwell.merchant_records"
+      },
+      {
+        "relation": "inkwell.font_sanitations",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "grant_id",
+          "merchant_id",
+          "contract_id",
+          "source_sha256",
+          "validator_sha256",
+          "sanitizer_sha256",
+          "output_sha256",
+          "receipt"
+        ],
+        "family": "inkwell.merchant_records"
+      },
+      {
+        "relation": "inkwell.font_sanitized_blobs",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "merchant_id",
+          "sha256",
+          "data"
+        ],
+        "family": "inkwell.merchant_records"
+      },
+      {
+        "relation": "inkwell.font_source_blobs",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "merchant_id",
+          "sha256",
+          "data"
+        ],
+        "family": "inkwell.merchant_records"
+      },
+      {
+        "relation": "inkwell.font_source_captures",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "grant_id",
+          "merchant_id",
+          "contract_id",
+          "sha256",
+          "receipt"
+        ],
+        "family": "inkwell.merchant_records"
+      },
+      {
+        "relation": "inkwell.font_usage_grants",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "id",
+          "merchant_id",
+          "contract_id",
+          "request_id",
+          "receipt"
+        ],
+        "family": "inkwell.merchant_records"
+      },
+      {
+        "relation": "inkwell.font_usage_revocations",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "grant_id",
+          "merchant_id",
+          "contract_id",
+          "receipt"
+        ],
+        "family": "inkwell.merchant_records"
+      },
+      {
+        "relation": "inkwell.goose_db_version",
+        "kind": "r",
+        "rls": false,
+        "force_rls": false,
+        "columns": [
+          "id",
+          "version_id",
+          "is_applied",
+          "tstamp"
+        ],
+        "family": "inkwell.system"
+      },
+      {
+        "relation": "inkwell.merchant_canary_state",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "merchant_id",
+          "install_sends_remaining",
+          "contract_change_sends_remaining",
+          "created_at",
+          "updated_at"
+        ],
+        "family": "inkwell.merchant_records"
+      },
+      {
+        "relation": "inkwell.merchant_harm_thresholds",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "merchant_id",
+          "min_units",
+          "min_valued_orders",
+          "conversion_deficit_min",
+          "bounce_excess_min",
+          "revenue_deficit_min",
+          "created_at",
+          "updated_at"
+        ],
+        "family": "inkwell.merchant_records"
+      },
+      {
+        "relation": "inkwell.order_events",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "id",
+          "merchant_id",
+          "cart_id",
+          "shopify_order_id",
+          "total_price",
+          "currency",
+          "occurred_at",
+          "received_at"
+        ],
+        "family": "inkwell.documents_legacy"
+      },
+      {
+        "relation": "inkwell.policy_fact_reviews",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "id",
+          "merchant_id",
+          "contract_id",
+          "fact_id",
+          "action",
+          "before_value",
+          "after_value",
+          "actor",
+          "created_at"
+        ],
+        "family": "inkwell.merchant_records"
+      },
+      {
+        "relation": "inkwell.policy_reviews",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "merchant_id",
+          "contract_id",
+          "revision",
+          "report",
+          "imported_at"
+        ],
+        "family": "inkwell.merchant_records"
+      },
+      {
+        "relation": "inkwell.policy_source_heads",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "merchant_id",
+          "source_url",
+          "content_hash",
+          "captured_at"
+        ],
+        "family": "inkwell.merchant_records"
+      },
+      {
+        "relation": "inkwell.recipe_suppressions",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "id",
+          "merchant_id",
+          "recipe_id",
+          "reason",
+          "actor",
+          "created_at",
+          "released_at",
+          "released_by"
+        ],
+        "family": "inkwell.merchant_records"
+      },
+      {
+        "relation": "inkwell.recovery_assignments",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "decision_id",
+          "merchant_id",
+          "document_id",
+          "build_plan_id",
+          "assigned_customer_id",
+          "assignment",
+          "recorded_at"
+        ],
+        "family": "inkwell.documents_legacy"
+      },
+      {
+        "relation": "inkwell.recovery_decision_order_observations",
+        "kind": "v",
+        "rls": false,
+        "force_rls": false,
+        "columns": [
+          "decision_id",
+          "merchant_id",
+          "action",
+          "policy_version",
+          "decided_at",
+          "window_ends_at",
+          "shopify_order_id",
+          "occurred_at",
+          "currency",
+          "total_price"
+        ],
+        "family": "inkwell.documents_legacy"
+      },
+      {
+        "relation": "inkwell.recovery_decision_timeline",
+        "kind": "v",
+        "rls": false,
+        "force_rls": false,
+        "columns": [
+          "decision_id",
+          "merchant_id",
+          "decided_at",
+          "assigned_action",
+          "reason",
+          "policy_version",
+          "decision_customer_id",
+          "eligible_actions",
+          "input_snapshot",
+          "document_id",
+          "execution_owner",
+          "assignment",
+          "assignment_recorded_at",
+          "ordinal",
+          "kind",
+          "source_id",
+          "occurred_at",
+          "recorded_at",
+          "evidence"
+        ],
+        "family": "inkwell.documents_legacy"
+      },
+      {
+        "relation": "inkwell.recovery_decisions",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "id",
+          "merchant_id",
+          "cart_id",
+          "customer_id",
+          "analysis_id",
+          "episode_id",
+          "contract_version",
+          "policy_version",
+          "buyer_state",
+          "input_sha256",
+          "action",
+          "reason",
+          "resume_trigger",
+          "selection_probability",
+          "document_id",
+          "created_at",
+          "input_snapshot",
+          "eligible_actions",
+          "execution_owner"
+        ],
+        "family": "inkwell.documents_legacy"
+      },
+      {
+        "relation": "inkwell.recovery_execution_events",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "ordinal",
+          "merchant_id",
+          "document_id",
+          "kind",
+          "source_id",
+          "occurred_at",
+          "recorded_at",
+          "evidence"
+        ],
+        "family": "inkwell.documents_legacy"
+      },
+      {
+        "relation": "inkwell.recovery_feedback",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "id",
+          "merchant_id",
+          "episode_id",
+          "document_id",
+          "category",
+          "original_revision",
+          "replacement_revision",
+          "occurred_at",
+          "recorded_at",
+          "actor",
+          "payload"
+        ],
+        "family": "inkwell.documents_legacy"
+      },
+      {
+        "relation": "inkwell.recovery_jobs",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "document_id",
+          "merchant_id",
+          "stage",
+          "state",
+          "delivery_attempts",
+          "execution_attempts",
+          "next_attempt_at",
+          "lease_token",
+          "lease_until",
+          "last_error_code",
+          "created_at",
+          "updated_at"
+        ],
+        "family": "inkwell.documents_legacy"
+      },
+      {
+        "relation": "inkwell.send_attempts",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "id",
+          "document_id",
+          "merchant_id",
+          "state",
+          "claim_token",
+          "provider_message_id",
+          "last_error_code",
+          "legacy",
+          "started_at",
+          "updated_at"
+        ],
+        "family": "inkwell.documents_legacy"
+      },
+      {
+        "relation": "inkwell.slot_cache",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "id",
+          "merchant_id",
+          "cache_key",
+          "slot_name",
+          "content",
+          "brand_contract_version",
+          "created_at"
+        ],
+        "family": "inkwell.documents_legacy"
+      },
+      {
+        "relation": "inkwell.slot_instances",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "id",
+          "email_document_id",
+          "name",
+          "content",
+          "generated_by",
+          "generated_at",
+          "cache_key",
+          "source_variant_id"
+        ],
+        "family": "inkwell.documents_legacy"
+      },
+      {
+        "relation": "inkwell.tool_idempotency",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "merchant_id",
+          "tool_name",
+          "idempotency_key",
+          "response",
+          "created_at"
+        ],
+        "family": "inkwell.documents_legacy"
+      },
+      {
+        "relation": "inkwell.variants",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "id",
+          "merchant_id",
+          "slot_name",
+          "bucket_key",
+          "content",
+          "brand_contract_version",
+          "created_at",
+          "last_used_at"
+        ],
+        "family": "inkwell.documents_legacy"
+      },
+      {
+        "relation": "integration_privacy.artifacts",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "merchant_id",
+          "store_id",
+          "id",
+          "subject_key",
+          "generation",
+          "kind",
+          "source_keys",
+          "payload",
+          "expires_at"
+        ],
+        "family": "inkwell.artifacts"
+      },
+      {
+        "relation": "integration_privacy.invalidation_scopes",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "merchant_id",
+          "store_id",
+          "epoch",
+          "cutoff_us",
+          "cursor",
+          "complete",
+          "pending_since",
+          "processed_count",
+          "attempts",
+          "next_attempt_at",
+          "last_error",
+          "last_attempt_at",
+          "last_success_at",
+          "worker_seen_at"
+        ],
+        "family": "inkwell.privacy_ledger"
+      },
+      {
+        "relation": "integration_privacy.requests",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "merchant_id",
+          "store_id",
+          "id",
+          "fingerprint",
+          "task",
+          "complete"
+        ],
+        "family": "inkwell.privacy_ledger"
+      },
+      {
+        "relation": "integration_privacy.scopes",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "merchant_id",
+          "store_id",
+          "generation",
+          "erased"
+        ],
+        "family": "inkwell.privacy_ledger"
+      },
+      {
+        "relation": "integration_privacy.support_revisions",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "merchant_id",
+          "store_id",
+          "decision_id",
+          "revision",
+          "artifact_id",
+          "generation",
+          "subject_revision",
+          "disposition",
+          "recorded_at"
+        ],
+        "family": "inkwell.artifacts"
+      },
+      {
+        "relation": "integration_privacy.support_work",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "merchant_id",
+          "store_id",
+          "decision_id",
+          "artifact_id",
+          "subject_key",
+          "revision",
+          "generation",
+          "subject_revision",
+          "state"
+        ],
+        "family": "inkwell.artifacts"
+      },
+      {
+        "relation": "integration_privacy.tombstones",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "merchant_id",
+          "store_id",
+          "kind",
+          "key"
+        ],
+        "family": "inkwell.privacy_ledger"
+      },
+      {
+        "relation": "intelligence.attempt_results",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "attempt_id",
+          "merchant_id",
+          "result"
+        ],
+        "family": "inkwell.typesafe_legacy"
+      },
+      {
+        "relation": "intelligence.attempts",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "id",
+          "merchant_id",
+          "request_key",
+          "started_at",
+          "reserved_cost"
+        ],
+        "family": "inkwell.typesafe_legacy"
+      },
+      {
+        "relation": "intelligence.budgets",
+        "kind": "r",
+        "rls": false,
+        "force_rls": false,
+        "columns": [
+          "budget_key",
+          "day",
+          "spent"
+        ],
+        "family": "inkwell.typesafe_legacy"
+      },
+      {
+        "relation": "intelligence.judgments",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "id",
+          "merchant_id",
+          "request_key",
+          "record",
+          "created_at"
+        ],
+        "family": "inkwell.typesafe_legacy"
+      },
+      {
+        "relation": "intelligence.raw_outputs",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "attempt_id",
+          "merchant_id",
+          "body",
+          "created_at"
+        ],
+        "family": "inkwell.typesafe_legacy"
+      },
+      {
+        "relation": "intelligence.repairs",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "merchant_id",
+          "document_id",
+          "created_at"
+        ],
+        "family": "inkwell.typesafe_legacy"
+      },
+      {
+        "relation": "intelligence.selected",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "merchant_id",
+          "request_key",
+          "judgment",
+          "created_at"
+        ],
+        "family": "inkwell.typesafe_legacy"
+      }
+    ],
+    "wakaru": [
+      {
+        "relation": "public.af11_erasure_fences",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "merchant",
+          "journey_id",
+          "erased_at"
+        ],
+        "family": "wakaru.adaptive_semantic"
+      },
+      {
+        "relation": "public.af6_allocations",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "attempt",
+          "environment",
+          "scope",
+          "identity",
+          "period"
+        ],
+        "family": "wakaru.adaptive_semantic"
+      },
+      {
+        "relation": "public.af6_attempts",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "id",
+          "environment",
+          "merchant",
+          "request_key",
+          "lease_token",
+          "reserved",
+          "charged",
+          "result",
+          "raw_sha256",
+          "started_at",
+          "finished_at"
+        ],
+        "family": "wakaru.adaptive_semantic"
+      },
+      {
+        "relation": "public.af6_budget_policies",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "environment",
+          "limits"
+        ],
+        "family": "wakaru.adaptive_semantic"
+      },
+      {
+        "relation": "public.af6_budgets",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "environment",
+          "scope",
+          "identity",
+          "period",
+          "spent"
+        ],
+        "family": "wakaru.adaptive_semantic"
+      },
+      {
+        "relation": "public.af6_circuits",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "environment",
+          "merchant",
+          "failures",
+          "open_until",
+          "probe_token",
+          "probe_until"
+        ],
+        "family": "wakaru.adaptive_semantic"
+      },
+      {
+        "relation": "public.af6_deployments",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "environment",
+          "workflow",
+          "binding",
+          "enabled",
+          "revision",
+          "threshold_sha256"
+        ],
+        "family": "wakaru.adaptive_semantic"
+      },
+      {
+        "relation": "public.af6_evaluations",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "environment",
+          "merchant",
+          "idempotency_key",
+          "request_hash",
+          "result",
+          "created_at",
+          "journey_id"
+        ],
+        "family": "wakaru.adaptive_semantic"
+      },
+      {
+        "relation": "public.af6_requests",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "environment",
+          "merchant",
+          "request_key",
+          "request_hash",
+          "request",
+          "selected",
+          "lease_token",
+          "lease_until",
+          "attempts",
+          "retry_at",
+          "failures",
+          "journey_id"
+        ],
+        "family": "wakaru.adaptive_semantic"
+      },
+      {
+        "relation": "public.af6_threshold_registry",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "sha256",
+          "policy"
+        ],
+        "family": "wakaru.adaptive_semantic"
+      }
+    ]
+  },
+  "migrations": {
+    "engine": {
+      "migrations/001_initial_schema.sql": "6b7d2042c6f26dde5802fc535e1a4f0f1c473b9ee73e986182dd7b9b514359b3",
+      "migrations/002_fix_auth_codes_column.sql": "8ceb34a4620c4cc580d13a05303787809cf5b79aa2428d07e7ed206cc06965ed",
+      "migrations/003_expand_brand_knowledge_base_columns.sql": "27833c329101343075cbd85fb226a30d3ebf65666a873666571f14b7966ceb9b",
+      "migrations/004_rename_users_to_merchants.sql": "e48b63f86a0e50e28a6270a09b6aff16faf6462a60c26c04c9be4274c598ed45",
+      "migrations/005_add_klaviyo_api_key_to_merchants.sql": "1362b91115689224b9c446d04d945859bd71e4ffcc553778b00b56ba0995a795",
+      "migrations/006_create_billing_details_table.sql": "8ecdfe28066aa95bd1e30e36d0601240e7aed81ce1b67540286f1b3c1e180678",
+      "migrations/007_restructure_brand_knowledge_base.sql": "9137693de1204addf7b9401c20dfa5f76b618c387cc38c2b7791ce816d27cfcc",
+      "migrations/008_add_brand_visual_elements.sql": "f1ecdc7944a7cb2150c2b76ece3ed3e7a9f367f02e0a1db71d1bba0fc526e49d",
+      "migrations/009_add_brand_images_column.sql": "d2409b7f73c110f314c784e268988cd532dbe2c4bfe3c572d93525c8892dac9e",
+      "migrations/010_add_merchant_id_to_email_templates.sql": "cb72779de35fb995f7aca347ad7aac5971b80447f394d016aa3ea87988995485",
+      "migrations/011_add_email_template_fields.sql": "7c7256afd967533e060821610cedd4fcd2381a6b15d23e24d28b2220df91618d",
+      "migrations/012_add_description_to_email_templates.sql": "c494606d1f3c41e3148a7fef20c46116653a149de584bcbb3fb6fa901c459bab",
+      "migrations/013_add_mirofish_analysis_type.sql": "dace6a6f28455f2e1e1d9fc13ece7c249da822aaad58cef32dbc01733b114079",
+      "migrations/014_add_customers_discounts_sendgrid_tables.sql": "189b9a6a8e0d55dcd2dac7e360e3a0446c64f559485e5918ade773c6adb63c2e",
+      "migrations/015_evolve_email_templates_for_builder.sql": "4c6e4099218eab12327fda972902c2b2423a6f4da49e8b0bf7b494ba11df98d6",
+      "migrations/016_add_klaviyo_fallback_config.sql": "12dbefab43f4822ebfc4cc7d3f6f59c5992dcad0c74f25e22cdc9d5699966354",
+      "migrations/017_add_ab_tests_table.sql": "64e096b109a5c2cacaa62ab043f947f2a3e774ab5a522e20bc348f3230a07154",
+      "migrations/018_add_one_running_abtest_per_merchant.sql": "16c43427f51057b6a96d6be3e55335a53c99f53363136038421526be5c4c0192",
+      "migrations/019_add_email_sequences_tables.sql": "defde3796c8e37911e25ce33d5cc9de249b2732d697ae2ea02af747f5b49853f",
+      "migrations/020_add_sequence_run_id_to_email_campaigns.sql": "0eead35e2c2811ba7460cf5bb503e4d279806c1df7fd4829abfc05e691ac4954",
+      "migrations/021_add_admin_and_invite_fields.sql": "7a3ad7b328c06b3ac6b2bf74f7a6c0dafd8f904e7dfc7660ae4070e9bce4d78d",
+      "migrations/022_add_shopper_profiles.sql": "805f40fff22621ce3cba7a3df64244cace4e76d94a5edff73dc17a347e19d343",
+      "migrations/023_wakaru_v3_feedback.sql": "8847c3c4af8d8594a78bf2061ef7f3d8f57cfe1ad0cac10c12bd48e5da72a730",
+      "migrations/024_shopify_install_intents.sql": "902262343dfd883f05f58624599a8bf48ae7d1fa66c8e7c52443701adb1da626",
+      "migrations/025_email_template_structured.sql": "ec97ebcd53706d1f811fedc0cef2ef808ea8ad24f430957c93801ae1176d662c",
+      "migrations/026_merchants_id_to_uuid_v7.sql": "5fe1039583783d0cf5fdd0c6ce504f0662ab66c3cebe45d0b046ac70fbafff66",
+      "migrations/026_rollback_merchants_id_to_uuid_v7.sql": "e98ad5a0881ca40f56c8e00dc9f7a8e2be602a5235dbe6e58644c75e44a12214",
+      "migrations/027_mirofish_async_job_lifecycle.sql": "40c1a923fe75c2b7dec8d9f885c0c9f22eba9af4c095fda45b3f363ebcc7f960",
+      "migrations/028_inkwell_forwarding.sql": "a592a5f6e3c6c8e558eca6d82b54dd97de053ef7844484445f7c98837ecf852f",
+      "migrations/029_mirofish_merchant_id.sql": "6b16b990919bf052a087c0d015693e457358d1e22600b827b5ede4976f760c04",
+      "migrations/030_drop_dormant_email_tables.sql": "b8e1c3c1cb707f293dcf8e4f72c9d33bd3734e46a63e211aa2826c5db3007e94",
+      "migrations/031_shopify_expiring_offline_tokens.sql": "bb1b203e9027bc11be70a01e3740fe556a471424a53d0662f6471ce9c246a61a",
+      "migrations/032_brand_kb_rich_enrichment.sql": "0fbe3e1b7b222b98b9fbdf8ee1223c3117a8d46571799f925249971bdd486f44",
+      "migrations/033_orders.sql": "239d36f6835c927b0f63d27c1318cea169c7d5e831d9161cd8d68e15905c2e68",
+      "migrations/034_abandonment_detection.sql": "92d6ff20868fa6c28d41f2af06af2c577eda804fb0211b600320a1831f4e4f3e",
+      "migrations/035_tenant_scoped_shopper_identity.sql": "eaadf2cb786af44ef97eff7f5d303b10ce090a40b0a583a02995ae72e2a379a1",
+      "migrations/036_orders_inkwell_forwarding.sql": "8f5d1d5a988d6cf5133c0b79a623d06b92e4c813508e18215717a7d8d55eb43c",
+      "migrations/037_send_checks_suppressions.sql": "ef9afe3d1098a75fb39490cd459777f9823baf490a47624675d022f9cfd1406e",
+      "migrations/038_analysis_session_end_stash.sql": "cca11d4ada483e49a51427e824bf0488c5675177fe947370498be2e3dd292c83",
+      "migrations/039_backfill_user_email_from_contact_events.sql": "b05e2df74ad916f4a45dfedc1f7ebec50b9b2642bfee87643f19a7eb986cfed9",
+      "migrations/040_cart_level_abandonment_episodes.sql": "83479e6145fe2ad418889f43fc52536c52a377f6355bc1dd4568a5b14b99d472",
+      "migrations/041_add_episode_uuid.sql": "ca453f4d775667405e9af548342daadc3be7992f1e97c859f7b8b9651cb2aead",
+      "migrations/042_pixel_event_receipts.sql": "69a24a90ad445e6f3d197978e6eaa26965a4bc00a754053faca77d99a39050f6",
+      "migrations/043_shopify_pixel_registration.sql": "8a74253a144b07cbf004bdbbeaddb61b9a194232de8d8768849ca71f489dfd3d",
+      "migrations/044_recovery_journey_snapshot.sql": "d42916f1751ca851610f20428c88f9142820f24fb6e2bb87042338d319bc5ce4",
+      "migrations/045_order_webhook_inbox.sql": "b32abda203173450ed44cf4a26dae323c6b046fdf3f5e8c6f083fee875c03170",
+      "migrations/046_order_outcomes.sql": "f94becfc1c3e8857957281c7ff9bfd07ba77dfc3659b5c612f7b8e636a035583",
+      "migrations/047_pixel_identity_evidence.sql": "6c236747face17f7d0bb25aefe996ff4b4b590221942ff844d5e1c378e5d895a",
+      "migrations/048_customer_history.sql": "f9ef1c31a7a89820b0c146923a351bf345909ed425e7dc011f55612627258387",
+      "migrations/049_recovery_forward_snapshots.sql": "2919cf01ca532d3ccf1a070bf6680fa05add44b46f0b97bf724c81bfd1c57389",
+      "migrations/050_learning_reconciliation_evidence.sql": "12b728d922568669c3e6784bca7bdc84e9b2fa662703dadd96149561879760bf",
+      "migrations/051_provider_identity.sql": "9f2aa76200f897ea624549428787f6e973af579b093e3e76cca1cf3fb4c2ac6b",
+      "migrations/052_recovery_coordination.sql": "7a54af545391af0157530cb401fd4ca49f0cde1fa163b29da4c5dff44e286c14",
+      "migrations/053_recovery_execution.sql": "b8b8fb544efccdfdd516b0d384b07caf369c30d9eebf90a99707985a2063230b",
+      "migrations/054_typesafe_intelligence.sql": "6c2fb69182d50ba62111f68142da662b9a366d49a0c765a4cebdbcfbf41748d3",
+      "migrations/055_policy_provenance.sql": "f6eed5565eb3a125f8717292fea7d6b4676f7da0a5217fbd989b3c6f0bd5ddf2",
+      "migrations/056_recovery_learning.sql": "4eaafe8717d542918996bb41b40ef1618c7149136593f25c780e4d6397773960",
+      "migrations/057_platform_settings.sql": "01bd6d3a55af93334b94a281ef8dd0e0243d65778222508ce4aaf5ed6a1cf098",
+      "migrations/058_shopify_brand_app_credentials.sql": "888ea239b59900205d7c036c821d1f64179ea526e8db0fd365ea17bd2f996eb4",
+      "migrations/059_shopify_brand_app_audit.sql": "86282c1bb915b9cb3d32234a649e23ecc6c5173a87dfffd2bac97c2b1046a6b3",
+      "migrations/060_brand_copy_extraction.sql": "6c7bc9790c07710e0258bfdeb173a46b9b5c5ef77785f825fdbd2058c5bef0d4",
+      "migrations/060_sender_domain_launch.sql": "6f587cec31fbd7052beb9f2f1132a2c3716e26eb61292663b70e0a1c7736fee8",
+      "migrations/061_email_renditions.sql": "de54fe622ee3e7f99bb3aa5a060bc154e2a79a35f3d291638193121c4cccea9f",
+      "migrations/061_shopify_webhook_registrations.sql": "9f97dedb62b21f85c3a45bbc5ae4960eb394c54c8a5664b62690bd5ddf2ddf4f",
+      "migrations/062_recovery_completion.sql": "a48a710843e2703d9762f60006cf2e8aac69b6db9d60a652d9cbe77527ab2de9",
+      "migrations/064_discount_catalog.sql": "f2b036c8025da90929a83c283fff13186c852d7db4557ffc038e6c1743bda0f6",
+      "migrations/065_discount_offers.sql": "f90d95d189f37ecb8296a987c37219c9a4c3d1c105c47fe24991cfa3daf623d8",
+      "migrations/066_judgeme_connections.sql": "7e7ad52a88155f3fc4b4a1ed4899aaca73f133e6b9120d5fbff5e5d0c18fcaec",
+      "migrations/067_integration_foundation.sql": "9a3e163c9979f7459bc85bac3fce7a649c9b8f7bece499a866eb701b79867ac7",
+      "migrations/068_shopify_customer_projections.sql": "bcc98b6cf34e2cd728a5f17da36bbfee3b1526d3c4e7f48354b5c798d183b61f",
+      "migrations/069_gorgias_projections.sql": "bc25b36eede6cf971e4db617363ab6fcce5649fb18ec98bdc43bba709565c61a",
+      "migrations/070_integration_account_cooldowns.sql": "7978431ecfb23519464b4fb555d7d50352856f0c5fd571b8d5f191a094df0af3",
+      "migrations/071_integration_privacy.sql": "c820c3709a684ecb50974bf297f5246bd14072463b94fa686d4e92179bc5f92f",
+      "migrations/072_integration_context_snapshots.sql": "cfa39d4ddcadacfe233a06a96d7c6bd50ddcde0b5680942c5f9558da774add04",
+      "migrations/073_integration_support_dispatch.sql": "e88f422c9cac2acc96ed64a6749649c5a64ee39c77d0bc0b0687cd4f33a0be0c",
+      "migrations/074_integration_support_pending_work.sql": "2c6083f76d630fc0f370c51435a90dcabf6f639bc0ff64adcaf37eac5b24d0aa",
+      "migrations/075_integration_support_enrollment_policy.sql": "174b4f7a344d5833b87f3d5f36630b503fc0be5c9b352d7fcf53c28fff6a7cde",
+      "migrations/076_integration_invalidation.sql": "59b72da853f3070f90ccee2c9c2a777a4598e32f93b6e34bf7fc5784df3c93f7",
+      "migrations/077_integration_worker_health.sql": "2f22c5398eae076445dfb7de91ad34b147e4223104360e707a722d778b155d68"
+    },
+    "inkwell": {
+      "migrations/0001_create_inkwell_schema.sql": "ce1f2362805cab3ddfb7d4ec9c8de717299960a9e2ec54fee6c5154a4247e337",
+      "migrations/0002_brand_contracts.sql": "3be9a122f3f374a8d9cd11256b3e21fcb77571bcf9ddac0cf8f27070cf3ff674",
+      "migrations/0003_email_documents.sql": "e93aa76242f904b4899ca272acb45656196ef8d9213b5a754ae1f12ec25199c2",
+      "migrations/0004_slot_cache_variants_embeddings.sql": "472065f43623403c34cbbfdca88a77e51759fcb0997aa3317933694f27da5fc2",
+      "migrations/0005_discount_codes_canary_flags.sql": "54ade4ac860f4925c7ec3c4051cb044ec0fbcc5ec69d1ba6f99514a01a978a0d",
+      "migrations/0006_rls_policies.sql": "b7ea7953b4a9ea8c7aaf3453a907a64b10e13d01d1b7a913791abdfdf3056217",
+      "migrations/0007_pin_vector_to_public_schema.sql": "93e15c5444d7272b01be9b653c7934477b5f1c40cc5a40d80cd17bd594ca7b39",
+      "migrations/0008_uuid_v7_alignment.sql": "16946d980d1e5e6b51b7da2af6cf4f1e745934d1b33b3012582a407f523c9743",
+      "migrations/0009_email_documents_ingest_columns.sql": "2324e59718322915f666a6968b5af386e366ee5dbde452c7f624d168bf67e0bf",
+      "migrations/0010_email_documents_dedup_index.sql": "044b0b021e1f9de8db80e5ebb88332c511e940f91987f4ebac1e80be3524c10e",
+      "migrations/0011_build_plans.sql": "f1d8e6f33d21c6532e3058557ecdcb8038132d34253d21062105ccf014a807d9",
+      "migrations/0012_tool_audit_and_idempotency.sql": "b478edc25febf479ee881ef88b9dd56a49a1b3dcbc26e795d2173220f977ed57",
+      "migrations/0013_slot_instances_unique.sql": "e9ed4e76bdadb9bae86ae69b2e639ae46eb79f45169cea5994aa5c858e2f854e",
+      "migrations/0014_email_documents_subject.sql": "0e4ec5fc4de2e9686a959573110a57723064079130dd55a8eca3a9d335516e7a",
+      "migrations/0015_email_events.sql": "5b5a40200b95de5e9598eb52117ad729d372b971edb1de9c5fe2486811df53e7",
+      "migrations/0016_embeddings_gemini_model.sql": "33f401e5c355cf7a11c001d48decda5a56560ec3b380d6e6f422d7137645ced8",
+      "migrations/0017_email_documents_sample_kind.sql": "314a155cede402bb41082c5aa1541a570e783b481110f32ba3518f6cfb6a7d17",
+      "migrations/0018_build_plans_delete_indexes.sql": "612148eeb2b322d29ce1831cd407e26dff773b531bf393f6523afb093f8c7632",
+      "migrations/0019_experiment_assignment.sql": "51ffb2da5a4326670d5d8a888dc776261e5fa1ba212d7a3ecaa4a74aa4f5079b",
+      "migrations/0020_order_events.sql": "863bbc1a38c380879c845e1df09cf7975fadaf9b9ef7b05a07ee008df21eb4b4",
+      "migrations/0021_send_gate_statuses.sql": "5c2a4d8149501b1dd7dd459710c6363eb1b29dbcd6617cb7d09bfe36a31b8ac8",
+      "migrations/0022_app_role_grants.sql": "5e6ab2bb8178cde83a01d440d4bae5827d77390b89a796cbefbe727da03cf411",
+      "migrations/0023_sli_merchant_enumeration.sql": "188b4be13e0941dbd0d3bebb643f5d4b3f8bbfd206c3b824cc92f69b5cf338ec",
+      "migrations/0024_email_documents_sending_at.sql": "4ac880cd9136431e921934bd8e796996be22f74c2ed62bd20f23feb9a95f77b4",
+      "migrations/0025_sli_enumeration_parked_docs.sql": "f46addedc873930bf88be181e5376162389db75e642748a5d98eebe4840437b7",
+      "migrations/0026_sli_owner_table_grants.sql": "2192c9f60c2991fad890df74023fc4b9c62cf4f8e6661cb2a9d7d7a64548f41f",
+      "migrations/0027_brand_contracts_brand_facts.sql": "ac79ed0fca18f9da80adf81ad20e934a4ba91db6f4083ccbe1be1c3e26b79a4e",
+      "migrations/0028_build_plans_fact_resolution.sql": "467383d0d99d2be87faeb8e234f1d25d28b6d9375b9643ba0a6b8633bf47d107",
+      "migrations/0029_build_plans_cart_value_tier.sql": "64f9006a9e954175c67ba3b0d5c2f95f17d96c4b0dc1710e284417fa8e54502e",
+      "migrations/0030_email_documents_preheader.sql": "b55750d38f4a680b56e36960bd3978ae784788326ec3ce260cd5c1863e0fe60a",
+      "migrations/0031_brand_contracts_canvas_archetype.sql": "907e8c389e74104b059822a0e8968eaa800a9fd68dcf74b55883836e31b73079",
+      "migrations/0032_build_plans_recipe_outcome_index.sql": "9bdc4b4b07a5912b46c7d0eff8180f042a66b48639f85f949ef7dbc1a43dca75",
+      "migrations/0033_build_plans_reason_category_check.sql": "da89f7ff6752b4f696c1f1716c952f8a5cdf8149d821f7ea498fb162a7e262ac",
+      "migrations/0034_harm_thresholds_suppressions.sql": "c46d52ee6086284bee187e00f745b072742fe4870ff321d28d0f81492e443e67",
+      "migrations/0035_operator_tables_write_split.sql": "bf5a562f79facc4a1f8c9855e0e9860607e9b0d3592b185f1b33b5d2d89a91a9",
+      "migrations/0036_brand_contracts_curated_images.sql": "e956ff1044db2a83043bcd12c5dda03e752c8e4c5c8630b969af761ea8382814",
+      "migrations/0037_build_plans_fact_source_version.sql": "175a91b47f8f5069435454c1129e8e748b615dede043d2d86b5442195daee659",
+      "migrations/0038_feature_flag_write_planes.sql": "422f3cfc0a2f8305e2929f4870024c0d257be251ab4cf06b029fea34b8aab164",
+      "migrations/0039_feature_flag_guard_uuid_cast.sql": "aaeb920961a6752f372c12698ea39031e86c77fdaa49663a57f7d474406829b5",
+      "migrations/0040_durable_recovery_execution.sql": "1a6710860d1fd1846287d8b553fe85030e8b812156893ecd33f8caf79c5ab44e",
+      "migrations/0041_canary_send_consumption.sql": "789af4e1c2a9e1862de07dcb898ba13dfb2dee90c4dfc962907bc3a1e8e95605",
+      "migrations/0042_recovery_decisions.sql": "f8dfbaac9bcffb4beb94fdaf03708b3328002f00825609f3f03f7021826a8794",
+      "migrations/0043_decision_execution_evidence.sql": "a74ed557b20dcd21ddbd279c4d666b3eeeb13f763a696c8ef1afa55ad4fe1329",
+      "migrations/0044_merchant_review.sql": "3cd697f8c76f0cbe79bcd337dc02461e13bd7fe6be7867f1882a7ff478aa6f9c",
+      "migrations/0045_recovery_coordination.sql": "6533e90cf73eba371253966ce7d8b06a8fb630f47f2a55219cddffc1d28ed412",
+      "migrations/0046_recovery_execution.sql": "0903bdc8bc70184a379a723b923918d469b079fdcd355a2798287b870779a6c8",
+      "migrations/0047_intelligence.sql": "1aaee968ef245301ecb82f0620f7a6b0472cd5444decf2b9c864d6d36cabd66e",
+      "migrations/0048_policy_review.sql": "786a93983dd608c1f331b5b1e97db9985b84e0fd14fdc49316d99c99fa4554f8",
+      "migrations/0049_recovery_feedback.sql": "1d1f0fd0bff78e4b865f92400b634958693258b4e3d618220dde011b7ae3a52f",
+      "migrations/0050_sender_hold_resume.sql": "e00fb69c2fb56143077b9234ce0a5560736c3210397792c57f4d7e37f91e2c01",
+      "migrations/0051_demo_runs.sql": "589830496e84a31eed815b909aab6e9aacdc08c07936224488b62c2208861fa0",
+      "migrations/0052_demo_run_plans.sql": "e2c5e86023921dc8894787c704b41c1092dc2bfeb110440f237923414b150ee2",
+      "migrations/0053_font_usage_authorizations.sql": "5082c07ef2f39fb4f3d48409c531ee338f1f1040e18128a58be41ad7c1eaaebd",
+      "migrations/0054_font_source_quarantine.sql": "f75cb7ea69c78d37386294f09d861e2f6eb19d98bc8ce0d3957d31fc1835bb67",
+      "migrations/0055_font_face_verifications.sql": "86f0fa8bae0a2a72c20fb5714c8213aa2ba7133e314552eb19b3a57ac860a253",
+      "migrations/0056_font_sanitations.sql": "c51b851d67ed92d051938d78f67decf49b8ec5a8d4c69632b4b992d8bf530314",
+      "migrations/0057_discount_offers.sql": "7773abf043c574d813e5cef8b0aca4f5c27d8575b4bb100fca656c1c41f02931",
+      "migrations/0058_integration_privacy.sql": "ae9a39c53da128f8f10dbf5e5f03c668f966727a7e27b836ac12dcd6c9013b6f",
+      "migrations/0059_integration_support_revisions.sql": "4aa7f1205348fe2b91dc26c4568d48289499f223f676c18af970d7d38c61b7de",
+      "migrations/0060_integration_invalidation.sql": "f152cba6b233b8e115a03fa3917ead819fa13014783de3ba951c7c7a8036dd11",
+      "migrations/0061_integration_worker_health.sql": "3b2b1b990b220d1748724bcb876c29420c92bc6167443690ea09328eb47bab04"
+    },
+    "wakaru": {
+      "cart_recovery/adaptive/migrations/001_journal.sql": "0d07f5482d419619e0dd65bf6eabfff78b643ff66cdc5dd3179915ea1c2e11e6",
+      "cart_recovery/adaptive/migrations/002_erasure.sql": "68554ba26825337667a686fd2636c1d79f203b861f869a8f0184e0bd22c7e76a"
+    }
+  }
+}

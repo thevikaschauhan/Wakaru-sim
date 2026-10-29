@@ -1,0 +1,8 @@
+{
+  "version": "integrations_v1",
+  "source": "vakaru-engine/contracts/integrations/v1",
+  "sha256": {
+    "bundle.json": "f0cbd8afe1039b371dd1d2debe90d47618db4fd639cc6a4dbd41eef3de3d9f83",
+    "fixtures.json": "af2d6fc48aa3902121d788c88c3ee869c7c6593bfc33c23e836003d7ad22c74a"
+  }
+}

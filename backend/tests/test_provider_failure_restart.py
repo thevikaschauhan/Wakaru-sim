@@ -16,7 +16,7 @@ from .test_typesafe_review_intake import MERCHANT, request_body
 def test_paid_failure_holds_signed_job_after_restart(
     client, monkeypatch, tmp_path, oversized, cost
 ):
-    monkeypatch.setenv("RECOVERY_ANALYSIS_MODE", "direct_v1")
+    monkeypatch.setenv("RECOVERY_ANALYSIS_MODE", "legacy_simulation")
     monkeypatch.setenv("TYPESAFE_RECOVERY_MODE", "enforce")
     monkeypatch.setenv("TYPESAFE_RECOVERY_MERCHANTS", MERCHANT)
     calls = []

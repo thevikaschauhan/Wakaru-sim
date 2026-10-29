@@ -284,6 +284,7 @@ def test_run_analysis_job_returns_result_dict(monkeypatch):
     )
     cart_dict = asdict(
         ShopifyCartData(
+            analysis_mode="direct_v1",
             customer_id="c",
             customer_name="n",
             email="e@example.com",
@@ -304,6 +305,7 @@ def test_run_analysis_job_rebuilds_cart_faithfully(monkeypatch):
 
     monkeypatch.setattr("app.services.cart_recovery_jobs.run_cart_recovery", capture)
     original = ShopifyCartData(
+        analysis_mode="direct_v1",
         customer_id="c",
         customer_name="n",
         email="e@example.com",

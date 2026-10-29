@@ -26,8 +26,8 @@ def payload():
 
 def test_signed_ingest_queue_poll_returns_observations_without_simulation(client, monkeypatch):
     wire(monkeypatch)
-    monkeypatch.setenv("RECOVERY_ANALYSIS_MODE", "direct_v1")
-    monkeypatch.setattr("app.services.cart_recovery_workflow._run_analysis",
+    monkeypatch.setenv("RECOVERY_ANALYSIS_MODE", "legacy_simulation")
+    monkeypatch.setattr("app.services.cart_recovery_workflow._run_legacy",
         lambda *a, **k: (_ for _ in ()).throw(AssertionError("simulation invoked")))
     response = client.post("/api/cart-recovery/jobs", json=payload())
     assert response.status_code == 202, response.get_data(as_text=True)
@@ -42,18 +42,18 @@ def test_signed_ingest_queue_poll_returns_observations_without_simulation(client
 
 def test_queued_mode_is_pinned_before_worker_restart(client, monkeypatch):
     queue = wire(monkeypatch, asynchronous=True)
-    monkeypatch.setenv("RECOVERY_ANALYSIS_MODE", "direct_v1")
+    monkeypatch.setenv("RECOVERY_ANALYSIS_MODE", "legacy_simulation")
     response = client.post("/api/cart-recovery/jobs", json=payload())
     assert response.status_code == 202
     job = Job.fetch(response.json["job_id"], connection=queue.connection)
-    monkeypatch.setenv("RECOVERY_ANALYSIS_MODE", "legacy_simulation")
+    monkeypatch.setenv("RECOVERY_DIRECT_MERCHANT_IDS", "")
     # Rehydrate and invoke the persisted job, as a restarted worker does.
     result = job.func(*job.args, **job.kwargs)
     assert result["buyer_state"]["version"] == "buyer_state_v1"
 
 
 def test_direct_app_boots_without_model_or_graph_credentials(monkeypatch):
-    monkeypatch.setenv("RECOVERY_ANALYSIS_MODE", "direct_v1")
+    monkeypatch.setenv("RECOVERY_ANALYSIS_MODE", "legacy_simulation")
     monkeypatch.delenv("LLM_API_KEY", raising=False)
     monkeypatch.delenv("ZEP_API_KEY", raising=False)
     app = create_app()
@@ -69,16 +69,20 @@ def test_pilot_mode_is_scoped_to_authenticated_merchant(client, monkeypatch):
         # Even a body claiming the pilot merchant cannot override the resolved
         # owner header supplied by the authenticated Engine caller.
         response = client.post("/api/cart-recovery/jobs", json={**payload(), "merchant_id": merchant}, headers={"X-Merchant-Id": selected})
+        if selected != merchant:
+            assert response.status_code == 410
+            assert response.json['error'] == 'legacy_simulation_retired'
+            continue
         assert response.status_code == 202, response.get_data(as_text=True)
         job = Job.fetch(response.json["job_id"], connection=queue.connection)
-        assert job.args[0]["analysis_mode"] == ("direct_v1" if selected == merchant else "legacy_simulation")
+        assert job.args[0]["analysis_mode"] == "direct_v1"
 
 def test_typesafe_queue_preserves_context_and_mode_through_restart(client,monkeypatch,tmp_path):
     from cart_recovery.intelligence.test_recovery import Judge,cart
     from cart_recovery.intelligence import recovery
     queue=wire(monkeypatch,asynchronous=True)
     merchant='11111111-1111-4111-8111-111111111111'
-    monkeypatch.setenv('RECOVERY_ANALYSIS_MODE','direct_v1');monkeypatch.setenv('TYPESAFE_RECOVERY_MODE','assist');monkeypatch.setenv('TYPESAFE_RECOVERY_MERCHANTS',merchant)
+    monkeypatch.setenv('RECOVERY_ANALYSIS_MODE','legacy_simulation');monkeypatch.setenv('TYPESAFE_RECOVERY_MODE','assist');monkeypatch.setenv('TYPESAFE_RECOVERY_MERCHANTS',merchant)
     ctx=cart().intelligence_context;ctx.update(merchant_id=merchant,episode_id='episode-1')
     response=client.post('/api/cart-recovery/jobs',json={**payload(),'intelligence_context':ctx},headers={'X-Merchant-Id':merchant})
     assert response.status_code==202,response.get_data(as_text=True)

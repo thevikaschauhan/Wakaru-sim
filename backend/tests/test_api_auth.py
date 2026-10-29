@@ -71,7 +71,7 @@ def test_readiness_endpoint_open_without_key(app):
     # outside /api/*, for the same reason (Railway's prober can't supply
     # X-API-Key). Zep/LLM mocked so this test doesn't depend on network access;
     # the check itself is exercised in test_readiness.py.
-    with patch("app.Zep") as MockZep, patch("app.OpenAI") as MockOpenAI:
+    with patch("zep_cloud.client.Zep") as MockZep, patch("openai.OpenAI") as MockOpenAI:
         MockZep.return_value.project.get.return_value = MagicMock()
         # OpenAI is used as a context manager in production code, so the
         # mocked call goes through __enter__.return_value (see test_readiness.py).

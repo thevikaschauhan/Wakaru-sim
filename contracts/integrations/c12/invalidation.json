@@ -1,0 +1,18 @@
+{
+  "event": {
+    "version": "integration_invalidation_c12_v1",
+    "merchant_id": "11111111-1111-4111-8111-111111111111",
+    "store_id": "17",
+    "epoch": 3,
+    "cutoff_us": 1792929600000000
+  },
+  "receipt": {
+    "version": "integration_invalidation_c12_v1",
+    "merchant_id": "11111111-1111-4111-8111-111111111111",
+    "store_id": "17",
+    "epoch": 3,
+    "cutoff_us": 1792929600000000,
+    "service": "inkwell",
+    "status": "fenced"
+  }
+}
