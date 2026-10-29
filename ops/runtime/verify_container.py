@@ -31,6 +31,8 @@ def verify(image):
             raise RuntimeError('fixture Redis failed to start')
         settings = ['SECRET_KEY=fixture-secret', 'WAKARU_API_KEY=fixture-api',
                     'WAKARU_INTERNAL_SECRET=fixture-internal', 'TYPESAFE_RECOVERY_MODE=off',
+                    'RECOVERY_ANALYSIS_MODE=legacy_simulation',
+                    'RECOVERY_DIRECT_MERCHANT_IDS=11111111-1111-4111-8111-111111111111',
                     'REDIS_URL=redis://' + redis_name + ':6379/0', 'SENTRY_DSN=']
         for role, command in [('worker', ['python', 'worker.py']), ('web', [])]:
             target = name + '-' + role
@@ -103,16 +105,45 @@ with tempfile.TemporaryDirectory() as directory:
 print(json.dumps({'adaptive_default_off':True,'release_binding':True,'integration_authenticated_sqlite_erasure':True}))
 body = json.dumps({'customer_id':'fixture', 'email':'fixture@example.com', 'event_id':'fixture-episode',
     'evidence_events':[{'event_id':'e1','event_name':'alert_displayed','occurred_at':'2026-09-15T03:58:41.885Z','alert_type':'PAYMENT_ERROR'}]}).encode()
+merchant = '11111111-1111-4111-8111-111111111111'
+import os
+from redis import Redis
+connection = Redis.from_url(os.environ['REDIS_URL'])
+# Body fields cannot approve a missing or non-allowlisted authenticated tenant.
+# Check real Redis before/after: only rate limits and worker heartbeats may change.
+for route in ('jobs', 'analyze'):
+    for denied_merchant in (None, '22222222-2222-4222-8222-222222222222'):
+        denied_body = json.dumps({**json.loads(body), 'merchant_id':merchant, 'analysis_mode':'direct_v1'}).encode()
+        ts = str(int(time.time()))
+        sig = hmac.new(b'fixture-internal', ts.encode()+b'.'+denied_body, hashlib.sha256).hexdigest()
+        headers = {'Content-Type':'application/json', 'X-API-Key':'fixture-api',
+                   'X-Wakaru-Timestamp':ts, 'X-Wakaru-Signature':sig, 'Idempotency-Key':'must-not-claim'}
+        if denied_merchant:
+            headers['X-Merchant-Id'] = denied_merchant
+        before = {k:connection.dump(k) for k in connection.scan_iter()
+                  if not k.startswith((b'LIMITS:', b'rq:worker:'))}
+        request = urllib.request.Request(base+'/api/cart-recovery/'+route, data=denied_body, headers=headers)
+        try:
+            urllib.request.urlopen(request, timeout=5)
+        except urllib.error.HTTPError as exc:
+            assert exc.code == 410, (route, exc.code)
+            assert json.load(exc)['error'] == 'legacy_simulation_retired'
+        else:
+            raise AssertionError('unapproved merchant admitted')
+        after = {k:connection.dump(k) for k in connection.scan_iter()
+                 if not k.startswith((b'LIMITS:', b'rq:worker:'))}
+        assert before == after, 'denied admission changed queue or idempotency state'
+print(json.dumps({'unapproved_tenants_denied':True,'body_cannot_grant_admission':True,'denied_requests_do_not_persist':True}))
 ts = str(int(time.time()))
 sig = hmac.new(b'fixture-internal', ts.encode()+b'.'+body, hashlib.sha256).hexdigest()
 request = urllib.request.Request(base+'/api/cart-recovery/jobs', data=body, headers={
-    'Content-Type':'application/json', 'X-API-Key':'fixture-api',
+    'Content-Type':'application/json', 'X-API-Key':'fixture-api', 'X-Merchant-Id':merchant,
     'X-Wakaru-Timestamp':ts, 'X-Wakaru-Signature':sig})
 with urllib.request.urlopen(request, timeout=5) as response:
     assert response.status == 202
     accepted = json.load(response)
 for _ in range(100):
-    request = urllib.request.Request(base+accepted['status_url'], headers={'X-API-Key':'fixture-api'})
+    request = urllib.request.Request(base+accepted['status_url'], headers={'X-API-Key':'fixture-api','X-Merchant-Id':merchant})
     with urllib.request.urlopen(request, timeout=3) as response:
         payload = json.load(response)
     if payload.get('result'):
