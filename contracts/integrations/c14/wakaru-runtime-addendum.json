@@ -138,7 +138,10 @@
     "backend/app/services/cart_recovery_workflow.py": "53dc7fa6811a0bc9151b5270171387df35790e567aa1da1b0b2589e61576a427",
     "backend/app/services/legacy_cart_recovery.py": "a2eb4adc09614af19a4dc98e8398bec20c32acffd0d9bff006e1b39de31d5716",
     "cart_recovery/adaptive/promotion.py": "0603894f534d9cf859097b7c78e794e6b480c3082968e17242c6bb8ddc832287",
-    "cart_recovery/integration_privacy.py": "d4ece9b216acb2a684ae6f17ac7df5e6725f994ae9395adb17f272a8b4492344"
+    "cart_recovery/integration_privacy.py": "d4ece9b216acb2a684ae6f17ac7df5e6725f994ae9395adb17f272a8b4492344",
+    "cart_recovery/domain/service.py": "89ef7d636709e9f6995150cf60d5ea25293f54a8b981615658532351d160d8ad",
+    "contracts/knowledge/service-v1/request.schema.json": "80646a16e5ac4486bb9c531a736c18b2f49ad072dd5d91484721aed7325f171f",
+    "cart_recovery/integration_service_auth.py": "d671008085b49a1390b129724dc5ae046afd6e49e2eec9e6bd40bd72aa363736"
   },
   "adaptive_migrations": {
     "cart_recovery/adaptive/migrations/001_journal.sql": "0d07f5482d419619e0dd65bf6eabfff78b643ff66cdc5dd3179915ea1c2e11e6",

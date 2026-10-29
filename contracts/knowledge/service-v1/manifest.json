@@ -1,0 +1,27 @@
+{
+  "version": "knowledge_service_local_v1",
+  "runtime_activation": false,
+  "deployment_authorized": false,
+  "source_producers_wired": false,
+  "cross_repository_privacy_qualified": false,
+  "sha256": {
+    "cart_recovery/domain/service.py": "89ef7d636709e9f6995150cf60d5ea25293f54a8b981615658532351d160d8ad",
+    "cart_recovery/domain/store.py": "447cb27cabc0ff759d4adfb1f5d8c4e8d8c820bafebf9628fbb7de1f3ae6bafe",
+    "cart_recovery/domain/knowledge.py": "0efe5631197f5cccb1153e08ed92e6a1edf1626bc8c809ec12dffdd98c07ba20",
+    "cart_recovery/integration_service_auth.py": "d671008085b49a1390b129724dc5ae046afd6e49e2eec9e6bd40bd72aa363736",
+    "contracts/knowledge/v1/schema.json": "6bce5fc87f5f3956cd29c27bffcd30e997f452d4b37c12c84a2ba3d480c5ad35",
+    "contracts/knowledge/service-v1/request.schema.json": "80646a16e5ac4486bb9c531a736c18b2f49ad072dd5d91484721aed7325f171f",
+    "contracts/knowledge/service-v1/verify.py": "c294b6fe01e6ccf4622f6a0b6e90151f516d9003e786dcf7a4284f5737641494",
+    "tests/knowledge/test_service.py": "241eb347cccba7ed325ed8497e5f27ac9cc50a74ecc926ae4fc841992ef0e3f8",
+    "ops/knowledge/test_engine_bridge.py": "d383f54262b85cc28c4261a7bdaa6e5f1278eab1cf2bbd7203f073a119dd532a",
+    "docs/knowledge-service.md": "2a4d43baf4f59463588e5c7fb79936f074eae11fae5edc9bc96036f2d359dc75",
+    "contracts/integrations/c14/wakaru-runtime-addendum.json": "abe28a572932fb384699ec5f9085d72f2178a5ea886eaed98fb2982de71126e2"
+  },
+  "engine_sha256": {
+    "internal/knowledgeclient/client.go": "d8f168443c1138ea48fc9fa3bc5ef8229d1c15c304085d4217934f69f656dea5",
+    "internal/knowledgeclient/client_test.go": "36bcb916a6dca6d196f791c4dd8f6e2df13e4936937a6eb6e6d6e42b881b9855",
+    "internal/integrationauth/auth.go": "c504daf6234da3a61276143453937155a04e1f698acbd45c0c1fa5972a0cb4aa",
+    "cmd/knowledge-service-fixture/main.go": "9600ed27c23f6ad3920e77148ee64df81cdbad0fe1843799c747f9f46a06b623",
+    "docs/verification/knowledge-service/README.md": "51d62467b594c442f8d6bd4cdf7e7ee27ed6c924bc96a8e3c8e4bb44620237b0"
+  }
+}
