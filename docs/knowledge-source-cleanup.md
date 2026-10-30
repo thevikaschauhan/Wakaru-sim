@@ -1,6 +1,6 @@
 # M1c source cleanup and retained export
 
-Local implementation only. No worker, HTTP operation, producer, deployment or whole-application privacy acknowledgment is enabled by this slice.
+This document records the original local helper slice. Its subsequent [authenticated transport slice](knowledge-privacy-transport.md) adds a separate opt-in API and Engine client. Nothing is mounted at startup; workers, producers, deployment and whole-application privacy acknowledgment remain disabled.
 
 ## Physical cleanup
 

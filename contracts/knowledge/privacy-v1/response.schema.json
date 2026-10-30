@@ -1,0 +1,546 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "operation",
+    "scope",
+    "request_sha256",
+    "result"
+  ],
+  "properties": {
+    "version": {
+      "const": "knowledge_privacy_response_v1"
+    },
+    "operation": {
+      "enum": [
+        "purge_withdrawn",
+        "export_retained_page"
+      ]
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "merchant_id",
+        "store_id",
+        "subject_kind",
+        "subject_id",
+        "identity_revision",
+        "privacy_generation"
+      ],
+      "properties": {
+        "merchant_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,127}$"
+        },
+        "store_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,127}$"
+        },
+        "subject_kind": {
+          "enum": [
+            "shopper",
+            "merchant"
+          ]
+        },
+        "subject_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,127}$"
+        },
+        "identity_revision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "privacy_generation": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        }
+      }
+    },
+    "request_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "result": {
+      "type": "object"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "const": "purge_withdrawn"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "result": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "version",
+              "removed_sources",
+              "removed_objects",
+              "whole_application_complete"
+            ],
+            "properties": {
+              "version": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "removed_sources": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 256
+              },
+              "removed_objects": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 64
+              },
+              "whole_application_complete": {
+                "const": false
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "const": "export_retained_page"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "result": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "version",
+              "scope",
+              "family",
+              "fields",
+              "rows",
+              "counts",
+              "subject",
+              "merchant_erased",
+              "snapshot",
+              "next_cursor",
+              "whole_application_complete"
+            ],
+            "properties": {
+              "version": {
+                "const": "knowledge_retained_export_v1"
+              },
+              "scope": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "merchant_id",
+                  "store_id",
+                  "subject_kind",
+                  "subject_id",
+                  "identity_revision",
+                  "privacy_generation"
+                ],
+                "properties": {
+                  "merchant_id": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,127}$"
+                  },
+                  "store_id": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,127}$"
+                  },
+                  "subject_kind": {
+                    "enum": [
+                      "shopper",
+                      "merchant"
+                    ]
+                  },
+                  "subject_id": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,127}$"
+                  },
+                  "identity_revision": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  },
+                  "privacy_generation": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  }
+                }
+              },
+              "family": {
+                "enum": [
+                  "withdrawals",
+                  "delivery_receipts",
+                  "events"
+                ]
+              },
+              "fields": {
+                "type": "array"
+              },
+              "rows": {
+                "type": "array",
+                "maxItems": 100,
+                "uniqueItems": true
+              },
+              "counts": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "withdrawals",
+                  "delivery_receipts",
+                  "events"
+                ],
+                "properties": {
+                  "withdrawals": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "delivery_receipts": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "events": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                }
+              },
+              "subject": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "identity_revision",
+                  "privacy_generation",
+                  "data_version",
+                  "erased"
+                ],
+                "properties": {
+                  "identity_revision": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  },
+                  "privacy_generation": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  },
+                  "data_version": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "erased": {
+                    "type": "boolean"
+                  }
+                }
+              },
+              "merchant_erased": {
+                "type": "boolean"
+              },
+              "snapshot": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "next_cursor": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "after",
+                      "snapshot",
+                      "mac"
+                    ],
+                    "properties": {
+                      "after": {
+                        "oneOf": [
+                          {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{64}$"
+                          },
+                          {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 9007199254740991
+                          }
+                        ]
+                      },
+                      "snapshot": {
+                        "type": "string",
+                        "pattern": "^[0-9a-f]{64}$"
+                      },
+                      "mac": {
+                        "type": "string",
+                        "pattern": "^[0-9a-f]{64}$"
+                      }
+                    }
+                  }
+                ]
+              },
+              "whole_application_complete": {
+                "const": false
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "family": {
+                      "const": "withdrawals"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "fields": {
+                      "const": [
+                        "source_key"
+                      ]
+                    },
+                    "rows": {
+                      "items": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 1,
+                        "prefixItems": [
+                          {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{64}$"
+                          }
+                        ],
+                        "items": false
+                      }
+                    },
+                    "next_cursor": {
+                      "oneOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "after",
+                            "snapshot",
+                            "mac"
+                          ],
+                          "properties": {
+                            "after": {
+                              "type": "string",
+                              "pattern": "^[0-9a-f]{64}$"
+                            },
+                            "snapshot": {
+                              "type": "string",
+                              "pattern": "^[0-9a-f]{64}$"
+                            },
+                            "mac": {
+                              "type": "string",
+                              "pattern": "^[0-9a-f]{64}$"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "family": {
+                      "const": "delivery_receipts"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "fields": {
+                      "const": [
+                        "command_key",
+                        "request_sha256",
+                        "scope_sha256",
+                        "operation"
+                      ]
+                    },
+                    "rows": {
+                      "items": {
+                        "type": "array",
+                        "minItems": 4,
+                        "maxItems": 4,
+                        "prefixItems": [
+                          {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{64}$"
+                          },
+                          {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{64}$"
+                          },
+                          {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{64}$"
+                          },
+                          {
+                            "enum": [
+                              "scope_sync",
+                              "source",
+                              "withdraw_source",
+                              "erase_subject"
+                            ]
+                          }
+                        ],
+                        "items": false
+                      }
+                    },
+                    "next_cursor": {
+                      "oneOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "after",
+                            "snapshot",
+                            "mac"
+                          ],
+                          "properties": {
+                            "after": {
+                              "type": "string",
+                              "pattern": "^[0-9a-f]{64}$"
+                            },
+                            "snapshot": {
+                              "type": "string",
+                              "pattern": "^[0-9a-f]{64}$"
+                            },
+                            "mac": {
+                              "type": "string",
+                              "pattern": "^[0-9a-f]{64}$"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "family": {
+                      "const": "events"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "fields": {
+                      "const": [
+                        "event_id",
+                        "data_version",
+                        "kind"
+                      ]
+                    },
+                    "rows": {
+                      "items": {
+                        "type": "array",
+                        "minItems": 3,
+                        "maxItems": 3,
+                        "prefixItems": [
+                          {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 9007199254740991
+                          },
+                          {
+                            "oneOf": [
+                              {
+                                "type": "null"
+                              },
+                              {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              }
+                            ]
+                          },
+                          {
+                            "enum": [
+                              "write",
+                              "source_withdrawal",
+                              "identity_revision",
+                              "subject_erasure",
+                              "merchant_erasure"
+                            ]
+                          }
+                        ],
+                        "items": false
+                      }
+                    },
+                    "next_cursor": {
+                      "oneOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "after",
+                            "snapshot",
+                            "mac"
+                          ],
+                          "properties": {
+                            "after": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 9007199254740991
+                            },
+                            "snapshot": {
+                              "type": "string",
+                              "pattern": "^[0-9a-f]{64}$"
+                            },
+                            "mac": {
+                              "type": "string",
+                              "pattern": "^[0-9a-f]{64}$"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

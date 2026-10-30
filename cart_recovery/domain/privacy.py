@@ -13,7 +13,7 @@ from .knowledge import read_knowledge
 from .store import StoreConflict
 
 
-def purge_withdrawn(store, scope):
+def purge_withdrawn(store, scope, *, expected_version=None):
     """Physically remove withdrawn receipts and dependent assertion histories.
 
     An assertion's revisions are an indivisible chain in knowledge_batch_v1.
@@ -23,6 +23,8 @@ def purge_withdrawn(store, scope):
     """
     with store.transaction() as db:
         tenant, key, payload, version = store.bound(db, scope)
+        if expected_version is not None and (type(expected_version) is not int or expected_version != version):
+            raise StoreConflict('stale_cleanup_version')
         records = [] if payload is None else payload['objects']
         candidates = list({store.key('source', [s['source_id'], s['revision']]) for r in records for s in r['sources']})
         fences = {r[0] for r in db.execute('SELECT source_key FROM knowledge_retained.withdrawals WHERE scope_key=%s AND source_key=ANY(%s)', (key, candidates))}

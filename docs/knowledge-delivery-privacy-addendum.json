@@ -32,6 +32,6 @@
   ],
   "source_payload_copies": false,
   "erasure": "Knowledge mutation and immutable receipt commit together. Receipts survive subject erasure; lookup proves historical application only. Scope/command digests are pseudonymous metadata, not anonymous data.",
-  "export": "Local internal export_retained_page now covers bounded receipt, withdrawal/tombstone and invalidation-event pages, including after erasure. Authenticated transport, protected export artifacts, active-data coordination and aggregate cross-service export remain unqualified. See docs/knowledge-source-cleanup.md.",
+  "export": "Local bounded receipt, withdrawal/tombstone and event export now has a separately authenticated, unmounted privacy API and Engine snapshot assembler. Engine retained inventory, protected export artifacts, active-data coordination and aggregate cross-service export remain unqualified. See docs/knowledge-privacy-transport.md.",
   "isolation": "Authenticated tenant/store grants and HMAC scope keys at service boundary; no direct untrusted database access. Runtime role qualification remains blocked."
 }
