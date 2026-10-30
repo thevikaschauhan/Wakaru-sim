@@ -70,6 +70,11 @@
       "columns": [
         "scope_key",
         "source_key"
+      ],
+      "key_namespaces": [
+        "source",
+        "purged-object",
+        "purged-assertion"
       ]
     },
     "knowledge_retained.events": {

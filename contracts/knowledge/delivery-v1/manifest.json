@@ -6,13 +6,18 @@
   "scope_control_only": true,
   "wakaru_sha256": {
     "cart_recovery/domain/delivery.py": "06435a7050b4a9a008d60e0a5233d7b23a06840f000a7f37b45464ba18a106ab",
-    "cart_recovery/domain/store.py": "447cb27cabc0ff759d4adfb1f5d8c4e8d8c820bafebf9628fbb7de1f3ae6bafe",
+    "cart_recovery/domain/store.py": "066c840557e46e0bba112239c998a7c952ecfa62f1655af3755e61524d0fec3e",
     "cart_recovery/domain/service.py": "89ef7d636709e9f6995150cf60d5ea25293f54a8b981615658532351d160d8ad",
     "cart_recovery/domain/migrations/001_knowledge.sql": "4ace32806ccc29b310f74d189fa2c6d85c4a0537affea186f48dd6ca50ae4e3a",
     "cart_recovery/domain/migrations/002_delivery_receipts.sql": "c5304d205ff2aa385c269b78d97f8bce6cda4f90a738acd73d7294d200be8d6a",
     "contracts/knowledge/delivery-v1/command.schema.json": "b87738024cb06f45cd51a4dfbf48665235860cf79ed3517b39bf1c3487685e70",
     "contracts/knowledge/delivery-v1/lookup.schema.json": "f14538085d85dd5d92a47efc375ba2c7bbcd5141386fd9de7df339a46661f8fe",
-    "cart_recovery/integration_service_auth.py": "d671008085b49a1390b129724dc5ae046afd6e49e2eec9e6bd40bd72aa363736"
+    "cart_recovery/integration_service_auth.py": "d671008085b49a1390b129724dc5ae046afd6e49e2eec9e6bd40bd72aa363736",
+    "cart_recovery/domain/privacy.py": "e2ff9f8c9d2db05ba5a867a4f953955f573c1eeb0ce5035fff7965f0bc754353",
+    "tests/knowledge/test_source_cleanup.py": "de795a970be5c5386c16e0652104e7340b2f703ce5554ea837b7d5e5b8960c8c",
+    "docs/knowledge-source-cleanup.md": "2ae93bcdc479a9c3b6eed491f69538df749a7028f592d9f1b0c5eaad883c33ee",
+    "docs/knowledge-delivery-privacy-addendum.json": "1526858b3a00d5293aac98f1daa8f260a69cfa130505b3ca7a21b741444f23ef",
+    "contracts/knowledge/lifecycle-v1/inventory.json": "49faf479d29880b49f7ba76daef26281ba27409e47a72baf31fbbc0918693aa4"
   },
   "engine_sha256": {
     "internal/knowledgeclient/delivery.go": "94fb0795fe8db678a92daa6d4b154ad81db29e626af050c1826d4d7d072c8acc",

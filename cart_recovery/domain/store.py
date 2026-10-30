@@ -139,6 +139,7 @@ class KnowledgeStore:
             withdrawn = {r[0] for r in db.execute('SELECT source_key FROM knowledge_retained.withdrawals WHERE scope_key=%s', (key,))}
             entities = [r[0] for r in db.execute('SELECT receipt FROM knowledge_data.catalog WHERE scope_key=%s', (key,))]
             payload = read_knowledge(raw, scope=scope, sources=sources, entities=entities, at=db.execute('SELECT clock_timestamp()').fetchone()[0])
+            self.check_purged_records(db, key, payload)
             historical_ids = set() if previous is None else {r['object_id'] for r in previous['objects']}
             uses_withdrawn = False
             for record in payload['objects']:
@@ -163,6 +164,20 @@ class KnowledgeStore:
             db.execute('INSERT INTO knowledge_data.commands VALUES(%s,%s,%s,%s)', (key,ckey,request_hash,version))
             self.event(db,tenant,key,version,'write')
             return {'version':version,'replayed':False}
+
+    def check_purged_records(self, db, key, payload):
+        """Opaque object/assertion tombstones share the retained withdrawal ledger.
+
+        Separate HMAC namespaces prevent collisions with source revision fences.
+        Keeping these in the existing checkpoint prevents restore from losing them.
+        """
+        candidates = [self.key(namespace, record[field]) for record in payload['objects']
+                      for namespace, field in [('purged-object', 'object_id'), ('purged-assertion', 'assertion_id')]]
+        fences = {r[0] for r in db.execute('SELECT source_key FROM knowledge_retained.withdrawals WHERE scope_key=%s AND source_key=ANY(%s)', (key, candidates))}
+        for record in payload['objects']:
+            if (self.key('purged-object', record['object_id']) in fences
+                    or self.key('purged-assertion', record['assertion_id']) in fences):
+                raise StoreConflict('object_purged')
 
     @staticmethod
     def transition(previous, payload):
@@ -304,6 +319,7 @@ class KnowledgeStore:
                     sources = [r[0] for r in db.execute('SELECT receipt FROM knowledge_data.sources WHERE scope_key=%s',(key,))]
                     entities = [r[0] for r in db.execute('SELECT receipt FROM knowledge_data.catalog WHERE scope_key=%s',(key,))]
                     read_knowledge(json.dumps(payload),scope=scope,sources=sources,entities=entities,at=db.execute('SELECT clock_timestamp()').fetchone()[0])
+                    self.check_purged_records(db, key, payload)
             if db.execute('SELECT 1 FROM knowledge_data.subjects d LEFT JOIN knowledge_retained.subjects s USING(scope_key) WHERE s.scope_key IS NULL LIMIT 1').fetchone():
                 raise StoreConflict('unfenced_restore_data')
             db.execute('UPDATE knowledge_retained.control SET quarantined=false')
