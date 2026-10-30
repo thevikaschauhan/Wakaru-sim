@@ -1,0 +1,37 @@
+{
+  "version": "knowledge_delivery_privacy_addendum_v1",
+  "whole_application_qualified": false,
+  "base_c14_inventory_changed": false,
+  "runtime_enabled": false,
+  "source_producers_wired": false,
+  "privacy_completion_qualified": false,
+  "retention": "No automatic deletion policy. Immutable retained metadata requires reviewed disposition before activation.",
+  "restore": "Existing checkpoints do not cover these new relations. Independent current checkpoint authority, quarantine and full restore rehearsal remain required.",
+  "blockers": [
+    "reviewed C14 inventory refresh",
+    "retained metadata export and retention policy",
+    "least-privilege and key custody review",
+    "complete knowledge privacy obligation reconciliation",
+    "independent current checkpoint and restore qualification",
+    "candidate artifact and native AMD64 qualification"
+  ],
+  "owner": "wakaru",
+  "migration": "cart_recovery/domain/migrations/002_delivery_receipts.sql",
+  "relations": [
+    {
+      "name": "knowledge_retained.delivery_receipts",
+      "tenant_data": true,
+      "rls": false
+    }
+  ],
+  "retained_metadata": [
+    "HMAC scope and command keys",
+    "exact request SHA-256",
+    "scope SHA-256",
+    "operation"
+  ],
+  "source_payload_copies": false,
+  "erasure": "Knowledge mutation and immutable receipt commit together. Receipts survive subject erasure; lookup proves historical application only. Scope/command digests are pseudonymous metadata, not anonymous data.",
+  "export": "No receipt-ledger export API is implemented. Existing knowledge export and retained checkpoint do not cover this ledger.",
+  "isolation": "Authenticated tenant/store grants and HMAC scope keys at service boundary; no direct untrusted database access. Runtime role qualification remains blocked."
+}
