@@ -71,6 +71,8 @@ _FAMILIES = {
     'withdrawals': ('knowledge_retained.withdrawals', 'source_key', 'source_key'),
     'delivery_receipts': ('knowledge_retained.delivery_receipts', 'command_key',
                           'command_key,request_sha256,scope_sha256,operation'),
+    'cleanup_receipts': ('knowledge_retained.cleanup_receipts', 'command_key',
+                         'command_key,request_sha256,scope_sha256,status,result'),
     'events': ('knowledge_retained.events', 'event_id', 'event_id,data_version,kind'),
 }
 
@@ -81,7 +83,7 @@ def export_retained_page(store, scope, family, *, limit=100, cursor=None, snapsh
     Pass the returned snapshot to every family/page of an export. Any ledger
     change forces a restart. Active payload export is a separate operation;
     these pages are not a whole-application export or a restore checkpoint.
-    Migration 002 is required; its absence fails instead of omitting receipts.
+    Migrations 002 and 003 are required; its absence fails instead of omitting receipts.
     """
     if not isinstance(family, str) or family not in _FAMILIES or type(limit) is not int or not 1 <= limit <= 100:
         raise StoreConflict('export_page_binding')

@@ -121,7 +121,8 @@
                 "enum": [
                   "withdrawals",
                   "delivery_receipts",
-                  "events"
+                  "events",
+                  "cleanup_receipts"
                 ]
               },
               "limit": {

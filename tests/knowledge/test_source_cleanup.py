@@ -193,6 +193,7 @@ def export_store(store, database):
     from conftest import ROOT
     with psycopg.connect(database) as db:
         db.execute((ROOT/'cart_recovery/domain/migrations/002_delivery_receipts.sql').read_text())
+        db.execute((ROOT/'cart_recovery/domain/migrations/003_cleanup_receipts.sql').read_text())
     return store
 
 

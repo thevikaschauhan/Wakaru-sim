@@ -6,15 +6,15 @@
   "scope_control_only": true,
   "wakaru_sha256": {
     "cart_recovery/domain/delivery.py": "06435a7050b4a9a008d60e0a5233d7b23a06840f000a7f37b45464ba18a106ab",
-    "cart_recovery/domain/store.py": "066c840557e46e0bba112239c998a7c952ecfa62f1655af3755e61524d0fec3e",
+    "cart_recovery/domain/store.py": "44262e2e9664e4a1b2f843a647c110f99ca61cf4677786330ccc23c2e42a2929",
     "cart_recovery/domain/service.py": "89ef7d636709e9f6995150cf60d5ea25293f54a8b981615658532351d160d8ad",
     "cart_recovery/domain/migrations/001_knowledge.sql": "4ace32806ccc29b310f74d189fa2c6d85c4a0537affea186f48dd6ca50ae4e3a",
     "cart_recovery/domain/migrations/002_delivery_receipts.sql": "c5304d205ff2aa385c269b78d97f8bce6cda4f90a738acd73d7294d200be8d6a",
     "contracts/knowledge/delivery-v1/command.schema.json": "b87738024cb06f45cd51a4dfbf48665235860cf79ed3517b39bf1c3487685e70",
     "contracts/knowledge/delivery-v1/lookup.schema.json": "f14538085d85dd5d92a47efc375ba2c7bbcd5141386fd9de7df339a46661f8fe",
     "cart_recovery/integration_service_auth.py": "d671008085b49a1390b129724dc5ae046afd6e49e2eec9e6bd40bd72aa363736",
-    "cart_recovery/domain/privacy.py": "783c727812fed421b950ca1b1f69e174406afd4dfd8048aee444f8390eb55651",
-    "tests/knowledge/test_source_cleanup.py": "de795a970be5c5386c16e0652104e7340b2f703ce5554ea837b7d5e5b8960c8c",
+    "cart_recovery/domain/privacy.py": "4a547b51f0b1e2b1814abcd5b027aa9e750fd76718ade91fc1512af9b90aa463",
+    "tests/knowledge/test_source_cleanup.py": "d0bf6fe4c08c58b9a1e77325e906f9628c687595bfe3632f33c7f40fde8dcf5e",
     "docs/knowledge-source-cleanup.md": "fa8155a5ab432205e7d577b0fdb408bc5807241863a6dd3543217909526924fa",
     "docs/knowledge-delivery-privacy-addendum.json": "786828d09655afff517403647bd389a90538bf9afd7d32320a2233aa34f27ae1",
     "contracts/knowledge/lifecycle-v1/inventory.json": "49faf479d29880b49f7ba76daef26281ba27409e47a72baf31fbbc0918693aa4"

@@ -189,7 +189,8 @@
                 "enum": [
                   "withdrawals",
                   "delivery_receipts",
-                  "events"
+                  "events",
+                  "cleanup_receipts"
                 ]
               },
               "fields": {
@@ -206,7 +207,8 @@
                 "required": [
                   "withdrawals",
                   "delivery_receipts",
-                  "events"
+                  "events",
+                  "cleanup_receipts"
                 ],
                 "properties": {
                   "withdrawals": {
@@ -220,6 +222,11 @@
                     "maximum": 9007199254740991
                   },
                   "events": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "cleanup_receipts": {
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 9007199254740991
@@ -521,6 +528,116 @@
                               "type": "integer",
                               "minimum": 1,
                               "maximum": 9007199254740991
+                            },
+                            "snapshot": {
+                              "type": "string",
+                              "pattern": "^[0-9a-f]{64}$"
+                            },
+                            "mac": {
+                              "type": "string",
+                              "pattern": "^[0-9a-f]{64}$"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "family": {
+                      "const": "cleanup_receipts"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "fields": {
+                      "const": [
+                        "command_key",
+                        "request_sha256",
+                        "scope_sha256",
+                        "status",
+                        "result"
+                      ]
+                    },
+                    "rows": {
+                      "items": {
+                        "type": "array",
+                        "minItems": 5,
+                        "maxItems": 5,
+                        "prefixItems": [
+                          {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{64}$"
+                          },
+                          {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{64}$"
+                          },
+                          {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{64}$"
+                          },
+                          {
+                            "enum": [
+                              "applied",
+                              "refused"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "version",
+                              "removed_sources",
+                              "removed_objects",
+                              "whole_application_complete"
+                            ],
+                            "properties": {
+                              "version": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "removed_sources": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 256
+                              },
+                              "removed_objects": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 64
+                              },
+                              "whole_application_complete": {
+                                "const": false
+                              }
+                            }
+                          }
+                        ],
+                        "items": false
+                      }
+                    },
+                    "next_cursor": {
+                      "oneOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "after",
+                            "snapshot",
+                            "mac"
+                          ],
+                          "properties": {
+                            "after": {
+                              "type": "string",
+                              "pattern": "^[0-9a-f]{64}$"
                             },
                             "snapshot": {
                               "type": "string",
