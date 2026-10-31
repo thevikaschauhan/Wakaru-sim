@@ -62,6 +62,9 @@ class KnowledgeStore:
             for table in ('knowledge_data.subjects', 'knowledge_retained.subjects', 'knowledge_retained.tenants', 'knowledge_retained.withdrawals', 'knowledge_retained.events'):
                 if db.execute('SELECT EXISTS(SELECT 1 FROM '+table+')').fetchone()[0]:
                     raise StoreConflict('bootstrap_not_empty')
+            for table in ('knowledge_retained.delivery_receipts', 'knowledge_retained.cleanup_receipts'):
+                if db.execute('SELECT to_regclass(%s)', (table,)).fetchone()[0] and db.execute('SELECT EXISTS(SELECT 1 FROM '+table+')').fetchone()[0]:
+                    raise StoreConflict('bootstrap_not_empty')
             db.execute('UPDATE knowledge_retained.control SET quarantined=false,key_fingerprint=%s', (self.fingerprint,))
 
     def provision(self, scope):
@@ -139,6 +142,7 @@ class KnowledgeStore:
             withdrawn = {r[0] for r in db.execute('SELECT source_key FROM knowledge_retained.withdrawals WHERE scope_key=%s', (key,))}
             entities = [r[0] for r in db.execute('SELECT receipt FROM knowledge_data.catalog WHERE scope_key=%s', (key,))]
             payload = read_knowledge(raw, scope=scope, sources=sources, entities=entities, at=db.execute('SELECT clock_timestamp()').fetchone()[0])
+            self.check_purged_records(db, key, payload)
             historical_ids = set() if previous is None else {r['object_id'] for r in previous['objects']}
             uses_withdrawn = False
             for record in payload['objects']:
@@ -163,6 +167,20 @@ class KnowledgeStore:
             db.execute('INSERT INTO knowledge_data.commands VALUES(%s,%s,%s,%s)', (key,ckey,request_hash,version))
             self.event(db,tenant,key,version,'write')
             return {'version':version,'replayed':False}
+
+    def check_purged_records(self, db, key, payload):
+        """Opaque object/assertion tombstones share the retained withdrawal ledger.
+
+        Separate HMAC namespaces prevent collisions with source revision fences.
+        Keeping these in the existing checkpoint prevents restore from losing them.
+        """
+        candidates = [self.key(namespace, record[field]) for record in payload['objects']
+                      for namespace, field in [('purged-object', 'object_id'), ('purged-assertion', 'assertion_id')]]
+        fences = {r[0] for r in db.execute('SELECT source_key FROM knowledge_retained.withdrawals WHERE scope_key=%s AND source_key=ANY(%s)', (key, candidates))}
+        for record in payload['objects']:
+            if (self.key('purged-object', record['object_id']) in fences
+                    or self.key('purged-assertion', record['assertion_id']) in fences):
+                raise StoreConflict('object_purged')
 
     @staticmethod
     def transition(previous, payload):
@@ -257,6 +275,9 @@ class KnowledgeStore:
                     'subjects':[list(r) for r in db.execute('SELECT scope_key,tenant_key,identity_revision,privacy_generation,data_version,erased FROM knowledge_retained.subjects ORDER BY scope_key')],
                     'withdrawals':[list(r) for r in db.execute('SELECT scope_key,source_key FROM knowledge_retained.withdrawals ORDER BY scope_key,source_key')]}
 
+    def restore_transaction(self):
+        return psycopg.connect(self.dsn)
+
     def restore_fences(self, checkpoint, *, expected_digest):
         """Overlay a separately trusted CURRENT checkpoint; never one from the data backup.
 
@@ -277,7 +298,7 @@ class KnowledgeStore:
             raise StoreConflict('checkpoint_references')
         if checkpoint['key_fingerprint']!=self.fingerprint or digest(checkpoint)!=expected_digest:
             raise StoreConflict('checkpoint_binding')
-        with psycopg.connect(self.dsn) as db:
+        with self.restore_transaction() as db:
             control = db.execute('SELECT quarantined,key_fingerprint FROM knowledge_retained.control WHERE singleton FOR UPDATE').fetchone()
             if not control or not control[0] or control[1] not in (None,self.fingerprint): raise StoreConflict('restore_requires_quarantine')
             for key,erased in checkpoint['tenants']:
@@ -291,9 +312,13 @@ class KnowledgeStore:
                 db.execute('INSERT INTO knowledge_retained.withdrawals VALUES(%s,%s) ON CONFLICT DO NOTHING',(key,source))
             db.execute('UPDATE knowledge_retained.control SET key_fingerprint=%s',(self.fingerprint,))
 
-    def release_quarantine(self):
+    def release_quarantine(self, *, expected_checkpoint_digest=None):
         """Explicit restore gate. Purge erased fixture data; refuse missing/stale active rows."""
         with self.transaction(quarantined=True,exclusive=True) as db:
+            if db.execute("SELECT to_regclass('knowledge_retained.cleanup_receipts')").fetchone()[0]:
+                from .checkpoint import _checkpoint
+                if expected_checkpoint_digest is None or digest(_checkpoint(self, db)) != expected_checkpoint_digest:
+                    raise StoreConflict('ledger_checkpoint_required')
             db.execute('DELETE FROM knowledge_data.subjects WHERE scope_key IN (SELECT s.scope_key FROM knowledge_retained.subjects s JOIN knowledge_retained.tenants t USING(tenant_key) WHERE s.erased OR t.erased)')
             rows = db.execute('SELECT s.scope_key,s.tenant_key,s.identity_revision,s.privacy_generation,s.data_version,d.scope,d.data_version FROM knowledge_retained.subjects s JOIN knowledge_retained.tenants t USING(tenant_key) LEFT JOIN knowledge_data.subjects d USING(scope_key) WHERE NOT s.erased AND NOT t.erased').fetchall()
             for key,tenant,identity,generation,version,scope,data_version in rows:
@@ -304,6 +329,7 @@ class KnowledgeStore:
                     sources = [r[0] for r in db.execute('SELECT receipt FROM knowledge_data.sources WHERE scope_key=%s',(key,))]
                     entities = [r[0] for r in db.execute('SELECT receipt FROM knowledge_data.catalog WHERE scope_key=%s',(key,))]
                     read_knowledge(json.dumps(payload),scope=scope,sources=sources,entities=entities,at=db.execute('SELECT clock_timestamp()').fetchone()[0])
+                    self.check_purged_records(db, key, payload)
             if db.execute('SELECT 1 FROM knowledge_data.subjects d LEFT JOIN knowledge_retained.subjects s USING(scope_key) WHERE s.scope_key IS NULL LIMIT 1').fetchone():
                 raise StoreConflict('unfenced_restore_data')
             db.execute('UPDATE knowledge_retained.control SET quarantined=false')

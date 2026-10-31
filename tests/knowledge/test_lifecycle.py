@@ -351,6 +351,9 @@ def test_restore_rejects_missing_source_receipts(store,database):
 def test_catalog_matches_privacy_inventory(database):
     inventory=json.loads((ROOT/'contracts/knowledge/lifecycle-v1/inventory.json').read_text())
     with psycopg.connect(database) as db:
+        # The inventory covers the full opt-in schema, including retained receipts.
+        for migration in ('002_delivery_receipts.sql','003_cleanup_receipts.sql'):
+            db.execute((ROOT/'cart_recovery/domain/migrations'/migration).read_text())
         rows=db.execute("SELECT table_schema||'.'||table_name,column_name FROM information_schema.columns WHERE table_schema IN ('knowledge_data','knowledge_retained') ORDER BY table_schema,table_name,ordinal_position").fetchall()
         actual={}
         for table,column in rows:actual.setdefault(table,[]).append(column)

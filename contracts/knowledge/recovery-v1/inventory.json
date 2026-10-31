@@ -1,0 +1,20 @@
+{
+  "version": "knowledge_cleanup_recovery_inventory_v1",
+  "runtime_enabled": false,
+  "privacy_completion_qualified": false,
+  "families": {
+    "integration_knowledge_cleanup_commands": {
+      "owner": "Engine",
+      "export": "pending current job with merchant/store/reference closure; explicit columns; row and byte budgets",
+      "retention": "immutable body/hash and terminal receipt; reserved work cancelled on identity advance; started work retained for lookup only",
+      "recovery": "exact current operator checkpoint verification on isolated full SQL restore; stale attempt history refused"
+    },
+    "knowledge_retained.cleanup_receipts": {
+      "owner": "Wakaru",
+      "export": "authenticated scope-bound cleanup_receipts pages with shared snapshot and cursor binding",
+      "retention": "immutable applied/refused receipts survive erasure; no raw shopper source content",
+      "recovery": "knowledge_checkpoint_v1 with fences, delivery receipts and events; atomic overlay plus independently bound release"
+    }
+  },
+  "remaining_gates": ["aggregate privacy acknowledgment", "complete protected export delivery", "checkpoint custody", "production database roles", "backup/WAL controls", "runtime activation", "hosted and native AMD64 artifact qualification"]
+}

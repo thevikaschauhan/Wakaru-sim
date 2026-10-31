@@ -70,6 +70,11 @@
       "columns": [
         "scope_key",
         "source_key"
+      ],
+      "key_namespaces": [
+        "source",
+        "purged-object",
+        "purged-assertion"
       ]
     },
     "knowledge_retained.events": {
@@ -80,6 +85,27 @@
         "scope_key",
         "data_version",
         "kind"
+      ]
+    },
+    "knowledge_retained.delivery_receipts": {
+      "class": "retained_command_receipt",
+      "columns": [
+        "scope_key",
+        "command_key",
+        "request_sha256",
+        "scope_sha256",
+        "operation"
+      ]
+    },
+    "knowledge_retained.cleanup_receipts": {
+      "class": "retained_command_receipt",
+      "columns": [
+        "scope_key",
+        "command_key",
+        "request_sha256",
+        "scope_sha256",
+        "status",
+        "result"
       ]
     }
   }
