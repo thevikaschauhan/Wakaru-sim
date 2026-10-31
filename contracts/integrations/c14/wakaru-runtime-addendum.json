@@ -29,11 +29,11 @@
       "owner": "Wakaru under Engine identity and source authority",
       "status": "legacy_blocked",
       "subject_selector": "HMAC of merchant/store/subject kind/id; exact identity and privacy generations",
-      "export": "KnowledgeStore.export_subject and export_merchant internal adapters; no public export endpoint",
-      "erasure": "Atomic retained stop plus deletion of subject payload, sources, catalog and commands; current source withdrawals retained",
+      "export": "Active data through internal subject/merchant adapters; retained withdrawals, delivery/cleanup receipts and events through authenticated scope-bound pages. Complete protected delivery remains blocked.",
+      "erasure": "Atomic retained stop and deletion of subject payload, sources, catalog and commands; withdrawal/purge removes dependent memory and commits immutable cleanup receipts. Retained command metadata survives erasure.",
       "retention": "Expired records excluded from reads; physical retention, backup expiry, key rotation and retained-ledger policy await activation review",
-      "restore": "New database quarantined by default; independently current retained checkpoint before activation; stale active rows fail closed",
-      "blocker": "Local PostgreSQL qualification only; authenticated Engine adapter, cross-repository C14 receipt wiring, database role policy and artifact requalification remain closed"
+      "restore": "Current operator checkpoint covers fences, delivery/cleanup receipts and events; receipt-aware quarantine release requires an independently trusted digest and consistent active data. Production recovery and checkpoint custody remain blocked.",
+      "blocker": "Authenticated service and local SQL/HTTP/restore tests exist; startup activation, aggregate C14 receipt wiring, protected export delivery, production database roles, checkpoint custody and artifact requalification remain blocked."
     }
   ],
   "writers": {
@@ -130,7 +130,23 @@
       "family": "wakaru.learning_registry"
     },
     "cart_recovery/domain/store.py": {
-      "sha256": "447cb27cabc0ff759d4adfb1f5d8c4e8d8c820bafebf9628fbb7de1f3ae6bafe",
+      "sha256": "44262e2e9664e4a1b2f843a647c110f99ca61cf4677786330ccc23c2e42a2929",
+      "family": "wakaru.knowledge_lifecycle"
+    },
+    "cart_recovery/domain/checkpoint.py": {
+      "sha256": "c9d35d9e7953d053ebe3073fdf43b522af9eda27067c4f05e13eeb4eb4fa6997",
+      "family": "wakaru.knowledge_lifecycle"
+    },
+    "cart_recovery/domain/cleanup.py": {
+      "sha256": "aef129e47946066069966e8dcab6eace9d2d1329f00621ee7d095a026becf81c",
+      "family": "wakaru.knowledge_lifecycle"
+    },
+    "cart_recovery/domain/delivery.py": {
+      "sha256": "06435a7050b4a9a008d60e0a5233d7b23a06840f000a7f37b45464ba18a106ab",
+      "family": "wakaru.knowledge_lifecycle"
+    },
+    "cart_recovery/domain/privacy.py": {
+      "sha256": "4a547b51f0b1e2b1814abcd5b027aa9e750fd76718ade91fc1512af9b90aa463",
       "family": "wakaru.knowledge_lifecycle"
     }
   },
@@ -141,13 +157,22 @@
     "cart_recovery/integration_privacy.py": "d4ece9b216acb2a684ae6f17ac7df5e6725f994ae9395adb17f272a8b4492344",
     "cart_recovery/domain/service.py": "89ef7d636709e9f6995150cf60d5ea25293f54a8b981615658532351d160d8ad",
     "contracts/knowledge/service-v1/request.schema.json": "80646a16e5ac4486bb9c531a736c18b2f49ad072dd5d91484721aed7325f171f",
-    "cart_recovery/integration_service_auth.py": "d671008085b49a1390b129724dc5ae046afd6e49e2eec9e6bd40bd72aa363736"
+    "cart_recovery/integration_service_auth.py": "d671008085b49a1390b129724dc5ae046afd6e49e2eec9e6bd40bd72aa363736",
+    "cart_recovery/domain/delivery.py": "06435a7050b4a9a008d60e0a5233d7b23a06840f000a7f37b45464ba18a106ab",
+    "cart_recovery/domain/cleanup.py": "aef129e47946066069966e8dcab6eace9d2d1329f00621ee7d095a026becf81c",
+    "cart_recovery/domain/privacy_service.py": "ab1a89bd7bd66647c43b604b530e14d868fd6825e3a0d30678f5994f2bc70490",
+    "cart_recovery/domain/checkpoint.py": "c9d35d9e7953d053ebe3073fdf43b522af9eda27067c4f05e13eeb4eb4fa6997",
+    "contracts/knowledge/cleanup-v1/request.schema.json": "e11af45de325d58aadcc059cef0ecaedb6e35b61c07905f324f1e48de6b037ab",
+    "contracts/knowledge/privacy-v1/request.schema.json": "c628a9cf2c6d13a5fbc7a41244705db48862eb8b2196285ae582cff3b4780c51",
+    "contracts/knowledge/recovery-v1/checkpoint.schema.json": "1d7a062c2ea69bd0459756edc964e66429b37af6678bbefa4a4090fa24169b94"
   },
   "adaptive_migrations": {
     "cart_recovery/adaptive/migrations/001_journal.sql": "0d07f5482d419619e0dd65bf6eabfff78b643ff66cdc5dd3179915ea1c2e11e6",
     "cart_recovery/adaptive/migrations/002_erasure.sql": "68554ba26825337667a686fd2636c1d79f203b861f869a8f0184e0bd22c7e76a"
   },
   "knowledge_migrations": {
-    "cart_recovery/domain/migrations/001_knowledge.sql": "4ace32806ccc29b310f74d189fa2c6d85c4a0537affea186f48dd6ca50ae4e3a"
+    "cart_recovery/domain/migrations/001_knowledge.sql": "4ace32806ccc29b310f74d189fa2c6d85c4a0537affea186f48dd6ca50ae4e3a",
+    "cart_recovery/domain/migrations/002_delivery_receipts.sql": "c5304d205ff2aa385c269b78d97f8bce6cda4f90a738acd73d7294d200be8d6a",
+    "cart_recovery/domain/migrations/003_cleanup_receipts.sql": "6d781d0df1f94d55773fedbcbfe31c837a2a521d749f0a005487eb2310770449"
   }
 }

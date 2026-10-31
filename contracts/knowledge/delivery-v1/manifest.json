@@ -17,7 +17,7 @@
     "tests/knowledge/test_source_cleanup.py": "d0bf6fe4c08c58b9a1e77325e906f9628c687595bfe3632f33c7f40fde8dcf5e",
     "docs/knowledge-source-cleanup.md": "fa8155a5ab432205e7d577b0fdb408bc5807241863a6dd3543217909526924fa",
     "docs/knowledge-delivery-privacy-addendum.json": "786828d09655afff517403647bd389a90538bf9afd7d32320a2233aa34f27ae1",
-    "contracts/knowledge/lifecycle-v1/inventory.json": "49faf479d29880b49f7ba76daef26281ba27409e47a72baf31fbbc0918693aa4"
+    "contracts/knowledge/lifecycle-v1/inventory.json": "45a96f19167ba861740c95100ae16beac300d95a2e2259d723fd344f5e3dab59"
   },
   "engine_sha256": {
     "internal/knowledgeclient/delivery.go": "94fb0795fe8db678a92daa6d4b154ad81db29e626af050c1826d4d7d072c8acc",

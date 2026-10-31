@@ -15,7 +15,7 @@
     "tests/knowledge/test_service.py": "241eb347cccba7ed325ed8497e5f27ac9cc50a74ecc926ae4fc841992ef0e3f8",
     "ops/knowledge/test_engine_bridge.py": "d383f54262b85cc28c4261a7bdaa6e5f1278eab1cf2bbd7203f073a119dd532a",
     "docs/knowledge-service.md": "2a4d43baf4f59463588e5c7fb79936f074eae11fae5edc9bc96036f2d359dc75",
-    "contracts/integrations/c14/wakaru-runtime-addendum.json": "abe28a572932fb384699ec5f9085d72f2178a5ea886eaed98fb2982de71126e2"
+    "contracts/integrations/c14/wakaru-runtime-addendum.json": "0348b187840f60620c46b4940ceecf06924707f9f17cdb0564903d81b930c89e"
   },
   "engine_sha256": {
     "internal/knowledgeclient/client.go": "d8f168443c1138ea48fc9fa3bc5ef8229d1c15c304085d4217934f69f656dea5",
