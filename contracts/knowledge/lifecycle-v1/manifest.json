@@ -1,0 +1,18 @@
+{
+  "version": "knowledge_lifecycle_local_v1",
+  "base_commit": "78c0bd0",
+  "deployment_authorized": false,
+  "runtime_activation": false,
+  "sha256": {
+    "cart_recovery/domain/store.py": "447cb27cabc0ff759d4adfb1f5d8c4e8d8c820bafebf9628fbb7de1f3ae6bafe",
+    "cart_recovery/domain/migrations/001_knowledge.sql": "4ace32806ccc29b310f74d189fa2c6d85c4a0537affea186f48dd6ca50ae4e3a",
+    "contracts/knowledge/lifecycle-v1/fences.schema.json": "2c0baded53bee5171c8ce548d3fe5fdf2203435f711044ec90c60c34587937f8",
+    "contracts/knowledge/lifecycle-v1/inventory.json": "45a96f19167ba861740c95100ae16beac300d95a2e2259d723fd344f5e3dab59",
+    "docs/knowledge-lifecycle.md": "7b874684becdeb963f43118d25ed9ef21f67a48cdecbba37c5291446aabf3c7e",
+    "tests/knowledge/conftest.py": "eaf59a530d093e8da94761ee649c0968a8878df7c66cbe85682bb03c026966ad",
+    "tests/knowledge/test_lifecycle.py": "cab4860bed5fa39cd8596c75cb78101f26a9678cfda2dd9d8efd9eb0d6483e6a",
+    "ops/runtime/verify_privacy.py": "9c8a7d1e52c166152a79b87a8d395f1e973f45f841c51aa5cbaa5417c51cd414",
+    "backend/tests/test_combined_privacy_inventory.py": "56dd6128f4bd0cd471ffe49e0d8934480a2c375f7aa9269476ffd68e861bccb1",
+    "contracts/integrations/c14/wakaru-runtime-addendum.json": "0348b187840f60620c46b4940ceecf06924707f9f17cdb0564903d81b930c89e"
+  }
+}

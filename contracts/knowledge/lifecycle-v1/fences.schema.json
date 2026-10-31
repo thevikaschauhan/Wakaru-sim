@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "key_fingerprint",
+    "tenants",
+    "subjects",
+    "withdrawals"
+  ],
+  "properties": {
+    "version": {
+      "const": "knowledge_fences_v1"
+    },
+    "key_fingerprint": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "tenants": {
+      "type": "array",
+      "maxItems": 100000,
+      "uniqueItems": true,
+      "items": {
+        "type": "array",
+        "prefixItems": [
+          {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          {
+            "type": "boolean"
+          }
+        ],
+        "items": false,
+        "minItems": 2,
+        "maxItems": 2
+      }
+    },
+    "subjects": {
+      "type": "array",
+      "maxItems": 100000,
+      "uniqueItems": true,
+      "items": {
+        "type": "array",
+        "prefixItems": [
+          {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          {
+            "type": "boolean"
+          }
+        ],
+        "items": false,
+        "minItems": 6,
+        "maxItems": 6
+      }
+    },
+    "withdrawals": {
+      "type": "array",
+      "maxItems": 100000,
+      "uniqueItems": true,
+      "items": {
+        "type": "array",
+        "prefixItems": [
+          {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        ],
+        "items": false,
+        "minItems": 2,
+        "maxItems": 2
+      }
+    }
+  }
+}
