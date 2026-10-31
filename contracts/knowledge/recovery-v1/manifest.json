@@ -83,7 +83,7 @@
     "docs/knowledge-cleanup-recovery.md": "583fc22c61e46c83c0ca1f0f75b26e6e44569c508922ac58e42f795e9ec3a609",
     "contracts/knowledge/lifecycle-v1/fences.schema.json": "2c0baded53bee5171c8ce548d3fe5fdf2203435f711044ec90c60c34587937f8",
     "tests/knowledge/conftest.py": "eaf59a530d093e8da94761ee649c0968a8878df7c66cbe85682bb03c026966ad",
-    "tests/knowledge/test_lifecycle.py": "a30204df70a9c6b73edba1484389895df490bf1990202d7c300efad28402f6ef",
+    "tests/knowledge/test_lifecycle.py": "cab4860bed5fa39cd8596c75cb78101f26a9678cfda2dd9d8efd9eb0d6483e6a",
     "tests/knowledge/test_service.py": "241eb347cccba7ed325ed8497e5f27ac9cc50a74ecc926ae4fc841992ef0e3f8"
   }
 }
