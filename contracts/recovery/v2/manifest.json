@@ -16,7 +16,7 @@
     "recovery-plan.schema.json": "db31436e5e05ec2be2f2b7506be8da02af11fef5729af261a128f829cb577751",
     "requirements.txt": "756cc9e506ae4ee1a6f6c0507088b5cfc0dc8ba350fb2d2d46f1ffa72033adb6",
     "semantic-bundle.schema.json": "3094f0f9cbfd3b35a3e0e83f376c7483a123c3f73651fd69aa4c69b347edfdf8",
-    "signal.go": "0704d00464b336c041253ff4aff2bab6044923a05a082643e1c795c26aecd4eb",
+    "signal.go": "65bcbf4d4257e16654d4d7174a67f375f5e672163e427f7c9034ca04f419e429",
     "signal.schema.json": "67179fa1f07728b10e02b04b1d1c34d61ddcd7b2a1083ff1f7654a46c7263438",
     "signal_test.go": "a65771ce04e62f2abff10f8891f015410a211ce0089e091e869b3238211214e7",
     "test_semantics.py": "a1555aff69b18adbcdd38442201355de968b22f987c3d08070755dc0074e22df",
