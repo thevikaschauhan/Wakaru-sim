@@ -265,7 +265,37 @@ class Journal:
                     "SELECT charged,finished_at FROM af6_attempts WHERE id=%s AND lease_token=%s FOR UPDATE",
                     (attempt["id"], token),
                 ).fetchone()
-                if not row or row[1] is not None:
+                if not row:
+                    from .erasure import settle_erased_attempt
+
+                    measured_micros = (
+                        int(
+                            (Decimal(str(cost)) * 1000000).to_integral_value(
+                                rounding=ROUND_CEILING
+                            )
+                        )
+                        if measured
+                        else None
+                    )
+                    charged = settle_erased_attempt(
+                        db,
+                        self.environment,
+                        merchant,
+                        token,
+                        attempt["id"],
+                        measured_micros,
+                    )
+                    if (
+                        charged is not None
+                        and charged > self.policy["reservation_micros"]
+                    ):
+                        overrun.append(True)
+                        db.execute(
+                            "INSERT INTO af6_circuits(environment,merchant,failures,open_until) VALUES(%s,%s,3,'infinity') ON CONFLICT(environment,merchant) DO UPDATE SET open_until='infinity'",
+                            (self.environment, merchant),
+                        )
+                    return
+                if row[1] is not None:
                     return
                 charged = (
                     int(

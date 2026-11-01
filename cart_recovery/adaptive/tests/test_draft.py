@@ -1,10 +1,11 @@
 import json
+from datetime import datetime, timedelta, timezone
 import httpx
 import psycopg
 import pytest
 from flask import Flask
-from cart_recovery.adaptive.draft import DraftChecker, POLICY, RUBRIC
-from cart_recovery.adaptive.planning import digest, strict_response
+from cart_recovery.adaptive.draft import DraftChecker, POLICY, RUBRIC, validate
+from cart_recovery.adaptive.planning import date, digest, stamp, strict_response
 from cart_recovery.adaptive.journal import Journal
 from cart_recovery.adaptive.draft_http import bp, PATH, signature
 from cart_recovery.intelligence.typesafe import Client
@@ -136,6 +137,40 @@ def test_draft_full_coverage_frozen_replay_and_shared_budget(checker):
             (d.journal.environment,),
         ).fetchall()
     assert len(rows) == 1
+
+
+def test_published_draft_outlives_frozen_read_lease_without_send_authority(checker):
+    planner, _, _ = checker
+    body = draft_input(planner)
+    evaluation = body["evaluation"]
+    context = evaluation["context"]
+    cutoff = date(context["cutoff_at"])
+    after_lease = cutoff + timedelta(minutes=6)
+    fact = evaluation["sources"]["shipping"]
+    fact["value"]["valid_until"] = stamp(cutoff + timedelta(minutes=5))
+    fact["ref"]["sha256"] = digest(fact["value"])
+    context["fact_set_sha256"] = digest(context["fact_refs"])
+    merchant = context["merchant_id"]
+    with pytest.raises(ValueError, match="expired_fact"):
+        validate(body, merchant, after_lease)
+    cart = evaluation["sources"]["cart"]
+    cart["value"]["publication_request"] = {
+        "schema_version": "adaptive_source_request_v1",
+        "merchant_id": merchant,
+        "journey_id": context["journey_id"],
+        "cutoff_at": context["cutoff_at"],
+        "expires_at": context["expires_at"],
+        "cart": {k: v for k, v in cart["value"].items() if k != "publication_request"},
+        "accepted": [],
+    }
+    cart["value"]["publication_sha256"] = digest("owner-bound fixture")
+    cart["ref"]["sha256"] = digest(cart["value"])
+    assert validate(body, merchant, after_lease) == context
+    # This only admits semantic judgment; current owner checks remain Inkwell's
+    # responsibility and real journey expiry still stops the checker itself.
+    context["expires_at"] = stamp(datetime.now(timezone.utc) - timedelta(seconds=1))
+    with pytest.raises(ValueError):
+        validate(body, merchant, after_lease)
 
 
 @pytest.mark.parametrize(

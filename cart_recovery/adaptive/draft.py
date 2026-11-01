@@ -47,7 +47,10 @@ def validate(body, merchant, now):
         raise ValueError("unknown_schema")
     e, p, d = body["evaluation"], body["plan"], body["draft"]
     # Composition can outlive the short planning authorization. Revalidate all
-    # source bindings at the frozen cutoff, then check fact/journey expiry now.
+    # source bindings at the frozen cutoff, then check journey expiry now.
+    # Published fact valid_until is an immutable read lease, not intrinsic expiry.
+    # The authenticated Inkwell caller verifies the current source owner before
+    # and after these judgments and again before final rendering/authorization.
     c = validate_input(e, merchant, date(e["context"]["cutoff_at"]))
     contracts.validate("recovery-plan.schema.json", p)
     pb = p["binding"]
@@ -160,9 +163,12 @@ def validate(body, merchant, now):
         for token in re.findall(r"\d+(?:[.,]\d+)*|https?://[^\s]+", claim["text"]):
             if token not in claim["source_quote"]:
                 raise ValueError("literal_value_mismatch")
-    for f in c["fact_refs"]:
-        if date(e["sources"][f["id"]]["value"]["valid_until"]) <= now:
-            raise ValueError("expired_fact")
+    cart = e["sources"][c["cart_ref"]["id"]]["value"]
+    if "publication_request" not in cart:
+        # A legacy snapshot with no owner publication cannot renew its facts.
+        for f in c["fact_refs"]:
+            if date(e["sources"][f["id"]]["value"]["valid_until"]) <= now:
+                raise ValueError("expired_fact")
     for x in d["commitments"]:
         exact_keys(x, ["id", "text"])
         if (
