@@ -1,0 +1,4165 @@
+[
+  {
+    "name": "TF01-valid",
+    "schema": "judgment-result.schema.json",
+    "valid": true,
+    "value": {
+      "schema_version": "followup_judgment_result_v1",
+      "judgment_id": "33333333-3333-4333-8333-333333333333",
+      "instance_id": "TF01:planning:item:r1",
+      "task_id": "TF01",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "semantic_input_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "input_evidence_refs": [],
+      "service_status": "evaluated",
+      "answer": {
+        "type": "choice",
+        "choice": "useful_change",
+        "probabilities": {
+          "useful_change": 0.3333333333333333,
+          "no_useful_change": 0.3333333333333333,
+          "insufficient": 0.3333333333333333
+        },
+        "confidence": 0.5
+      },
+      "disposition": "requires_review",
+      "reason_codes": [
+        "fixture_only"
+      ],
+      "provider_request_id": "local-fixture",
+      "response_version": "1",
+      "usage": {
+        "latency_ms": 1,
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "cost_micros": 0,
+        "cache_hit": false
+      }
+    }
+  },
+  {
+    "name": "TF01-invalid-confidence",
+    "schema": "judgment-result.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "followup_judgment_result_v1",
+      "judgment_id": "33333333-3333-4333-8333-333333333333",
+      "instance_id": "TF01:planning:item:r1",
+      "task_id": "TF01",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "semantic_input_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "input_evidence_refs": [],
+      "service_status": "evaluated",
+      "answer": {
+        "type": "choice",
+        "choice": "useful_change",
+        "probabilities": {
+          "useful_change": 0.3333333333333333,
+          "no_useful_change": 0.3333333333333333,
+          "insufficient": 0.3333333333333333
+        },
+        "confidence": 1.5
+      },
+      "disposition": "requires_review",
+      "reason_codes": [
+        "fixture_only"
+      ],
+      "provider_request_id": "local-fixture",
+      "response_version": "1",
+      "usage": {
+        "latency_ms": 1,
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "cost_micros": 0,
+        "cache_hit": false
+      }
+    }
+  },
+  {
+    "name": "TF01-bad-sum",
+    "schema": "judgment-result.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "followup_judgment_result_v1",
+      "judgment_id": "33333333-3333-4333-8333-333333333333",
+      "instance_id": "TF01:planning:item:r1",
+      "task_id": "TF01",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "semantic_input_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "input_evidence_refs": [],
+      "service_status": "evaluated",
+      "answer": {
+        "type": "choice",
+        "choice": "useful_change",
+        "probabilities": {
+          "useful_change": 0.9,
+          "no_useful_change": 0.3333333333333333,
+          "insufficient": 0.3333333333333333
+        },
+        "confidence": 0.5
+      },
+      "disposition": "requires_review",
+      "reason_codes": [
+        "fixture_only"
+      ],
+      "provider_request_id": "local-fixture",
+      "response_version": "1",
+      "usage": {
+        "latency_ms": 1,
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "cost_micros": 0,
+        "cache_hit": false
+      }
+    }
+  },
+  {
+    "name": "TF01-timeout-is-not-pass",
+    "schema": "judgment-result.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "followup_judgment_result_v1",
+      "judgment_id": "33333333-3333-4333-8333-333333333333",
+      "instance_id": "TF01:planning:item:r1",
+      "task_id": "TF01",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "semantic_input_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "input_evidence_refs": [],
+      "service_status": "unavailable",
+      "answer": {
+        "type": "choice",
+        "choice": "useful_change",
+        "probabilities": {
+          "useful_change": 0.3333333333333333,
+          "no_useful_change": 0.3333333333333333,
+          "insufficient": 0.3333333333333333
+        },
+        "confidence": 0.5
+      },
+      "disposition": "pass",
+      "reason_codes": [
+        "fixture_only"
+      ],
+      "provider_request_id": "local-fixture",
+      "response_version": "1",
+      "usage": {
+        "latency_ms": 1,
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "cost_micros": 0,
+        "cache_hit": false
+      }
+    }
+  },
+  {
+    "name": "TF01-unknown-authority",
+    "schema": "judgment-result.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "followup_judgment_result_v1",
+      "judgment_id": "33333333-3333-4333-8333-333333333333",
+      "instance_id": "TF01:planning:item:r1",
+      "task_id": "TF01",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "semantic_input_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "input_evidence_refs": [],
+      "service_status": "evaluated",
+      "answer": {
+        "type": "choice",
+        "choice": "useful_change",
+        "probabilities": {
+          "useful_change": 0.3333333333333333,
+          "no_useful_change": 0.3333333333333333,
+          "insufficient": 0.3333333333333333
+        },
+        "confidence": 0.5,
+        "execute_send": true
+      },
+      "disposition": "requires_review",
+      "reason_codes": [
+        "fixture_only"
+      ],
+      "provider_request_id": "local-fixture",
+      "response_version": "1",
+      "usage": {
+        "latency_ms": 1,
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "cost_micros": 0,
+        "cache_hit": false
+      }
+    }
+  },
+  {
+    "name": "TF02-valid",
+    "schema": "judgment-result.schema.json",
+    "valid": true,
+    "value": {
+      "schema_version": "followup_judgment_result_v1",
+      "judgment_id": "33333333-3333-4333-8333-333333333333",
+      "instance_id": "TF02:planning:item:r1",
+      "task_id": "TF02",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "semantic_input_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "input_evidence_refs": [],
+      "service_status": "evaluated",
+      "answer": {
+        "type": "choice",
+        "choice": "explicit_report",
+        "probabilities": {
+          "explicit_report": 0.25,
+          "behavior_only": 0.25,
+          "unsupported": 0.25,
+          "conflicting": 0.25
+        },
+        "confidence": 0.5
+      },
+      "disposition": "requires_review",
+      "reason_codes": [
+        "fixture_only"
+      ],
+      "provider_request_id": "local-fixture",
+      "response_version": "1",
+      "usage": {
+        "latency_ms": 1,
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "cost_micros": 0,
+        "cache_hit": false
+      }
+    }
+  },
+  {
+    "name": "TF02-invalid-confidence",
+    "schema": "judgment-result.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "followup_judgment_result_v1",
+      "judgment_id": "33333333-3333-4333-8333-333333333333",
+      "instance_id": "TF02:planning:item:r1",
+      "task_id": "TF02",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "semantic_input_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "input_evidence_refs": [],
+      "service_status": "evaluated",
+      "answer": {
+        "type": "choice",
+        "choice": "explicit_report",
+        "probabilities": {
+          "explicit_report": 0.25,
+          "behavior_only": 0.25,
+          "unsupported": 0.25,
+          "conflicting": 0.25
+        },
+        "confidence": 1.5
+      },
+      "disposition": "requires_review",
+      "reason_codes": [
+        "fixture_only"
+      ],
+      "provider_request_id": "local-fixture",
+      "response_version": "1",
+      "usage": {
+        "latency_ms": 1,
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "cost_micros": 0,
+        "cache_hit": false
+      }
+    }
+  },
+  {
+    "name": "TF02-bad-sum",
+    "schema": "judgment-result.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "followup_judgment_result_v1",
+      "judgment_id": "33333333-3333-4333-8333-333333333333",
+      "instance_id": "TF02:planning:item:r1",
+      "task_id": "TF02",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "semantic_input_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "input_evidence_refs": [],
+      "service_status": "evaluated",
+      "answer": {
+        "type": "choice",
+        "choice": "explicit_report",
+        "probabilities": {
+          "explicit_report": 0.9,
+          "behavior_only": 0.25,
+          "unsupported": 0.25,
+          "conflicting": 0.25
+        },
+        "confidence": 0.5
+      },
+      "disposition": "requires_review",
+      "reason_codes": [
+        "fixture_only"
+      ],
+      "provider_request_id": "local-fixture",
+      "response_version": "1",
+      "usage": {
+        "latency_ms": 1,
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "cost_micros": 0,
+        "cache_hit": false
+      }
+    }
+  },
+  {
+    "name": "TF02-timeout-is-not-pass",
+    "schema": "judgment-result.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "followup_judgment_result_v1",
+      "judgment_id": "33333333-3333-4333-8333-333333333333",
+      "instance_id": "TF02:planning:item:r1",
+      "task_id": "TF02",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "semantic_input_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "input_evidence_refs": [],
+      "service_status": "unavailable",
+      "answer": {
+        "type": "choice",
+        "choice": "explicit_report",
+        "probabilities": {
+          "explicit_report": 0.25,
+          "behavior_only": 0.25,
+          "unsupported": 0.25,
+          "conflicting": 0.25
+        },
+        "confidence": 0.5
+      },
+      "disposition": "pass",
+      "reason_codes": [
+        "fixture_only"
+      ],
+      "provider_request_id": "local-fixture",
+      "response_version": "1",
+      "usage": {
+        "latency_ms": 1,
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "cost_micros": 0,
+        "cache_hit": false
+      }
+    }
+  },
+  {
+    "name": "TF02-unknown-authority",
+    "schema": "judgment-result.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "followup_judgment_result_v1",
+      "judgment_id": "33333333-3333-4333-8333-333333333333",
+      "instance_id": "TF02:planning:item:r1",
+      "task_id": "TF02",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "semantic_input_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "input_evidence_refs": [],
+      "service_status": "evaluated",
+      "answer": {
+        "type": "choice",
+        "choice": "explicit_report",
+        "probabilities": {
+          "explicit_report": 0.25,
+          "behavior_only": 0.25,
+          "unsupported": 0.25,
+          "conflicting": 0.25
+        },
+        "confidence": 0.5,
+        "execute_send": true
+      },
+      "disposition": "requires_review",
+      "reason_codes": [
+        "fixture_only"
+      ],
+      "provider_request_id": "local-fixture",
+      "response_version": "1",
+      "usage": {
+        "latency_ms": 1,
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "cost_micros": 0,
+        "cache_hit": false
+      }
+    }
+  },
+  {
+    "name": "TF03-valid",
+    "schema": "judgment-result.schema.json",
+    "valid": true,
+    "value": {
+      "schema_version": "followup_judgment_result_v1",
+      "judgment_id": "33333333-3333-4333-8333-333333333333",
+      "instance_id": "TF03:planning:item:r1",
+      "task_id": "TF03",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "semantic_input_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "input_evidence_refs": [],
+      "service_status": "evaluated",
+      "answer": {
+        "type": "score",
+        "value": 1.5,
+        "legend": [
+          "0",
+          "1",
+          "2",
+          "3"
+        ],
+        "probabilities": {
+          "0": 0.25,
+          "1": 0.25,
+          "2": 0.25,
+          "3": 0.25
+        },
+        "confidence": 0.5
+      },
+      "disposition": "requires_review",
+      "reason_codes": [
+        "fixture_only"
+      ],
+      "provider_request_id": "local-fixture",
+      "response_version": "1",
+      "usage": {
+        "latency_ms": 1,
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "cost_micros": 0,
+        "cache_hit": false
+      }
+    }
+  },
+  {
+    "name": "TF03-invalid-confidence",
+    "schema": "judgment-result.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "followup_judgment_result_v1",
+      "judgment_id": "33333333-3333-4333-8333-333333333333",
+      "instance_id": "TF03:planning:item:r1",
+      "task_id": "TF03",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "semantic_input_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "input_evidence_refs": [],
+      "service_status": "evaluated",
+      "answer": {
+        "type": "score",
+        "value": 1.5,
+        "legend": [
+          "0",
+          "1",
+          "2",
+          "3"
+        ],
+        "probabilities": {
+          "0": 0.25,
+          "1": 0.25,
+          "2": 0.25,
+          "3": 0.25
+        },
+        "confidence": 1.5
+      },
+      "disposition": "requires_review",
+      "reason_codes": [
+        "fixture_only"
+      ],
+      "provider_request_id": "local-fixture",
+      "response_version": "1",
+      "usage": {
+        "latency_ms": 1,
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "cost_micros": 0,
+        "cache_hit": false
+      }
+    }
+  },
+  {
+    "name": "TF03-bad-sum",
+    "schema": "judgment-result.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "followup_judgment_result_v1",
+      "judgment_id": "33333333-3333-4333-8333-333333333333",
+      "instance_id": "TF03:planning:item:r1",
+      "task_id": "TF03",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "semantic_input_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "input_evidence_refs": [],
+      "service_status": "evaluated",
+      "answer": {
+        "type": "score",
+        "value": 1.5,
+        "legend": [
+          "0",
+          "1",
+          "2",
+          "3"
+        ],
+        "probabilities": {
+          "0": 0.9,
+          "1": 0.25,
+          "2": 0.25,
+          "3": 0.25
+        },
+        "confidence": 0.5
+      },
+      "disposition": "requires_review",
+      "reason_codes": [
+        "fixture_only"
+      ],
+      "provider_request_id": "local-fixture",
+      "response_version": "1",
+      "usage": {
+        "latency_ms": 1,
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "cost_micros": 0,
+        "cache_hit": false
+      }
+    }
+  },
+  {
+    "name": "TF03-timeout-is-not-pass",
+    "schema": "judgment-result.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "followup_judgment_result_v1",
+      "judgment_id": "33333333-3333-4333-8333-333333333333",
+      "instance_id": "TF03:planning:item:r1",
+      "task_id": "TF03",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "semantic_input_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "input_evidence_refs": [],
+      "service_status": "unavailable",
+      "answer": {
+        "type": "score",
+        "value": 1.5,
+        "legend": [
+          "0",
+          "1",
+          "2",
+          "3"
+        ],
+        "probabilities": {
+          "0": 0.25,
+          "1": 0.25,
+          "2": 0.25,
+          "3": 0.25
+        },
+        "confidence": 0.5
+      },
+      "disposition": "pass",
+      "reason_codes": [
+        "fixture_only"
+      ],
+      "provider_request_id": "local-fixture",
+      "response_version": "1",
+      "usage": {
+        "latency_ms": 1,
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "cost_micros": 0,
+        "cache_hit": false
+      }
+    }
+  },
+  {
+    "name": "TF03-unknown-authority",
+    "schema": "judgment-result.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "followup_judgment_result_v1",
+      "judgment_id": "33333333-3333-4333-8333-333333333333",
+      "instance_id": "TF03:planning:item:r1",
+      "task_id": "TF03",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "semantic_input_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "input_evidence_refs": [],
+      "service_status": "evaluated",
+      "answer": {
+        "type": "score",
+        "value": 1.5,
+        "legend": [
+          "0",
+          "1",
+          "2",
+          "3"
+        ],
+        "probabilities": {
+          "0": 0.25,
+          "1": 0.25,
+          "2": 0.25,
+          "3": 0.25
+        },
+        "confidence": 0.5,
+        "execute_send": true
+      },
+      "disposition": "requires_review",
+      "reason_codes": [
+        "fixture_only"
+      ],
+      "provider_request_id": "local-fixture",
+      "response_version": "1",
+      "usage": {
+        "latency_ms": 1,
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "cost_micros": 0,
+        "cache_hit": false
+      }
+    }
+  },
+  {
+    "name": "TF04-valid",
+    "schema": "judgment-result.schema.json",
+    "valid": true,
+    "value": {
+      "schema_version": "followup_judgment_result_v1",
+      "judgment_id": "33333333-3333-4333-8333-333333333333",
+      "instance_id": "TF04:planning:item:r1",
+      "task_id": "TF04",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "semantic_input_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "input_evidence_refs": [],
+      "service_status": "evaluated",
+      "answer": {
+        "type": "choice",
+        "choice": "adds_useful_information",
+        "probabilities": {
+          "adds_useful_information": 0.25,
+          "answers_prior_question": 0.25,
+          "repeats": 0.25,
+          "insufficient": 0.25
+        },
+        "confidence": 0.5
+      },
+      "disposition": "requires_review",
+      "reason_codes": [
+        "fixture_only"
+      ],
+      "provider_request_id": "local-fixture",
+      "response_version": "1",
+      "usage": {
+        "latency_ms": 1,
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "cost_micros": 0,
+        "cache_hit": false
+      }
+    }
+  },
+  {
+    "name": "TF04-invalid-confidence",
+    "schema": "judgment-result.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "followup_judgment_result_v1",
+      "judgment_id": "33333333-3333-4333-8333-333333333333",
+      "instance_id": "TF04:planning:item:r1",
+      "task_id": "TF04",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "semantic_input_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "input_evidence_refs": [],
+      "service_status": "evaluated",
+      "answer": {
+        "type": "choice",
+        "choice": "adds_useful_information",
+        "probabilities": {
+          "adds_useful_information": 0.25,
+          "answers_prior_question": 0.25,
+          "repeats": 0.25,
+          "insufficient": 0.25
+        },
+        "confidence": 1.5
+      },
+      "disposition": "requires_review",
+      "reason_codes": [
+        "fixture_only"
+      ],
+      "provider_request_id": "local-fixture",
+      "response_version": "1",
+      "usage": {
+        "latency_ms": 1,
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "cost_micros": 0,
+        "cache_hit": false
+      }
+    }
+  },
+  {
+    "name": "TF04-bad-sum",
+    "schema": "judgment-result.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "followup_judgment_result_v1",
+      "judgment_id": "33333333-3333-4333-8333-333333333333",
+      "instance_id": "TF04:planning:item:r1",
+      "task_id": "TF04",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "semantic_input_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "input_evidence_refs": [],
+      "service_status": "evaluated",
+      "answer": {
+        "type": "choice",
+        "choice": "adds_useful_information",
+        "probabilities": {
+          "adds_useful_information": 0.9,
+          "answers_prior_question": 0.25,
+          "repeats": 0.25,
+          "insufficient": 0.25
+        },
+        "confidence": 0.5
+      },
+      "disposition": "requires_review",
+      "reason_codes": [
+        "fixture_only"
+      ],
+      "provider_request_id": "local-fixture",
+      "response_version": "1",
+      "usage": {
+        "latency_ms": 1,
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "cost_micros": 0,
+        "cache_hit": false
+      }
+    }
+  },
+  {
+    "name": "TF04-timeout-is-not-pass",
+    "schema": "judgment-result.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "followup_judgment_result_v1",
+      "judgment_id": "33333333-3333-4333-8333-333333333333",
+      "instance_id": "TF04:planning:item:r1",
+      "task_id": "TF04",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "semantic_input_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "input_evidence_refs": [],
+      "service_status": "unavailable",
+      "answer": {
+        "type": "choice",
+        "choice": "adds_useful_information",
+        "probabilities": {
+          "adds_useful_information": 0.25,
+          "answers_prior_question": 0.25,
+          "repeats": 0.25,
+          "insufficient": 0.25
+        },
+        "confidence": 0.5
+      },
+      "disposition": "pass",
+      "reason_codes": [
+        "fixture_only"
+      ],
+      "provider_request_id": "local-fixture",
+      "response_version": "1",
+      "usage": {
+        "latency_ms": 1,
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "cost_micros": 0,
+        "cache_hit": false
+      }
+    }
+  },
+  {
+    "name": "TF04-unknown-authority",
+    "schema": "judgment-result.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "followup_judgment_result_v1",
+      "judgment_id": "33333333-3333-4333-8333-333333333333",
+      "instance_id": "TF04:planning:item:r1",
+      "task_id": "TF04",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "semantic_input_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "input_evidence_refs": [],
+      "service_status": "evaluated",
+      "answer": {
+        "type": "choice",
+        "choice": "adds_useful_information",
+        "probabilities": {
+          "adds_useful_information": 0.25,
+          "answers_prior_question": 0.25,
+          "repeats": 0.25,
+          "insufficient": 0.25
+        },
+        "confidence": 0.5,
+        "execute_send": true
+      },
+      "disposition": "requires_review",
+      "reason_codes": [
+        "fixture_only"
+      ],
+      "provider_request_id": "local-fixture",
+      "response_version": "1",
+      "usage": {
+        "latency_ms": 1,
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "cost_micros": 0,
+        "cache_hit": false
+      }
+    }
+  },
+  {
+    "name": "TF05-valid",
+    "schema": "judgment-result.schema.json",
+    "valid": true,
+    "value": {
+      "schema_version": "followup_judgment_result_v1",
+      "judgment_id": "33333333-3333-4333-8333-333333333333",
+      "instance_id": "TF05:planning:item:r1",
+      "task_id": "TF05",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "semantic_input_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "input_evidence_refs": [],
+      "service_status": "evaluated",
+      "answer": {
+        "type": "choice",
+        "choice": "supported",
+        "probabilities": {
+          "supported": 0.25,
+          "contradicted": 0.25,
+          "missing_evidence": 0.25,
+          "out_of_scope": 0.25
+        },
+        "confidence": 0.5
+      },
+      "disposition": "requires_review",
+      "reason_codes": [
+        "fixture_only"
+      ],
+      "provider_request_id": "local-fixture",
+      "response_version": "1",
+      "usage": {
+        "latency_ms": 1,
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "cost_micros": 0,
+        "cache_hit": false
+      }
+    }
+  },
+  {
+    "name": "TF05-invalid-confidence",
+    "schema": "judgment-result.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "followup_judgment_result_v1",
+      "judgment_id": "33333333-3333-4333-8333-333333333333",
+      "instance_id": "TF05:planning:item:r1",
+      "task_id": "TF05",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "semantic_input_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "input_evidence_refs": [],
+      "service_status": "evaluated",
+      "answer": {
+        "type": "choice",
+        "choice": "supported",
+        "probabilities": {
+          "supported": 0.25,
+          "contradicted": 0.25,
+          "missing_evidence": 0.25,
+          "out_of_scope": 0.25
+        },
+        "confidence": 1.5
+      },
+      "disposition": "requires_review",
+      "reason_codes": [
+        "fixture_only"
+      ],
+      "provider_request_id": "local-fixture",
+      "response_version": "1",
+      "usage": {
+        "latency_ms": 1,
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "cost_micros": 0,
+        "cache_hit": false
+      }
+    }
+  },
+  {
+    "name": "TF05-bad-sum",
+    "schema": "judgment-result.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "followup_judgment_result_v1",
+      "judgment_id": "33333333-3333-4333-8333-333333333333",
+      "instance_id": "TF05:planning:item:r1",
+      "task_id": "TF05",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "semantic_input_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "input_evidence_refs": [],
+      "service_status": "evaluated",
+      "answer": {
+        "type": "choice",
+        "choice": "supported",
+        "probabilities": {
+          "supported": 0.9,
+          "contradicted": 0.25,
+          "missing_evidence": 0.25,
+          "out_of_scope": 0.25
+        },
+        "confidence": 0.5
+      },
+      "disposition": "requires_review",
+      "reason_codes": [
+        "fixture_only"
+      ],
+      "provider_request_id": "local-fixture",
+      "response_version": "1",
+      "usage": {
+        "latency_ms": 1,
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "cost_micros": 0,
+        "cache_hit": false
+      }
+    }
+  },
+  {
+    "name": "TF05-timeout-is-not-pass",
+    "schema": "judgment-result.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "followup_judgment_result_v1",
+      "judgment_id": "33333333-3333-4333-8333-333333333333",
+      "instance_id": "TF05:planning:item:r1",
+      "task_id": "TF05",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "semantic_input_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "input_evidence_refs": [],
+      "service_status": "unavailable",
+      "answer": {
+        "type": "choice",
+        "choice": "supported",
+        "probabilities": {
+          "supported": 0.25,
+          "contradicted": 0.25,
+          "missing_evidence": 0.25,
+          "out_of_scope": 0.25
+        },
+        "confidence": 0.5
+      },
+      "disposition": "pass",
+      "reason_codes": [
+        "fixture_only"
+      ],
+      "provider_request_id": "local-fixture",
+      "response_version": "1",
+      "usage": {
+        "latency_ms": 1,
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "cost_micros": 0,
+        "cache_hit": false
+      }
+    }
+  },
+  {
+    "name": "TF05-unknown-authority",
+    "schema": "judgment-result.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "followup_judgment_result_v1",
+      "judgment_id": "33333333-3333-4333-8333-333333333333",
+      "instance_id": "TF05:planning:item:r1",
+      "task_id": "TF05",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "semantic_input_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "input_evidence_refs": [],
+      "service_status": "evaluated",
+      "answer": {
+        "type": "choice",
+        "choice": "supported",
+        "probabilities": {
+          "supported": 0.25,
+          "contradicted": 0.25,
+          "missing_evidence": 0.25,
+          "out_of_scope": 0.25
+        },
+        "confidence": 0.5,
+        "execute_send": true
+      },
+      "disposition": "requires_review",
+      "reason_codes": [
+        "fixture_only"
+      ],
+      "provider_request_id": "local-fixture",
+      "response_version": "1",
+      "usage": {
+        "latency_ms": 1,
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "cost_micros": 0,
+        "cache_hit": false
+      }
+    }
+  },
+  {
+    "name": "TF06-valid",
+    "schema": "judgment-result.schema.json",
+    "valid": true,
+    "value": {
+      "schema_version": "followup_judgment_result_v1",
+      "judgment_id": "33333333-3333-4333-8333-333333333333",
+      "instance_id": "TF06:planning:item:r1",
+      "task_id": "TF06",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "semantic_input_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "input_evidence_refs": [],
+      "service_status": "evaluated",
+      "answer": {
+        "type": "noul",
+        "yes_probability": 0.04
+      },
+      "disposition": "requires_review",
+      "reason_codes": [
+        "fixture_only"
+      ],
+      "provider_request_id": "local-fixture",
+      "response_version": "1",
+      "usage": {
+        "latency_ms": 1,
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "cost_micros": 0,
+        "cache_hit": false
+      }
+    }
+  },
+  {
+    "name": "TF06-invalid-confidence",
+    "schema": "judgment-result.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "followup_judgment_result_v1",
+      "judgment_id": "33333333-3333-4333-8333-333333333333",
+      "instance_id": "TF06:planning:item:r1",
+      "task_id": "TF06",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "semantic_input_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "input_evidence_refs": [],
+      "service_status": "evaluated",
+      "answer": {
+        "type": "noul",
+        "yes_probability": 0.04,
+        "confidence": 1.5
+      },
+      "disposition": "requires_review",
+      "reason_codes": [
+        "fixture_only"
+      ],
+      "provider_request_id": "local-fixture",
+      "response_version": "1",
+      "usage": {
+        "latency_ms": 1,
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "cost_micros": 0,
+        "cache_hit": false
+      }
+    }
+  },
+  {
+    "name": "TF06-timeout-is-not-pass",
+    "schema": "judgment-result.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "followup_judgment_result_v1",
+      "judgment_id": "33333333-3333-4333-8333-333333333333",
+      "instance_id": "TF06:planning:item:r1",
+      "task_id": "TF06",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "semantic_input_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "input_evidence_refs": [],
+      "service_status": "unavailable",
+      "answer": {
+        "type": "noul",
+        "yes_probability": 0.04
+      },
+      "disposition": "pass",
+      "reason_codes": [
+        "fixture_only"
+      ],
+      "provider_request_id": "local-fixture",
+      "response_version": "1",
+      "usage": {
+        "latency_ms": 1,
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "cost_micros": 0,
+        "cache_hit": false
+      }
+    }
+  },
+  {
+    "name": "TF06-unknown-authority",
+    "schema": "judgment-result.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "followup_judgment_result_v1",
+      "judgment_id": "33333333-3333-4333-8333-333333333333",
+      "instance_id": "TF06:planning:item:r1",
+      "task_id": "TF06",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "semantic_input_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "input_evidence_refs": [],
+      "service_status": "evaluated",
+      "answer": {
+        "type": "noul",
+        "yes_probability": 0.04,
+        "execute_send": true
+      },
+      "disposition": "requires_review",
+      "reason_codes": [
+        "fixture_only"
+      ],
+      "provider_request_id": "local-fixture",
+      "response_version": "1",
+      "usage": {
+        "latency_ms": 1,
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "cost_micros": 0,
+        "cache_hit": false
+      }
+    }
+  },
+  {
+    "name": "TF07-valid",
+    "schema": "judgment-result.schema.json",
+    "valid": true,
+    "value": {
+      "schema_version": "followup_judgment_result_v1",
+      "judgment_id": "33333333-3333-4333-8333-333333333333",
+      "instance_id": "TF07:planning:item:r1",
+      "task_id": "TF07",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "semantic_input_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "input_evidence_refs": [],
+      "service_status": "evaluated",
+      "answer": {
+        "type": "choice",
+        "choice": "consistent",
+        "probabilities": {
+          "consistent": 0.3333333333333333,
+          "conflicts_prior_commitment": 0.3333333333333333,
+          "insufficient": 0.3333333333333333
+        },
+        "confidence": 0.5
+      },
+      "disposition": "requires_review",
+      "reason_codes": [
+        "fixture_only"
+      ],
+      "provider_request_id": "local-fixture",
+      "response_version": "1",
+      "usage": {
+        "latency_ms": 1,
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "cost_micros": 0,
+        "cache_hit": false
+      }
+    }
+  },
+  {
+    "name": "TF07-invalid-confidence",
+    "schema": "judgment-result.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "followup_judgment_result_v1",
+      "judgment_id": "33333333-3333-4333-8333-333333333333",
+      "instance_id": "TF07:planning:item:r1",
+      "task_id": "TF07",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "semantic_input_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "input_evidence_refs": [],
+      "service_status": "evaluated",
+      "answer": {
+        "type": "choice",
+        "choice": "consistent",
+        "probabilities": {
+          "consistent": 0.3333333333333333,
+          "conflicts_prior_commitment": 0.3333333333333333,
+          "insufficient": 0.3333333333333333
+        },
+        "confidence": 1.5
+      },
+      "disposition": "requires_review",
+      "reason_codes": [
+        "fixture_only"
+      ],
+      "provider_request_id": "local-fixture",
+      "response_version": "1",
+      "usage": {
+        "latency_ms": 1,
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "cost_micros": 0,
+        "cache_hit": false
+      }
+    }
+  },
+  {
+    "name": "TF07-bad-sum",
+    "schema": "judgment-result.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "followup_judgment_result_v1",
+      "judgment_id": "33333333-3333-4333-8333-333333333333",
+      "instance_id": "TF07:planning:item:r1",
+      "task_id": "TF07",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "semantic_input_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "input_evidence_refs": [],
+      "service_status": "evaluated",
+      "answer": {
+        "type": "choice",
+        "choice": "consistent",
+        "probabilities": {
+          "consistent": 0.9,
+          "conflicts_prior_commitment": 0.3333333333333333,
+          "insufficient": 0.3333333333333333
+        },
+        "confidence": 0.5
+      },
+      "disposition": "requires_review",
+      "reason_codes": [
+        "fixture_only"
+      ],
+      "provider_request_id": "local-fixture",
+      "response_version": "1",
+      "usage": {
+        "latency_ms": 1,
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "cost_micros": 0,
+        "cache_hit": false
+      }
+    }
+  },
+  {
+    "name": "TF07-timeout-is-not-pass",
+    "schema": "judgment-result.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "followup_judgment_result_v1",
+      "judgment_id": "33333333-3333-4333-8333-333333333333",
+      "instance_id": "TF07:planning:item:r1",
+      "task_id": "TF07",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "semantic_input_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "input_evidence_refs": [],
+      "service_status": "unavailable",
+      "answer": {
+        "type": "choice",
+        "choice": "consistent",
+        "probabilities": {
+          "consistent": 0.3333333333333333,
+          "conflicts_prior_commitment": 0.3333333333333333,
+          "insufficient": 0.3333333333333333
+        },
+        "confidence": 0.5
+      },
+      "disposition": "pass",
+      "reason_codes": [
+        "fixture_only"
+      ],
+      "provider_request_id": "local-fixture",
+      "response_version": "1",
+      "usage": {
+        "latency_ms": 1,
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "cost_micros": 0,
+        "cache_hit": false
+      }
+    }
+  },
+  {
+    "name": "TF07-unknown-authority",
+    "schema": "judgment-result.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "followup_judgment_result_v1",
+      "judgment_id": "33333333-3333-4333-8333-333333333333",
+      "instance_id": "TF07:planning:item:r1",
+      "task_id": "TF07",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "semantic_input_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "input_evidence_refs": [],
+      "service_status": "evaluated",
+      "answer": {
+        "type": "choice",
+        "choice": "consistent",
+        "probabilities": {
+          "consistent": 0.3333333333333333,
+          "conflicts_prior_commitment": 0.3333333333333333,
+          "insufficient": 0.3333333333333333
+        },
+        "confidence": 0.5,
+        "execute_send": true
+      },
+      "disposition": "requires_review",
+      "reason_codes": [
+        "fixture_only"
+      ],
+      "provider_request_id": "local-fixture",
+      "response_version": "1",
+      "usage": {
+        "latency_ms": 1,
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "cost_micros": 0,
+        "cache_hit": false
+      }
+    }
+  },
+  {
+    "name": "TF08-valid",
+    "schema": "judgment-result.schema.json",
+    "valid": true,
+    "value": {
+      "schema_version": "followup_judgment_result_v1",
+      "judgment_id": "33333333-3333-4333-8333-333333333333",
+      "instance_id": "TF08:planning:item:r1",
+      "task_id": "TF08",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "semantic_input_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "input_evidence_refs": [],
+      "service_status": "evaluated",
+      "answer": {
+        "type": "choice",
+        "choice": "no_preference",
+        "probabilities": {
+          "window_1": 0.3,
+          "no_preference": 0.7
+        },
+        "confidence": 0.5
+      },
+      "disposition": "requires_review",
+      "reason_codes": [
+        "fixture_only"
+      ],
+      "provider_request_id": "local-fixture",
+      "response_version": "1",
+      "usage": {
+        "latency_ms": 1,
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "cost_micros": 0,
+        "cache_hit": false
+      }
+    }
+  },
+  {
+    "name": "TF08-invalid-confidence",
+    "schema": "judgment-result.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "followup_judgment_result_v1",
+      "judgment_id": "33333333-3333-4333-8333-333333333333",
+      "instance_id": "TF08:planning:item:r1",
+      "task_id": "TF08",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "semantic_input_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "input_evidence_refs": [],
+      "service_status": "evaluated",
+      "answer": {
+        "type": "choice",
+        "choice": "no_preference",
+        "probabilities": {
+          "window_1": 0.3,
+          "no_preference": 0.7
+        },
+        "confidence": 1.5
+      },
+      "disposition": "requires_review",
+      "reason_codes": [
+        "fixture_only"
+      ],
+      "provider_request_id": "local-fixture",
+      "response_version": "1",
+      "usage": {
+        "latency_ms": 1,
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "cost_micros": 0,
+        "cache_hit": false
+      }
+    }
+  },
+  {
+    "name": "TF08-bad-sum",
+    "schema": "judgment-result.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "followup_judgment_result_v1",
+      "judgment_id": "33333333-3333-4333-8333-333333333333",
+      "instance_id": "TF08:planning:item:r1",
+      "task_id": "TF08",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "semantic_input_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "input_evidence_refs": [],
+      "service_status": "evaluated",
+      "answer": {
+        "type": "choice",
+        "choice": "no_preference",
+        "probabilities": {
+          "window_1": 0.9,
+          "no_preference": 0.7
+        },
+        "confidence": 0.5
+      },
+      "disposition": "requires_review",
+      "reason_codes": [
+        "fixture_only"
+      ],
+      "provider_request_id": "local-fixture",
+      "response_version": "1",
+      "usage": {
+        "latency_ms": 1,
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "cost_micros": 0,
+        "cache_hit": false
+      }
+    }
+  },
+  {
+    "name": "TF08-timeout-is-not-pass",
+    "schema": "judgment-result.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "followup_judgment_result_v1",
+      "judgment_id": "33333333-3333-4333-8333-333333333333",
+      "instance_id": "TF08:planning:item:r1",
+      "task_id": "TF08",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "semantic_input_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "input_evidence_refs": [],
+      "service_status": "unavailable",
+      "answer": {
+        "type": "choice",
+        "choice": "no_preference",
+        "probabilities": {
+          "window_1": 0.3,
+          "no_preference": 0.7
+        },
+        "confidence": 0.5
+      },
+      "disposition": "pass",
+      "reason_codes": [
+        "fixture_only"
+      ],
+      "provider_request_id": "local-fixture",
+      "response_version": "1",
+      "usage": {
+        "latency_ms": 1,
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "cost_micros": 0,
+        "cache_hit": false
+      }
+    }
+  },
+  {
+    "name": "TF08-unknown-authority",
+    "schema": "judgment-result.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "followup_judgment_result_v1",
+      "judgment_id": "33333333-3333-4333-8333-333333333333",
+      "instance_id": "TF08:planning:item:r1",
+      "task_id": "TF08",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "semantic_input_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "input_evidence_refs": [],
+      "service_status": "evaluated",
+      "answer": {
+        "type": "choice",
+        "choice": "no_preference",
+        "probabilities": {
+          "window_1": 0.3,
+          "no_preference": 0.7
+        },
+        "confidence": 0.5,
+        "execute_send": true
+      },
+      "disposition": "requires_review",
+      "reason_codes": [
+        "fixture_only"
+      ],
+      "provider_request_id": "local-fixture",
+      "response_version": "1",
+      "usage": {
+        "latency_ms": 1,
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "cost_micros": 0,
+        "cache_hit": false
+      }
+    }
+  },
+  {
+    "name": "default-policy",
+    "schema": "policy.schema.json",
+    "valid": true,
+    "value": {
+      "schema_version": "followup_policy_v1",
+      "version": "followup-rehearsal-v1",
+      "enabled": false,
+      "max_messages": 3,
+      "rolling_limit": 3,
+      "rolling_seconds": 604800,
+      "spacing_seconds": [
+        86400,
+        172800
+      ],
+      "inactivity_seconds": 2700,
+      "expiry_seconds": 604800,
+      "quiet_start": "20:00",
+      "quiet_end": "09:00",
+      "timezone": "UTC",
+      "require_previous_delivery": true,
+      "tf08_enabled": false,
+      "transport_attempts": 3,
+      "repair_limit": 1,
+      "experiment_arm": "first_email_only",
+      "unknown_behavior": "hold"
+    }
+  },
+  {
+    "name": "signal",
+    "schema": "signal.schema.json",
+    "valid": true,
+    "value": {
+      "schema_version": "recovery_signal_v1",
+      "event_id": "22222222-2222-4222-8222-222222222222",
+      "merchant_id": "11111111-1111-4111-8111-111111111111",
+      "store_id": 1,
+      "source": "sendgrid",
+      "source_account_id": "fixture-account",
+      "source_event_id": "sg-event-1",
+      "occurred_at": "2026-10-20T10:00:00Z",
+      "received_at": "2026-10-20T10:00:01Z",
+      "kind": "click",
+      "provenance": "provider_event_id",
+      "verification_status": "verified",
+      "payload_ref": "provider-inbox:fixture",
+      "payload_hash": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "automation_class": "unknown"
+    }
+  },
+  {
+    "name": "signal-invalid-schema_version",
+    "schema": "signal.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "v9",
+      "event_id": "22222222-2222-4222-8222-222222222222",
+      "merchant_id": "11111111-1111-4111-8111-111111111111",
+      "store_id": 1,
+      "source": "sendgrid",
+      "source_account_id": "fixture-account",
+      "source_event_id": "sg-event-1",
+      "occurred_at": "2026-10-20T10:00:00Z",
+      "received_at": "2026-10-20T10:00:01Z",
+      "kind": "click",
+      "provenance": "provider_event_id",
+      "verification_status": "verified",
+      "payload_ref": "provider-inbox:fixture",
+      "payload_hash": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "automation_class": "unknown"
+    }
+  },
+  {
+    "name": "signal-invalid-store_id",
+    "schema": "signal.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "recovery_signal_v1",
+      "event_id": "22222222-2222-4222-8222-222222222222",
+      "merchant_id": "11111111-1111-4111-8111-111111111111",
+      "store_id": true,
+      "source": "sendgrid",
+      "source_account_id": "fixture-account",
+      "source_event_id": "sg-event-1",
+      "occurred_at": "2026-10-20T10:00:00Z",
+      "received_at": "2026-10-20T10:00:01Z",
+      "kind": "click",
+      "provenance": "provider_event_id",
+      "verification_status": "verified",
+      "payload_ref": "provider-inbox:fixture",
+      "payload_hash": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "automation_class": "unknown"
+    }
+  },
+  {
+    "name": "signal-invalid-payload_hash",
+    "schema": "signal.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "recovery_signal_v1",
+      "event_id": "22222222-2222-4222-8222-222222222222",
+      "merchant_id": "11111111-1111-4111-8111-111111111111",
+      "store_id": 1,
+      "source": "sendgrid",
+      "source_account_id": "fixture-account",
+      "source_event_id": "sg-event-1",
+      "occurred_at": "2026-10-20T10:00:00Z",
+      "received_at": "2026-10-20T10:00:01Z",
+      "kind": "click",
+      "provenance": "provider_event_id",
+      "verification_status": "verified",
+      "payload_ref": "provider-inbox:fixture",
+      "payload_hash": "broken",
+      "automation_class": "unknown"
+    }
+  },
+  {
+    "name": "signal-invalid-merchant_id",
+    "schema": "signal.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "recovery_signal_v1",
+      "event_id": "22222222-2222-4222-8222-222222222222",
+      "merchant_id": "foreign",
+      "store_id": 1,
+      "source": "sendgrid",
+      "source_account_id": "fixture-account",
+      "source_event_id": "sg-event-1",
+      "occurred_at": "2026-10-20T10:00:00Z",
+      "received_at": "2026-10-20T10:00:01Z",
+      "kind": "click",
+      "provenance": "provider_event_id",
+      "verification_status": "verified",
+      "payload_ref": "provider-inbox:fixture",
+      "payload_hash": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "automation_class": "unknown"
+    }
+  },
+  {
+    "name": "signal-invalid-execute_send",
+    "schema": "signal.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "recovery_signal_v1",
+      "event_id": "22222222-2222-4222-8222-222222222222",
+      "merchant_id": "11111111-1111-4111-8111-111111111111",
+      "store_id": 1,
+      "source": "sendgrid",
+      "source_account_id": "fixture-account",
+      "source_event_id": "sg-event-1",
+      "occurred_at": "2026-10-20T10:00:00Z",
+      "received_at": "2026-10-20T10:00:01Z",
+      "kind": "click",
+      "provenance": "provider_event_id",
+      "verification_status": "verified",
+      "payload_ref": "provider-inbox:fixture",
+      "payload_hash": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "automation_class": "unknown",
+      "execute_send": true
+    }
+  },
+  {
+    "name": "complete-request",
+    "schema": "judgment-request.schema.json",
+    "valid": true,
+    "value": {
+      "schema_version": "followup_judgment_request_v1",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "idempotency_key": "fixture-request-1",
+      "semantic_input_sha256": "d4de77fc8e9411cc513e834d8ca8a7414e2548c6f01253afd668692e52fac5ea",
+      "state": {
+        "buyer_state_ref": {
+          "id": "observed-state",
+          "revision": 1,
+          "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+        },
+        "delta_refs": [],
+        "conversation_refs": [],
+        "fact_refs": [],
+        "spans": [],
+        "eligible_purpose_ids": [
+          "help"
+        ],
+        "allowed_window_ids": [
+          "window_1"
+        ],
+        "excluded_purpose_ids": [],
+        "coverage": {
+          "history_complete": true,
+          "evidence_complete": true,
+          "full_text_checked": false,
+          "claim_extraction_complete": false,
+          "claim_ids": [],
+          "commitment_ids": [],
+          "missing_paths": []
+        }
+      },
+      "questions": [
+        {
+          "instance_id": "TF01:planning:item:r1",
+          "task_id": "TF01",
+          "type": "choice",
+          "instructions": "Does the verified delta change what is useful to say?",
+          "state_paths": [
+            "delta_refs",
+            "conversation_refs"
+          ],
+          "options": [
+            "useful_change",
+            "no_useful_change",
+            "insufficient"
+          ],
+          "required": true,
+          "applicability": "required",
+          "applicability_rule_revision": "1",
+          "subject_id": "delta"
+        }
+      ],
+      "deadline_ms": 5000,
+      "max_input_bytes": 65536,
+      "max_cost_micros": 10000,
+      "tools_allowed": false
+    }
+  },
+  {
+    "name": "request-hash-conflict",
+    "schema": "judgment-request.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "followup_judgment_request_v1",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "idempotency_key": "fixture-request-1",
+      "semantic_input_sha256": "d4de77fc8e9411cc513e834d8ca8a7414e2548c6f01253afd668692e52fac5ea",
+      "state": {
+        "buyer_state_ref": {
+          "id": "observed-state",
+          "revision": 1,
+          "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+        },
+        "delta_refs": [],
+        "conversation_refs": [],
+        "fact_refs": [],
+        "spans": [],
+        "eligible_purpose_ids": [
+          "help"
+        ],
+        "allowed_window_ids": [
+          "window_1"
+        ],
+        "excluded_purpose_ids": [],
+        "coverage": {
+          "history_complete": true,
+          "evidence_complete": true,
+          "full_text_checked": false,
+          "claim_extraction_complete": false,
+          "claim_ids": [],
+          "commitment_ids": [],
+          "missing_paths": [
+            "conversation"
+          ]
+        }
+      },
+      "questions": [
+        {
+          "instance_id": "TF01:planning:item:r1",
+          "task_id": "TF01",
+          "type": "choice",
+          "instructions": "Does the verified delta change what is useful to say?",
+          "state_paths": [
+            "delta_refs",
+            "conversation_refs"
+          ],
+          "options": [
+            "useful_change",
+            "no_useful_change",
+            "insufficient"
+          ],
+          "required": true,
+          "applicability": "required",
+          "applicability_rule_revision": "1",
+          "subject_id": "delta"
+        }
+      ],
+      "deadline_ms": 5000,
+      "max_input_bytes": 65536,
+      "max_cost_micros": 10000,
+      "tools_allowed": false
+    }
+  },
+  {
+    "name": "duplicate-question",
+    "schema": "judgment-request.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "followup_judgment_request_v1",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "idempotency_key": "fixture-request-1",
+      "semantic_input_sha256": "d4de77fc8e9411cc513e834d8ca8a7414e2548c6f01253afd668692e52fac5ea",
+      "state": {
+        "buyer_state_ref": {
+          "id": "observed-state",
+          "revision": 1,
+          "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+        },
+        "delta_refs": [],
+        "conversation_refs": [],
+        "fact_refs": [],
+        "spans": [],
+        "eligible_purpose_ids": [
+          "help"
+        ],
+        "allowed_window_ids": [
+          "window_1"
+        ],
+        "excluded_purpose_ids": [],
+        "coverage": {
+          "history_complete": true,
+          "evidence_complete": true,
+          "full_text_checked": false,
+          "claim_extraction_complete": false,
+          "claim_ids": [],
+          "commitment_ids": [],
+          "missing_paths": []
+        }
+      },
+      "questions": [
+        {
+          "instance_id": "TF01:planning:item:r1",
+          "task_id": "TF01",
+          "type": "choice",
+          "instructions": "Does the verified delta change what is useful to say?",
+          "state_paths": [
+            "delta_refs",
+            "conversation_refs"
+          ],
+          "options": [
+            "useful_change",
+            "no_useful_change",
+            "insufficient"
+          ],
+          "required": true,
+          "applicability": "required",
+          "applicability_rule_revision": "1",
+          "subject_id": "delta"
+        },
+        {
+          "instance_id": "TF01:planning:item:r1",
+          "task_id": "TF01",
+          "type": "choice",
+          "instructions": "Does the verified delta change what is useful to say?",
+          "state_paths": [
+            "delta_refs",
+            "conversation_refs"
+          ],
+          "options": [
+            "useful_change",
+            "no_useful_change",
+            "insufficient"
+          ],
+          "required": true,
+          "applicability": "required",
+          "applicability_rule_revision": "1",
+          "subject_id": "delta"
+        }
+      ],
+      "deadline_ms": 5000,
+      "max_input_bytes": 65536,
+      "max_cost_micros": 10000,
+      "tools_allowed": false
+    }
+  },
+  {
+    "name": "wrong-primitive",
+    "schema": "judgment-request.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "followup_judgment_request_v1",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "idempotency_key": "fixture-request-1",
+      "semantic_input_sha256": "d4de77fc8e9411cc513e834d8ca8a7414e2548c6f01253afd668692e52fac5ea",
+      "state": {
+        "buyer_state_ref": {
+          "id": "observed-state",
+          "revision": 1,
+          "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+        },
+        "delta_refs": [],
+        "conversation_refs": [],
+        "fact_refs": [],
+        "spans": [],
+        "eligible_purpose_ids": [
+          "help"
+        ],
+        "allowed_window_ids": [
+          "window_1"
+        ],
+        "excluded_purpose_ids": [],
+        "coverage": {
+          "history_complete": true,
+          "evidence_complete": true,
+          "full_text_checked": false,
+          "claim_extraction_complete": false,
+          "claim_ids": [],
+          "commitment_ids": [],
+          "missing_paths": []
+        }
+      },
+      "questions": [
+        {
+          "instance_id": "TF01:planning:item:r1",
+          "task_id": "TF01",
+          "type": "noul",
+          "instructions": "Does the verified delta change what is useful to say?",
+          "state_paths": [
+            "delta_refs",
+            "conversation_refs"
+          ],
+          "options": [
+            "useful_change",
+            "no_useful_change",
+            "insufficient"
+          ],
+          "required": true,
+          "applicability": "required",
+          "applicability_rule_revision": "1",
+          "subject_id": "delta"
+        }
+      ],
+      "deadline_ms": 5000,
+      "max_input_bytes": 65536,
+      "max_cost_micros": 10000,
+      "tools_allowed": false
+    }
+  },
+  {
+    "name": "draft-needs-content-binding",
+    "schema": "judgment-request.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "followup_judgment_request_v1",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "draft",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "idempotency_key": "fixture-request-1",
+      "semantic_input_sha256": "d4de77fc8e9411cc513e834d8ca8a7414e2548c6f01253afd668692e52fac5ea",
+      "state": {
+        "buyer_state_ref": {
+          "id": "observed-state",
+          "revision": 1,
+          "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+        },
+        "delta_refs": [],
+        "conversation_refs": [],
+        "fact_refs": [],
+        "spans": [],
+        "eligible_purpose_ids": [
+          "help"
+        ],
+        "allowed_window_ids": [
+          "window_1"
+        ],
+        "excluded_purpose_ids": [],
+        "coverage": {
+          "history_complete": true,
+          "evidence_complete": true,
+          "full_text_checked": false,
+          "claim_extraction_complete": false,
+          "claim_ids": [],
+          "commitment_ids": [],
+          "missing_paths": []
+        }
+      },
+      "questions": [
+        {
+          "instance_id": "TF01:planning:item:r1",
+          "task_id": "TF01",
+          "type": "choice",
+          "instructions": "Does the verified delta change what is useful to say?",
+          "state_paths": [
+            "delta_refs",
+            "conversation_refs"
+          ],
+          "options": [
+            "useful_change",
+            "no_useful_change",
+            "insufficient"
+          ],
+          "required": true,
+          "applicability": "required",
+          "applicability_rule_revision": "1",
+          "subject_id": "delta"
+        }
+      ],
+      "deadline_ms": 5000,
+      "max_input_bytes": 65536,
+      "max_cost_micros": 10000,
+      "tools_allowed": false
+    }
+  },
+  {
+    "name": "complete-review-bundle",
+    "schema": "semantic-bundle.schema.json",
+    "valid": true,
+    "value": {
+      "schema_version": "followup_semantic_bundle_v1",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "8b7f0ef07148419ee4fb0e670e91714e21c09247aebecddca86ded480d697731",
+      "semantic_input_sha256": "d4de77fc8e9411cc513e834d8ca8a7414e2548c6f01253afd668692e52fac5ea",
+      "expected_instance_ids": [
+        "TF01:planning:item:r1"
+      ],
+      "completed_instance_ids": [
+        "TF01:planning:item:r1"
+      ],
+      "consumed_instance_ids": [
+        "TF01:planning:item:r1"
+      ],
+      "unused_instance_ids": [],
+      "judgments": [
+        {
+          "schema_version": "followup_judgment_result_v1",
+          "judgment_id": "33333333-3333-4333-8333-333333333333",
+          "instance_id": "TF01:planning:item:r1",
+          "task_id": "TF01",
+          "binding": {
+            "merchant_id": "11111111-1111-4111-8111-111111111111",
+            "store_id": 1,
+            "journey_id": "22222222-2222-4222-8222-222222222222",
+            "phase": "planning",
+            "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "evidence_revision": 1,
+            "conversation_revision": 1,
+            "control_revision": 1,
+            "identity_revision": 1,
+            "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "threshold_version": "rehearsal-v1",
+            "provider": "approved-adapter",
+            "adapter_version": "1",
+            "resolved_model": "pinned-test-model"
+          },
+          "request_sha256": "8b7f0ef07148419ee4fb0e670e91714e21c09247aebecddca86ded480d697731",
+          "semantic_input_sha256": "d4de77fc8e9411cc513e834d8ca8a7414e2548c6f01253afd668692e52fac5ea",
+          "input_evidence_refs": [],
+          "service_status": "evaluated",
+          "answer": {
+            "type": "choice",
+            "choice": "useful_change",
+            "probabilities": {
+              "useful_change": 0.3333333333333333,
+              "no_useful_change": 0.3333333333333333,
+              "insufficient": 0.3333333333333333
+            },
+            "confidence": 0.5
+          },
+          "disposition": "requires_review",
+          "reason_codes": [
+            "fixture_only"
+          ],
+          "provider_request_id": "local-fixture",
+          "response_version": "1",
+          "usage": {
+            "latency_ms": 1,
+            "input_tokens": 1,
+            "output_tokens": 1,
+            "cost_micros": 0,
+            "cache_hit": false
+          }
+        }
+      ],
+      "coverage": {
+        "history_complete": true,
+        "evidence_complete": true,
+        "full_text_checked": false,
+        "claim_extraction_complete": false,
+        "claim_ids": [],
+        "commitment_ids": [],
+        "missing_paths": []
+      },
+      "disposition": "requires_review",
+      "reason_codes": [
+        "uncertain"
+      ]
+    }
+  },
+  {
+    "name": "uncertainty-cannot-pass",
+    "schema": "semantic-bundle.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "followup_semantic_bundle_v1",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "8b7f0ef07148419ee4fb0e670e91714e21c09247aebecddca86ded480d697731",
+      "semantic_input_sha256": "d4de77fc8e9411cc513e834d8ca8a7414e2548c6f01253afd668692e52fac5ea",
+      "expected_instance_ids": [
+        "TF01:planning:item:r1"
+      ],
+      "completed_instance_ids": [
+        "TF01:planning:item:r1"
+      ],
+      "consumed_instance_ids": [
+        "TF01:planning:item:r1"
+      ],
+      "unused_instance_ids": [],
+      "judgments": [
+        {
+          "schema_version": "followup_judgment_result_v1",
+          "judgment_id": "33333333-3333-4333-8333-333333333333",
+          "instance_id": "TF01:planning:item:r1",
+          "task_id": "TF01",
+          "binding": {
+            "merchant_id": "11111111-1111-4111-8111-111111111111",
+            "store_id": 1,
+            "journey_id": "22222222-2222-4222-8222-222222222222",
+            "phase": "planning",
+            "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "evidence_revision": 1,
+            "conversation_revision": 1,
+            "control_revision": 1,
+            "identity_revision": 1,
+            "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "threshold_version": "rehearsal-v1",
+            "provider": "approved-adapter",
+            "adapter_version": "1",
+            "resolved_model": "pinned-test-model"
+          },
+          "request_sha256": "8b7f0ef07148419ee4fb0e670e91714e21c09247aebecddca86ded480d697731",
+          "semantic_input_sha256": "d4de77fc8e9411cc513e834d8ca8a7414e2548c6f01253afd668692e52fac5ea",
+          "input_evidence_refs": [],
+          "service_status": "evaluated",
+          "answer": {
+            "type": "choice",
+            "choice": "useful_change",
+            "probabilities": {
+              "useful_change": 0.3333333333333333,
+              "no_useful_change": 0.3333333333333333,
+              "insufficient": 0.3333333333333333
+            },
+            "confidence": 0.5
+          },
+          "disposition": "requires_review",
+          "reason_codes": [
+            "fixture_only"
+          ],
+          "provider_request_id": "local-fixture",
+          "response_version": "1",
+          "usage": {
+            "latency_ms": 1,
+            "input_tokens": 1,
+            "output_tokens": 1,
+            "cost_micros": 0,
+            "cache_hit": false
+          }
+        }
+      ],
+      "coverage": {
+        "history_complete": true,
+        "evidence_complete": true,
+        "full_text_checked": false,
+        "claim_extraction_complete": false,
+        "claim_ids": [],
+        "commitment_ids": [],
+        "missing_paths": []
+      },
+      "disposition": "pass",
+      "reason_codes": [
+        "uncertain"
+      ]
+    }
+  },
+  {
+    "name": "incomplete-bundle",
+    "schema": "semantic-bundle.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "followup_semantic_bundle_v1",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "8b7f0ef07148419ee4fb0e670e91714e21c09247aebecddca86ded480d697731",
+      "semantic_input_sha256": "d4de77fc8e9411cc513e834d8ca8a7414e2548c6f01253afd668692e52fac5ea",
+      "expected_instance_ids": [
+        "TF01:planning:item:r1"
+      ],
+      "completed_instance_ids": [],
+      "consumed_instance_ids": [
+        "TF01:planning:item:r1"
+      ],
+      "unused_instance_ids": [],
+      "judgments": [
+        {
+          "schema_version": "followup_judgment_result_v1",
+          "judgment_id": "33333333-3333-4333-8333-333333333333",
+          "instance_id": "TF01:planning:item:r1",
+          "task_id": "TF01",
+          "binding": {
+            "merchant_id": "11111111-1111-4111-8111-111111111111",
+            "store_id": 1,
+            "journey_id": "22222222-2222-4222-8222-222222222222",
+            "phase": "planning",
+            "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "evidence_revision": 1,
+            "conversation_revision": 1,
+            "control_revision": 1,
+            "identity_revision": 1,
+            "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "threshold_version": "rehearsal-v1",
+            "provider": "approved-adapter",
+            "adapter_version": "1",
+            "resolved_model": "pinned-test-model"
+          },
+          "request_sha256": "8b7f0ef07148419ee4fb0e670e91714e21c09247aebecddca86ded480d697731",
+          "semantic_input_sha256": "d4de77fc8e9411cc513e834d8ca8a7414e2548c6f01253afd668692e52fac5ea",
+          "input_evidence_refs": [],
+          "service_status": "evaluated",
+          "answer": {
+            "type": "choice",
+            "choice": "useful_change",
+            "probabilities": {
+              "useful_change": 0.3333333333333333,
+              "no_useful_change": 0.3333333333333333,
+              "insufficient": 0.3333333333333333
+            },
+            "confidence": 0.5
+          },
+          "disposition": "requires_review",
+          "reason_codes": [
+            "fixture_only"
+          ],
+          "provider_request_id": "local-fixture",
+          "response_version": "1",
+          "usage": {
+            "latency_ms": 1,
+            "input_tokens": 1,
+            "output_tokens": 1,
+            "cost_micros": 0,
+            "cache_hit": false
+          }
+        }
+      ],
+      "coverage": {
+        "history_complete": true,
+        "evidence_complete": true,
+        "full_text_checked": false,
+        "claim_extraction_complete": false,
+        "claim_ids": [],
+        "commitment_ids": [],
+        "missing_paths": []
+      },
+      "disposition": "requires_review",
+      "reason_codes": [
+        "uncertain"
+      ]
+    }
+  },
+  {
+    "name": "stale-bundle",
+    "schema": "semantic-bundle.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "followup_semantic_bundle_v1",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "8b7f0ef07148419ee4fb0e670e91714e21c09247aebecddca86ded480d697731",
+      "semantic_input_sha256": "d4de77fc8e9411cc513e834d8ca8a7414e2548c6f01253afd668692e52fac5ea",
+      "expected_instance_ids": [
+        "TF01:planning:item:r1"
+      ],
+      "completed_instance_ids": [
+        "TF01:planning:item:r1"
+      ],
+      "consumed_instance_ids": [
+        "TF01:planning:item:r1"
+      ],
+      "unused_instance_ids": [],
+      "judgments": [
+        {
+          "schema_version": "followup_judgment_result_v1",
+          "judgment_id": "33333333-3333-4333-8333-333333333333",
+          "instance_id": "TF01:planning:item:r1",
+          "task_id": "TF01",
+          "binding": {
+            "merchant_id": "11111111-1111-4111-8111-111111111111",
+            "store_id": 1,
+            "journey_id": "22222222-2222-4222-8222-222222222222",
+            "phase": "planning",
+            "snapshot_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+            "evidence_revision": 1,
+            "conversation_revision": 1,
+            "control_revision": 1,
+            "identity_revision": 1,
+            "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "threshold_version": "rehearsal-v1",
+            "provider": "approved-adapter",
+            "adapter_version": "1",
+            "resolved_model": "pinned-test-model"
+          },
+          "request_sha256": "8b7f0ef07148419ee4fb0e670e91714e21c09247aebecddca86ded480d697731",
+          "semantic_input_sha256": "d4de77fc8e9411cc513e834d8ca8a7414e2548c6f01253afd668692e52fac5ea",
+          "input_evidence_refs": [],
+          "service_status": "evaluated",
+          "answer": {
+            "type": "choice",
+            "choice": "useful_change",
+            "probabilities": {
+              "useful_change": 0.3333333333333333,
+              "no_useful_change": 0.3333333333333333,
+              "insufficient": 0.3333333333333333
+            },
+            "confidence": 0.5
+          },
+          "disposition": "requires_review",
+          "reason_codes": [
+            "fixture_only"
+          ],
+          "provider_request_id": "local-fixture",
+          "response_version": "1",
+          "usage": {
+            "latency_ms": 1,
+            "input_tokens": 1,
+            "output_tokens": 1,
+            "cost_micros": 0,
+            "cache_hit": false
+          }
+        }
+      ],
+      "coverage": {
+        "history_complete": true,
+        "evidence_complete": true,
+        "full_text_checked": false,
+        "claim_extraction_complete": false,
+        "claim_ids": [],
+        "commitment_ids": [],
+        "missing_paths": []
+      },
+      "disposition": "requires_review",
+      "reason_codes": [
+        "uncertain"
+      ]
+    }
+  },
+  {
+    "name": "TF01-uncalibrated-pass",
+    "schema": "judgment-result.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "followup_judgment_result_v1",
+      "judgment_id": "33333333-3333-4333-8333-333333333333",
+      "instance_id": "TF01:planning:item:r1",
+      "task_id": "TF01",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "semantic_input_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "input_evidence_refs": [],
+      "service_status": "evaluated",
+      "answer": {
+        "type": "choice",
+        "choice": "useful_change",
+        "probabilities": {
+          "useful_change": 0.3333333333333333,
+          "no_useful_change": 0.3333333333333333,
+          "insufficient": 0.3333333333333333
+        },
+        "confidence": 0.5
+      },
+      "disposition": "pass",
+      "reason_codes": [
+        "fixture_only"
+      ],
+      "provider_request_id": "local-fixture",
+      "response_version": "1",
+      "usage": {
+        "latency_ms": 1,
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "cost_micros": 0,
+        "cache_hit": false
+      }
+    }
+  },
+  {
+    "name": "TF02-uncalibrated-pass",
+    "schema": "judgment-result.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "followup_judgment_result_v1",
+      "judgment_id": "33333333-3333-4333-8333-333333333333",
+      "instance_id": "TF02:planning:item:r1",
+      "task_id": "TF02",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "semantic_input_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "input_evidence_refs": [],
+      "service_status": "evaluated",
+      "answer": {
+        "type": "choice",
+        "choice": "explicit_report",
+        "probabilities": {
+          "explicit_report": 0.25,
+          "behavior_only": 0.25,
+          "unsupported": 0.25,
+          "conflicting": 0.25
+        },
+        "confidence": 0.5
+      },
+      "disposition": "pass",
+      "reason_codes": [
+        "fixture_only"
+      ],
+      "provider_request_id": "local-fixture",
+      "response_version": "1",
+      "usage": {
+        "latency_ms": 1,
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "cost_micros": 0,
+        "cache_hit": false
+      }
+    }
+  },
+  {
+    "name": "TF03-uncalibrated-pass",
+    "schema": "judgment-result.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "followup_judgment_result_v1",
+      "judgment_id": "33333333-3333-4333-8333-333333333333",
+      "instance_id": "TF03:planning:item:r1",
+      "task_id": "TF03",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "semantic_input_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "input_evidence_refs": [],
+      "service_status": "evaluated",
+      "answer": {
+        "type": "score",
+        "value": 1.5,
+        "legend": [
+          "0",
+          "1",
+          "2",
+          "3"
+        ],
+        "probabilities": {
+          "0": 0.25,
+          "1": 0.25,
+          "2": 0.25,
+          "3": 0.25
+        },
+        "confidence": 0.5
+      },
+      "disposition": "pass",
+      "reason_codes": [
+        "fixture_only"
+      ],
+      "provider_request_id": "local-fixture",
+      "response_version": "1",
+      "usage": {
+        "latency_ms": 1,
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "cost_micros": 0,
+        "cache_hit": false
+      }
+    }
+  },
+  {
+    "name": "TF04-uncalibrated-pass",
+    "schema": "judgment-result.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "followup_judgment_result_v1",
+      "judgment_id": "33333333-3333-4333-8333-333333333333",
+      "instance_id": "TF04:planning:item:r1",
+      "task_id": "TF04",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "semantic_input_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "input_evidence_refs": [],
+      "service_status": "evaluated",
+      "answer": {
+        "type": "choice",
+        "choice": "adds_useful_information",
+        "probabilities": {
+          "adds_useful_information": 0.25,
+          "answers_prior_question": 0.25,
+          "repeats": 0.25,
+          "insufficient": 0.25
+        },
+        "confidence": 0.5
+      },
+      "disposition": "pass",
+      "reason_codes": [
+        "fixture_only"
+      ],
+      "provider_request_id": "local-fixture",
+      "response_version": "1",
+      "usage": {
+        "latency_ms": 1,
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "cost_micros": 0,
+        "cache_hit": false
+      }
+    }
+  },
+  {
+    "name": "TF05-uncalibrated-pass",
+    "schema": "judgment-result.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "followup_judgment_result_v1",
+      "judgment_id": "33333333-3333-4333-8333-333333333333",
+      "instance_id": "TF05:planning:item:r1",
+      "task_id": "TF05",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "semantic_input_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "input_evidence_refs": [],
+      "service_status": "evaluated",
+      "answer": {
+        "type": "choice",
+        "choice": "supported",
+        "probabilities": {
+          "supported": 0.25,
+          "contradicted": 0.25,
+          "missing_evidence": 0.25,
+          "out_of_scope": 0.25
+        },
+        "confidence": 0.5
+      },
+      "disposition": "pass",
+      "reason_codes": [
+        "fixture_only"
+      ],
+      "provider_request_id": "local-fixture",
+      "response_version": "1",
+      "usage": {
+        "latency_ms": 1,
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "cost_micros": 0,
+        "cache_hit": false
+      }
+    }
+  },
+  {
+    "name": "TF07-uncalibrated-pass",
+    "schema": "judgment-result.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "followup_judgment_result_v1",
+      "judgment_id": "33333333-3333-4333-8333-333333333333",
+      "instance_id": "TF07:planning:item:r1",
+      "task_id": "TF07",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "semantic_input_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "input_evidence_refs": [],
+      "service_status": "evaluated",
+      "answer": {
+        "type": "choice",
+        "choice": "consistent",
+        "probabilities": {
+          "consistent": 0.3333333333333333,
+          "conflicts_prior_commitment": 0.3333333333333333,
+          "insufficient": 0.3333333333333333
+        },
+        "confidence": 0.5
+      },
+      "disposition": "pass",
+      "reason_codes": [
+        "fixture_only"
+      ],
+      "provider_request_id": "local-fixture",
+      "response_version": "1",
+      "usage": {
+        "latency_ms": 1,
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "cost_micros": 0,
+        "cache_hit": false
+      }
+    }
+  },
+  {
+    "name": "TF08-uncalibrated-pass",
+    "schema": "judgment-result.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "followup_judgment_result_v1",
+      "judgment_id": "33333333-3333-4333-8333-333333333333",
+      "instance_id": "TF08:planning:item:r1",
+      "task_id": "TF08",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "semantic_input_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "input_evidence_refs": [],
+      "service_status": "evaluated",
+      "answer": {
+        "type": "choice",
+        "choice": "no_preference",
+        "probabilities": {
+          "window_1": 0.3,
+          "no_preference": 0.7
+        },
+        "confidence": 0.5
+      },
+      "disposition": "pass",
+      "reason_codes": [
+        "fixture_only"
+      ],
+      "provider_request_id": "local-fixture",
+      "response_version": "1",
+      "usage": {
+        "latency_ms": 1,
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "cost_micros": 0,
+        "cache_hit": false
+      }
+    }
+  },
+  {
+    "name": "score-weight-mismatch",
+    "schema": "judgment-result.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "followup_judgment_result_v1",
+      "judgment_id": "33333333-3333-4333-8333-333333333333",
+      "instance_id": "TF03:planning:item:r1",
+      "task_id": "TF03",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "request_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "semantic_input_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "input_evidence_refs": [],
+      "service_status": "evaluated",
+      "answer": {
+        "type": "score",
+        "value": 2,
+        "legend": [
+          "0",
+          "1",
+          "2",
+          "3"
+        ],
+        "probabilities": {
+          "0": 0.25,
+          "1": 0.25,
+          "2": 0.25,
+          "3": 0.25
+        },
+        "confidence": 0.5
+      },
+      "disposition": "requires_review",
+      "reason_codes": [
+        "fixture_only"
+      ],
+      "provider_request_id": "local-fixture",
+      "response_version": "1",
+      "usage": {
+        "latency_ms": 1,
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "cost_micros": 0,
+        "cache_hit": false
+      }
+    }
+  },
+  {
+    "name": "wait-decision",
+    "schema": "recovery-plan.schema.json",
+    "valid": true,
+    "value": {
+      "schema_version": "recovery_plan_v2",
+      "binding": {
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "store_id": 1,
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "phase": "planning",
+        "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "evidence_revision": 1,
+        "conversation_revision": 1,
+        "control_revision": 1,
+        "identity_revision": 1,
+        "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "rubric_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "threshold_version": "rehearsal-v1",
+        "provider": "approved-adapter",
+        "adapter_version": "1",
+        "resolved_model": "pinned-test-model"
+      },
+      "valid_until": "2026-10-21T00:00:00Z",
+      "judgment_ids": [],
+      "decision": {
+        "action": "wait",
+        "reevaluate_at": "2026-10-20T23:00:00Z",
+        "subscriptions": [
+          "previous_delivery"
+        ]
+      }
+    }
+  },
+  {
+    "name": "conversation-empty-first-message",
+    "schema": "conversation-context.schema.json",
+    "valid": true,
+    "value": {
+      "schema_version": "conversation_context_v1",
+      "merchant_id": "11111111-1111-4111-8111-111111111111",
+      "journey_id": "22222222-2222-4222-8222-222222222222",
+      "revision": 1,
+      "confirmed_messages": [],
+      "unconfirmed_draft_refs": [],
+      "complete": true,
+      "missing_paths": []
+    }
+  },
+  {
+    "name": "complete-context",
+    "schema": "recovery-context.schema.json",
+    "valid": true,
+    "value": {
+      "schema_version": "recovery_context_v2",
+      "merchant_id": "11111111-1111-4111-8111-111111111111",
+      "store_id": 1,
+      "journey_id": "22222222-2222-4222-8222-222222222222",
+      "origin_episode_id": "episode-1",
+      "identity_revision": 1,
+      "evidence_revision": 1,
+      "conversation_revision": 1,
+      "control_revision": 1,
+      "abandoned_at": "2026-10-20T09:00:00Z",
+      "expires_at": "2026-10-27T09:00:00Z",
+      "cutoff_at": "2026-10-20T10:00:02Z",
+      "buyer_state_schema": "buyer_state_v1",
+      "buyer_state_ref": {
+        "id": "observed-state",
+        "revision": 1,
+        "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      },
+      "events": [
+        {
+          "schema_version": "recovery_signal_v1",
+          "event_id": "22222222-2222-4222-8222-222222222222",
+          "merchant_id": "11111111-1111-4111-8111-111111111111",
+          "store_id": 1,
+          "source": "sendgrid",
+          "source_account_id": "fixture-account",
+          "source_event_id": "sg-event-1",
+          "occurred_at": "2026-10-20T10:00:00Z",
+          "received_at": "2026-10-20T10:00:01Z",
+          "kind": "click",
+          "provenance": "provider_event_id",
+          "verification_status": "verified",
+          "payload_ref": "provider-inbox:fixture",
+          "payload_hash": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "automation_class": "unknown"
+        }
+      ],
+      "conversation": {
+        "schema_version": "conversation_context_v1",
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "revision": 1,
+        "confirmed_messages": [],
+        "unconfirmed_draft_refs": [],
+        "complete": true,
+        "missing_paths": []
+      },
+      "cart_ref": {
+        "id": "observed-state",
+        "revision": 1,
+        "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      },
+      "fact_refs": [],
+      "fact_set_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "permission_ref": {
+        "id": "observed-state",
+        "revision": 1,
+        "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      },
+      "sender_ref": {
+        "id": "observed-state",
+        "revision": 1,
+        "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      },
+      "source_health": [
+        {
+          "source": "pixel",
+          "status": "unknown",
+          "observed_at": "2026-10-20T10:00:02Z"
+        }
+      ],
+      "eligible_purpose_ids": [
+        "help"
+      ],
+      "allowed_windows": [
+        {
+          "id": "window_1",
+          "starts_at": "2026-10-21T09:00:00Z",
+          "ends_at": "2026-10-21T10:00:00Z"
+        }
+      ],
+      "exclusion_reason_codes": [],
+      "coverage": {
+        "history_complete": true,
+        "evidence_complete": true,
+        "full_text_checked": false,
+        "claim_extraction_complete": false,
+        "claim_ids": [],
+        "commitment_ids": [],
+        "missing_paths": []
+      },
+      "experiment_arm": "first_email_only"
+    }
+  },
+  {
+    "name": "late-evidence",
+    "schema": "recovery-context.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "recovery_context_v2",
+      "merchant_id": "11111111-1111-4111-8111-111111111111",
+      "store_id": 1,
+      "journey_id": "22222222-2222-4222-8222-222222222222",
+      "origin_episode_id": "episode-1",
+      "identity_revision": 1,
+      "evidence_revision": 1,
+      "conversation_revision": 1,
+      "control_revision": 1,
+      "abandoned_at": "2026-10-20T09:00:00Z",
+      "expires_at": "2026-10-27T09:00:00Z",
+      "cutoff_at": "2026-10-20T10:00:02Z",
+      "buyer_state_schema": "buyer_state_v1",
+      "buyer_state_ref": {
+        "id": "observed-state",
+        "revision": 1,
+        "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      },
+      "events": [
+        {
+          "schema_version": "recovery_signal_v1",
+          "event_id": "22222222-2222-4222-8222-222222222222",
+          "merchant_id": "11111111-1111-4111-8111-111111111111",
+          "store_id": 1,
+          "source": "sendgrid",
+          "source_account_id": "fixture-account",
+          "source_event_id": "sg-event-1",
+          "occurred_at": "2026-10-20T10:00:00Z",
+          "received_at": "2026-10-21T00:00:00Z",
+          "kind": "click",
+          "provenance": "provider_event_id",
+          "verification_status": "verified",
+          "payload_ref": "provider-inbox:fixture",
+          "payload_hash": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "automation_class": "unknown"
+        }
+      ],
+      "conversation": {
+        "schema_version": "conversation_context_v1",
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "revision": 1,
+        "confirmed_messages": [],
+        "unconfirmed_draft_refs": [],
+        "complete": true,
+        "missing_paths": []
+      },
+      "cart_ref": {
+        "id": "observed-state",
+        "revision": 1,
+        "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      },
+      "fact_refs": [],
+      "fact_set_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "permission_ref": {
+        "id": "observed-state",
+        "revision": 1,
+        "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      },
+      "sender_ref": {
+        "id": "observed-state",
+        "revision": 1,
+        "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      },
+      "source_health": [
+        {
+          "source": "pixel",
+          "status": "unknown",
+          "observed_at": "2026-10-20T10:00:02Z"
+        }
+      ],
+      "eligible_purpose_ids": [
+        "help"
+      ],
+      "allowed_windows": [
+        {
+          "id": "window_1",
+          "starts_at": "2026-10-21T09:00:00Z",
+          "ends_at": "2026-10-21T10:00:00Z"
+        }
+      ],
+      "exclusion_reason_codes": [],
+      "coverage": {
+        "history_complete": true,
+        "evidence_complete": true,
+        "full_text_checked": false,
+        "claim_extraction_complete": false,
+        "claim_ids": [],
+        "commitment_ids": [],
+        "missing_paths": []
+      },
+      "experiment_arm": "first_email_only"
+    }
+  },
+  {
+    "name": "foreign-conversation",
+    "schema": "recovery-context.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "recovery_context_v2",
+      "merchant_id": "11111111-1111-4111-8111-111111111111",
+      "store_id": 1,
+      "journey_id": "22222222-2222-4222-8222-222222222222",
+      "origin_episode_id": "episode-1",
+      "identity_revision": 1,
+      "evidence_revision": 1,
+      "conversation_revision": 1,
+      "control_revision": 1,
+      "abandoned_at": "2026-10-20T09:00:00Z",
+      "expires_at": "2026-10-27T09:00:00Z",
+      "cutoff_at": "2026-10-20T10:00:02Z",
+      "buyer_state_schema": "buyer_state_v1",
+      "buyer_state_ref": {
+        "id": "observed-state",
+        "revision": 1,
+        "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      },
+      "events": [
+        {
+          "schema_version": "recovery_signal_v1",
+          "event_id": "22222222-2222-4222-8222-222222222222",
+          "merchant_id": "11111111-1111-4111-8111-111111111111",
+          "store_id": 1,
+          "source": "sendgrid",
+          "source_account_id": "fixture-account",
+          "source_event_id": "sg-event-1",
+          "occurred_at": "2026-10-20T10:00:00Z",
+          "received_at": "2026-10-20T10:00:01Z",
+          "kind": "click",
+          "provenance": "provider_event_id",
+          "verification_status": "verified",
+          "payload_ref": "provider-inbox:fixture",
+          "payload_hash": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "automation_class": "unknown"
+        }
+      ],
+      "conversation": {
+        "schema_version": "conversation_context_v1",
+        "merchant_id": "22222222-2222-4222-8222-222222222222",
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "revision": 1,
+        "confirmed_messages": [],
+        "unconfirmed_draft_refs": [],
+        "complete": true,
+        "missing_paths": []
+      },
+      "cart_ref": {
+        "id": "observed-state",
+        "revision": 1,
+        "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      },
+      "fact_refs": [],
+      "fact_set_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "permission_ref": {
+        "id": "observed-state",
+        "revision": 1,
+        "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      },
+      "sender_ref": {
+        "id": "observed-state",
+        "revision": 1,
+        "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      },
+      "source_health": [
+        {
+          "source": "pixel",
+          "status": "unknown",
+          "observed_at": "2026-10-20T10:00:02Z"
+        }
+      ],
+      "eligible_purpose_ids": [
+        "help"
+      ],
+      "allowed_windows": [
+        {
+          "id": "window_1",
+          "starts_at": "2026-10-21T09:00:00Z",
+          "ends_at": "2026-10-21T10:00:00Z"
+        }
+      ],
+      "exclusion_reason_codes": [],
+      "coverage": {
+        "history_complete": true,
+        "evidence_complete": true,
+        "full_text_checked": false,
+        "claim_extraction_complete": false,
+        "claim_ids": [],
+        "commitment_ids": [],
+        "missing_paths": []
+      },
+      "experiment_arm": "first_email_only"
+    }
+  },
+  {
+    "name": "changed-buyer-state-version",
+    "schema": "recovery-context.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "recovery_context_v2",
+      "merchant_id": "11111111-1111-4111-8111-111111111111",
+      "store_id": 1,
+      "journey_id": "22222222-2222-4222-8222-222222222222",
+      "origin_episode_id": "episode-1",
+      "identity_revision": 1,
+      "evidence_revision": 1,
+      "conversation_revision": 1,
+      "control_revision": 1,
+      "abandoned_at": "2026-10-20T09:00:00Z",
+      "expires_at": "2026-10-27T09:00:00Z",
+      "cutoff_at": "2026-10-20T10:00:02Z",
+      "buyer_state_schema": "buyer_state_v2",
+      "buyer_state_ref": {
+        "id": "observed-state",
+        "revision": 1,
+        "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      },
+      "events": [
+        {
+          "schema_version": "recovery_signal_v1",
+          "event_id": "22222222-2222-4222-8222-222222222222",
+          "merchant_id": "11111111-1111-4111-8111-111111111111",
+          "store_id": 1,
+          "source": "sendgrid",
+          "source_account_id": "fixture-account",
+          "source_event_id": "sg-event-1",
+          "occurred_at": "2026-10-20T10:00:00Z",
+          "received_at": "2026-10-20T10:00:01Z",
+          "kind": "click",
+          "provenance": "provider_event_id",
+          "verification_status": "verified",
+          "payload_ref": "provider-inbox:fixture",
+          "payload_hash": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "automation_class": "unknown"
+        }
+      ],
+      "conversation": {
+        "schema_version": "conversation_context_v1",
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "revision": 1,
+        "confirmed_messages": [],
+        "unconfirmed_draft_refs": [],
+        "complete": true,
+        "missing_paths": []
+      },
+      "cart_ref": {
+        "id": "observed-state",
+        "revision": 1,
+        "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      },
+      "fact_refs": [],
+      "fact_set_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "permission_ref": {
+        "id": "observed-state",
+        "revision": 1,
+        "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      },
+      "sender_ref": {
+        "id": "observed-state",
+        "revision": 1,
+        "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      },
+      "source_health": [
+        {
+          "source": "pixel",
+          "status": "unknown",
+          "observed_at": "2026-10-20T10:00:02Z"
+        }
+      ],
+      "eligible_purpose_ids": [
+        "help"
+      ],
+      "allowed_windows": [
+        {
+          "id": "window_1",
+          "starts_at": "2026-10-21T09:00:00Z",
+          "ends_at": "2026-10-21T10:00:00Z"
+        }
+      ],
+      "exclusion_reason_codes": [],
+      "coverage": {
+        "history_complete": true,
+        "evidence_complete": true,
+        "full_text_checked": false,
+        "claim_extraction_complete": false,
+        "claim_ids": [],
+        "commitment_ids": [],
+        "missing_paths": []
+      },
+      "experiment_arm": "first_email_only"
+    }
+  },
+  {
+    "name": "window-after-expiry",
+    "schema": "recovery-context.schema.json",
+    "valid": false,
+    "value": {
+      "schema_version": "recovery_context_v2",
+      "merchant_id": "11111111-1111-4111-8111-111111111111",
+      "store_id": 1,
+      "journey_id": "22222222-2222-4222-8222-222222222222",
+      "origin_episode_id": "episode-1",
+      "identity_revision": 1,
+      "evidence_revision": 1,
+      "conversation_revision": 1,
+      "control_revision": 1,
+      "abandoned_at": "2026-10-20T09:00:00Z",
+      "expires_at": "2026-10-27T09:00:00Z",
+      "cutoff_at": "2026-10-20T10:00:02Z",
+      "buyer_state_schema": "buyer_state_v1",
+      "buyer_state_ref": {
+        "id": "observed-state",
+        "revision": 1,
+        "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      },
+      "events": [
+        {
+          "schema_version": "recovery_signal_v1",
+          "event_id": "22222222-2222-4222-8222-222222222222",
+          "merchant_id": "11111111-1111-4111-8111-111111111111",
+          "store_id": 1,
+          "source": "sendgrid",
+          "source_account_id": "fixture-account",
+          "source_event_id": "sg-event-1",
+          "occurred_at": "2026-10-20T10:00:00Z",
+          "received_at": "2026-10-20T10:00:01Z",
+          "kind": "click",
+          "provenance": "provider_event_id",
+          "verification_status": "verified",
+          "payload_ref": "provider-inbox:fixture",
+          "payload_hash": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "automation_class": "unknown"
+        }
+      ],
+      "conversation": {
+        "schema_version": "conversation_context_v1",
+        "merchant_id": "11111111-1111-4111-8111-111111111111",
+        "journey_id": "22222222-2222-4222-8222-222222222222",
+        "revision": 1,
+        "confirmed_messages": [],
+        "unconfirmed_draft_refs": [],
+        "complete": true,
+        "missing_paths": []
+      },
+      "cart_ref": {
+        "id": "observed-state",
+        "revision": 1,
+        "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      },
+      "fact_refs": [],
+      "fact_set_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "policy_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "permission_ref": {
+        "id": "observed-state",
+        "revision": 1,
+        "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      },
+      "sender_ref": {
+        "id": "observed-state",
+        "revision": 1,
+        "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      },
+      "source_health": [
+        {
+          "source": "pixel",
+          "status": "unknown",
+          "observed_at": "2026-10-20T10:00:02Z"
+        }
+      ],
+      "eligible_purpose_ids": [
+        "help"
+      ],
+      "allowed_windows": [
+        {
+          "id": "window_1",
+          "starts_at": "2026-10-21T09:00:00Z",
+          "ends_at": "2026-10-30T00:00:00Z"
+        }
+      ],
+      "exclusion_reason_codes": [],
+      "coverage": {
+        "history_complete": true,
+        "evidence_complete": true,
+        "full_text_checked": false,
+        "claim_extraction_complete": false,
+        "claim_ids": [],
+        "commitment_ids": [],
+        "missing_paths": []
+      },
+      "experiment_arm": "first_email_only"
+    }
+  }
+]

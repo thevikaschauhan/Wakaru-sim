@@ -1,0 +1,835 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "recovery_context_v2"
+    },
+    "merchant_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+      "not": {
+        "const": "00000000-0000-0000-0000-000000000000"
+      }
+    },
+    "store_id": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "journey_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+      "not": {
+        "const": "00000000-0000-0000-0000-000000000000"
+      }
+    },
+    "origin_episode_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "identity_revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "evidence_revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "conversation_revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "control_revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "abandoned_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "cutoff_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "buyer_state_schema": {
+      "const": "buyer_state_v1"
+    },
+    "buyer_state_ref": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "id",
+        "revision",
+        "sha256"
+      ],
+      "additionalProperties": false
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "schema_version": {
+            "const": "recovery_signal_v1"
+          },
+          "event_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+            "not": {
+              "const": "00000000-0000-0000-0000-000000000000"
+            }
+          },
+          "merchant_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+            "not": {
+              "const": "00000000-0000-0000-0000-000000000000"
+            }
+          },
+          "store_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "sendgrid",
+              "shopify",
+              "pixel",
+              "merchant"
+            ]
+          },
+          "source_account_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "source_event_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "Z$"
+          },
+          "received_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "Z$"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "delivered",
+              "bounce",
+              "open",
+              "click",
+              "unsubscribe",
+              "group_unsubscribe",
+              "spamreport",
+              "dropped",
+              "deferred",
+              "processed",
+              "purchase",
+              "activity",
+              "permission_change"
+            ]
+          },
+          "provenance": {
+            "type": "string",
+            "enum": [
+              "provider_event_id",
+              "fallback_digest",
+              "source_event_id"
+            ]
+          },
+          "verification_status": {
+            "const": "verified"
+          },
+          "journey_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+            "not": {
+              "const": "00000000-0000-0000-0000-000000000000"
+            }
+          },
+          "message_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+            "not": {
+              "const": "00000000-0000-0000-0000-000000000000"
+            }
+          },
+          "document_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+            "not": {
+              "const": "00000000-0000-0000-0000-000000000000"
+            }
+          },
+          "attempt_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+            "not": {
+              "const": "00000000-0000-0000-0000-000000000000"
+            }
+          },
+          "provider_message_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "episode_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "session_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "identity_revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "payload_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "payload_hash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "link_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "destination_url": {
+            "type": "string",
+            "maxLength": 2048,
+            "pattern": "^(https?://[^/?#@]+[^?#]*)?$"
+          },
+          "automation_class": {
+            "type": "string",
+            "enum": [
+              "unknown",
+              "machine_open",
+              "suspected_automation",
+              "human_verified"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 1024
+          }
+        },
+        "required": [
+          "schema_version",
+          "event_id",
+          "merchant_id",
+          "store_id",
+          "source",
+          "source_account_id",
+          "source_event_id",
+          "occurred_at",
+          "received_at",
+          "kind",
+          "provenance",
+          "verification_status",
+          "payload_ref",
+          "payload_hash",
+          "automation_class"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 256
+    },
+    "conversation": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": "conversation_context_v1"
+        },
+        "merchant_id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+          "not": {
+            "const": "00000000-0000-0000-0000-000000000000"
+          }
+        },
+        "journey_id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+          "not": {
+            "const": "00000000-0000-0000-0000-000000000000"
+          }
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "confirmed_messages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "message_id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+                "not": {
+                  "const": "00000000-0000-0000-0000-000000000000"
+                }
+              },
+              "ordinal": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 3
+              },
+              "revision": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "document_ref": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 512
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  }
+                },
+                "required": [
+                  "id",
+                  "revision",
+                  "sha256"
+                ],
+                "additionalProperties": false
+              },
+              "content_sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "subject": {
+                "type": "string",
+                "maxLength": 65536
+              },
+              "body": {
+                "type": "string",
+                "maxLength": 65536
+              },
+              "purpose_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "accepted_at": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "Z$"
+              },
+              "outcomes": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 512
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "revision",
+                    "sha256"
+                  ],
+                  "additionalProperties": false
+                },
+                "maxItems": 256
+              },
+              "fact_refs": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 512
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "revision",
+                    "sha256"
+                  ],
+                  "additionalProperties": false
+                },
+                "maxItems": 256
+              },
+              "promises": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                "maxItems": 256
+              },
+              "questions": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                "maxItems": 256
+              },
+              "offer_refs": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 512
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "revision",
+                    "sha256"
+                  ],
+                  "additionalProperties": false
+                },
+                "maxItems": 256
+              }
+            },
+            "required": [
+              "message_id",
+              "ordinal",
+              "revision",
+              "document_ref",
+              "content_sha256",
+              "subject",
+              "body",
+              "purpose_id",
+              "accepted_at",
+              "outcomes",
+              "fact_refs",
+              "promises",
+              "questions",
+              "offer_refs"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 256
+        },
+        "unconfirmed_draft_refs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "revision": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            },
+            "required": [
+              "id",
+              "revision",
+              "sha256"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 256
+        },
+        "complete": {
+          "type": "boolean"
+        },
+        "missing_paths": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "maxItems": 256
+        }
+      },
+      "required": [
+        "schema_version",
+        "merchant_id",
+        "journey_id",
+        "revision",
+        "confirmed_messages",
+        "unconfirmed_draft_refs",
+        "complete",
+        "missing_paths"
+      ],
+      "additionalProperties": false
+    },
+    "cart_ref": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "id",
+        "revision",
+        "sha256"
+      ],
+      "additionalProperties": false
+    },
+    "fact_refs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        },
+        "required": [
+          "id",
+          "revision",
+          "sha256"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 256
+    },
+    "fact_set_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "policy_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "permission_ref": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "id",
+        "revision",
+        "sha256"
+      ],
+      "additionalProperties": false
+    },
+    "sender_ref": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "id",
+        "revision",
+        "sha256"
+      ],
+      "additionalProperties": false
+    },
+    "source_health": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "healthy",
+              "delayed",
+              "unknown"
+            ]
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "Z$"
+          }
+        },
+        "required": [
+          "source",
+          "status",
+          "observed_at"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 256
+    },
+    "eligible_purpose_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      },
+      "maxItems": 256
+    },
+    "allowed_windows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "starts_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "Z$"
+          },
+          "ends_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "Z$"
+          }
+        },
+        "required": [
+          "id",
+          "starts_at",
+          "ends_at"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 256
+    },
+    "exclusion_reason_codes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      },
+      "maxItems": 256
+    },
+    "coverage": {
+      "type": "object",
+      "properties": {
+        "history_complete": {
+          "type": "boolean"
+        },
+        "evidence_complete": {
+          "type": "boolean"
+        },
+        "full_text_checked": {
+          "type": "boolean"
+        },
+        "claim_extraction_complete": {
+          "type": "boolean"
+        },
+        "claim_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "maxItems": 256
+        },
+        "commitment_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "maxItems": 256
+        },
+        "missing_paths": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "maxItems": 256
+        }
+      },
+      "required": [
+        "history_complete",
+        "evidence_complete",
+        "full_text_checked",
+        "claim_extraction_complete",
+        "claim_ids",
+        "commitment_ids",
+        "missing_paths"
+      ],
+      "additionalProperties": false
+    },
+    "experiment_arm": {
+      "type": "string",
+      "enum": [
+        "first_email_only",
+        "rules_selected_followups",
+        "typesafe_selected_followups"
+      ]
+    }
+  },
+  "required": [
+    "schema_version",
+    "merchant_id",
+    "store_id",
+    "journey_id",
+    "origin_episode_id",
+    "identity_revision",
+    "evidence_revision",
+    "conversation_revision",
+    "control_revision",
+    "abandoned_at",
+    "expires_at",
+    "cutoff_at",
+    "buyer_state_schema",
+    "buyer_state_ref",
+    "events",
+    "conversation",
+    "cart_ref",
+    "fact_refs",
+    "fact_set_sha256",
+    "policy_sha256",
+    "permission_ref",
+    "sender_ref",
+    "source_health",
+    "eligible_purpose_ids",
+    "allowed_windows",
+    "exclusion_reason_codes",
+    "coverage",
+    "experiment_arm"
+  ],
+  "additionalProperties": false
+}

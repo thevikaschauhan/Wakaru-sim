@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "followup_policy_v1"
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "max_messages": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 3
+    },
+    "rolling_limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 3
+    },
+    "rolling_seconds": {
+      "const": 604800
+    },
+    "spacing_seconds": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "type": "integer",
+          "minimum": 86400
+        },
+        {
+          "type": "integer",
+          "minimum": 172800
+        }
+      ],
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "inactivity_seconds": {
+      "type": "integer",
+      "minimum": 2700
+    },
+    "expiry_seconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 604800
+    },
+    "quiet_start": {
+      "const": "20:00"
+    },
+    "quiet_end": {
+      "const": "09:00"
+    },
+    "timezone": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "require_previous_delivery": {
+      "const": true
+    },
+    "tf08_enabled": {
+      "const": false
+    },
+    "transport_attempts": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 3
+    },
+    "repair_limit": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "experiment_arm": {
+      "type": "string",
+      "enum": [
+        "first_email_only",
+        "rules_selected_followups",
+        "typesafe_selected_followups"
+      ]
+    },
+    "unknown_behavior": {
+      "const": "hold"
+    }
+  },
+  "required": [
+    "schema_version",
+    "version",
+    "enabled",
+    "max_messages",
+    "rolling_limit",
+    "rolling_seconds",
+    "spacing_seconds",
+    "inactivity_seconds",
+    "expiry_seconds",
+    "quiet_start",
+    "quiet_end",
+    "timezone",
+    "require_previous_delivery",
+    "tf08_enabled",
+    "transport_attempts",
+    "repair_limit",
+    "experiment_arm",
+    "unknown_behavior"
+  ],
+  "additionalProperties": false
+}

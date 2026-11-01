@@ -48,3 +48,7 @@ rq>=1.16,<2
 # Per-IP rate limit on the paid cart-recovery endpoints. Redis storage so the
 # limit coheres across the 2 gunicorn workers (in-process state would not).
 flask-limiter>=3.5,<4
+
+# AF06 shared semantic journal and strict AF01 contract validation.
+psycopg[binary]>=3.2,<4
+jsonschema==4.26.0

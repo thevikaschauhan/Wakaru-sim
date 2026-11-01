@@ -1,0 +1,188 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "recovery_signal_v1"
+    },
+    "event_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+      "not": {
+        "const": "00000000-0000-0000-0000-000000000000"
+      }
+    },
+    "merchant_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+      "not": {
+        "const": "00000000-0000-0000-0000-000000000000"
+      }
+    },
+    "store_id": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "sendgrid",
+        "shopify",
+        "pixel",
+        "merchant"
+      ]
+    },
+    "source_account_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "source_event_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "received_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "delivered",
+        "bounce",
+        "open",
+        "click",
+        "unsubscribe",
+        "group_unsubscribe",
+        "spamreport",
+        "dropped",
+        "deferred",
+        "processed",
+        "purchase",
+        "activity",
+        "permission_change"
+      ]
+    },
+    "provenance": {
+      "type": "string",
+      "enum": [
+        "provider_event_id",
+        "fallback_digest",
+        "source_event_id"
+      ]
+    },
+    "verification_status": {
+      "const": "verified"
+    },
+    "journey_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+      "not": {
+        "const": "00000000-0000-0000-0000-000000000000"
+      }
+    },
+    "message_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+      "not": {
+        "const": "00000000-0000-0000-0000-000000000000"
+      }
+    },
+    "document_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+      "not": {
+        "const": "00000000-0000-0000-0000-000000000000"
+      }
+    },
+    "attempt_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+      "not": {
+        "const": "00000000-0000-0000-0000-000000000000"
+      }
+    },
+    "provider_message_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "episode_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "session_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "identity_revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "payload_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "payload_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "link_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "destination_url": {
+      "type": "string",
+      "maxLength": 2048,
+      "pattern": "^(https?://[^/?#@]+[^?#]*)?$"
+    },
+    "automation_class": {
+      "type": "string",
+      "enum": [
+        "unknown",
+        "machine_open",
+        "suspected_automation",
+        "human_verified"
+      ]
+    },
+    "reason": {
+      "type": "string",
+      "maxLength": 1024
+    }
+  },
+  "required": [
+    "schema_version",
+    "event_id",
+    "merchant_id",
+    "store_id",
+    "source",
+    "source_account_id",
+    "source_event_id",
+    "occurred_at",
+    "received_at",
+    "kind",
+    "provenance",
+    "verification_status",
+    "payload_ref",
+    "payload_hash",
+    "automation_class"
+  ],
+  "additionalProperties": false
+}

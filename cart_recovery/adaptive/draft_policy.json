@@ -1,0 +1,40 @@
+{
+  "version": "followup-draft-rehearsal-v1",
+  "domain": "vakaru-approved-commerce-evidence",
+  "production_qualified": false,
+  "tf08_enabled": false,
+  "tf01_confidence": 0.8,
+  "tf02_confidence": 0.85,
+  "tf03_confidence": 0.8,
+  "tf03_minimum": 2,
+  "tf03_gap": 0.25,
+  "tf04_confidence": 0.85,
+  "distribution_tolerance": 1e-06,
+  "deadline_ms": 8000,
+  "max_questions": 64,
+  "max_input_bytes": 64000,
+  "attempt_limit": 3,
+  "reservation_micros": 10000,
+  "limits_micros": {
+    "batch": 30000,
+    "message": 90000,
+    "journey": 270000,
+    "merchant": 1000000,
+    "environment": 10000000
+  },
+  "model": "typesafe/jev-1.13",
+  "adapter_version": "openrouter-v1",
+  "rubric_revision": "af07-draft-v1",
+  "tasks": [
+    "TF04",
+    "TF05",
+    "TF06",
+    "TF07"
+  ],
+  "tf05_confidence": 0.9,
+  "tf05_probability": 0.95,
+  "tf06_clear": 0.05,
+  "tf06_fail": 0.8,
+  "tf07_confidence": 0.9,
+  "tf07_probability": 0.95
+}
