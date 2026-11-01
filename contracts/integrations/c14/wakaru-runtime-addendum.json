@@ -1,9 +1,10 @@
 {
   "version": "wakaru_runtime_privacy_addendum_v1",
   "scope": "wakaru_combined_source_only",
-  "base_sha256": "83e46eadadd4396d8f7c7e0231ee1b84af1c33af4b21ae5650aa13ad007aad02",
+  "base_sha256": "00ed541496e7bcaf9a7a189f9da2b974e2ea98a1b434a819ab6192516aeb61ff",
   "whole_application_erasure_complete": false,
   "retained_base_blockers": [
+    "engine.adaptive_content",
     "engine.behavior_legacy",
     "engine.identity_legacy",
     "engine.merchant_records",
@@ -12,10 +13,12 @@
     "engine.recovery_legacy",
     "engine.typesafe_legacy",
     "external.downloads_blobs",
+    "inkwell.adaptive_content",
     "inkwell.documents_legacy",
     "inkwell.merchant_records",
     "inkwell.typesafe_legacy",
     "wakaru.adaptive_semantic",
+    "wakaru.domain_knowledge",
     "wakaru.learning_registry",
     "wakaru.plan_journal",
     "wakaru.redis_queue",
@@ -78,11 +81,11 @@
       "family": "wakaru.redis_queue"
     },
     "cart_recovery/adaptive/erasure.py": {
-      "sha256": "9015999018223c70658a16bb3374c26cb66140a23fbd53862cde5102b49817fa",
+      "sha256": "0e1f5a8688296bc9428d3d8f42be2b22001888d24caf40c21fe29750bb0c54f9",
       "family": "wakaru.adaptive_semantic"
     },
     "cart_recovery/adaptive/journal.py": {
-      "sha256": "9ae3e283c28df7aaf8b364d6310b79e3f31e10381326ce2755ee3b89ab7d2f85",
+      "sha256": "59c5f920d6b1fd33aa87c341511847e162cc2dfae4892dd3f5c8c016be5ef51e",
       "family": "wakaru.adaptive_semantic"
     },
     "cart_recovery/bounded_context_api.py": {
@@ -167,8 +170,9 @@
     "contracts/knowledge/recovery-v1/checkpoint.schema.json": "1d7a062c2ea69bd0459756edc964e66429b37af6678bbefa4a4090fa24169b94"
   },
   "adaptive_migrations": {
+    "cart_recovery/adaptive/migrations/002_erasure.sql": "68554ba26825337667a686fd2636c1d79f203b861f869a8f0184e0bd22c7e76a",
     "cart_recovery/adaptive/migrations/001_journal.sql": "0d07f5482d419619e0dd65bf6eabfff78b643ff66cdc5dd3179915ea1c2e11e6",
-    "cart_recovery/adaptive/migrations/002_erasure.sql": "68554ba26825337667a686fd2636c1d79f203b861f869a8f0184e0bd22c7e76a"
+    "cart_recovery/adaptive/migrations/003_erased_cost_holds.sql": "f302742d8030b232b0fc246a5545f5b30b0e51df5b9b0719bea65d31ae363440"
   },
   "knowledge_migrations": {
     "cart_recovery/domain/migrations/001_knowledge.sql": "4ace32806ccc29b310f74d189fa2c6d85c4a0537affea186f48dd6ca50ae4e3a",

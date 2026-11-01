@@ -20,7 +20,7 @@ def snapshot(tmp_path):
 
 def test_inventory_preserves_upstream_privacy_limits():
     result = privacy.verify(ROOT)
-    assert result['base_blockers_retained'] == 18
+    assert result['base_blockers_retained'] == 21
     assert result['new_blocked_families'] == 1
     assert result['whole_application_erasure_complete'] is False
     assert result['cross_repository_parity_qualified'] is False

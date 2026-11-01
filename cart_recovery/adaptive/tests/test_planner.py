@@ -51,6 +51,13 @@ def setup():
                     Path(__file__).resolve().parents[1] / "migrations/002_erasure.sql"
                 ).read_text()
             )
+        if not db.execute("SELECT to_regclass('af11_cost_holds')").fetchone()[0]:
+            db.execute(
+                (
+                    Path(__file__).resolve().parents[1]
+                    / "migrations/003_erased_cost_holds.sql"
+                ).read_text()
+            )
 
     def build(handler=None, policy=None, env=None):
         calls = []

@@ -45,6 +45,9 @@ fresh Engine release-authority checks. See the current
 must assemble complete resolved inputs, authenticate the call, reject stale
 bindings under its current lease and persist composition work atomically. Neither
 this endpoint nor a passing semantic bundle substitutes for AF08 dispatch checks.
-Production qualification and TF08 remain disabled. Apply `002_erasure.sql` after
-the journal migration when qualifying the combined adaptive database; runtime
-images do not execute migrations automatically.
+Production qualification and TF08 remain disabled. Apply `002_erasure.sql` and
+`003_erased_cost_holds.sql` after the journal migration when qualifying the
+combined adaptive database; runtime images do not execute migrations automatically.
+The retained cost holds keep in-flight reservations accountable after content
+erasure. Late usage can settle once without restoring erased requests or answers;
+unknown usage never refunds the reservation or authorizes replay.

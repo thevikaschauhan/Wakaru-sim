@@ -21,6 +21,21 @@ def erase_journey(journal, merchant, journey):
             (merchant, journey, merchant + ":" + journey),
         ).fetchall()
         for env, key in keys:
+            # Serialize erasure with cost settlement. A late callback settles a
+            # minimal accounting hold after raw request/answer rows are gone.
+            db.execute(
+                "SELECT id FROM af6_attempts WHERE environment=%s AND merchant=%s AND request_key=%s ORDER BY id FOR UPDATE",
+                (env, merchant, key),
+            ).fetchall()
+            db.execute(
+                """INSERT INTO af11_cost_holds(id,environment,merchant,lease_token,reserved,charged,allocations)
+                 SELECT a.id,a.environment,a.merchant,a.lease_token,a.reserved,a.charged,
+                  coalesce((SELECT jsonb_agg(jsonb_build_array(b.environment,b.scope,b.identity,b.period) ORDER BY b.scope,b.identity,b.period)
+                   FROM af6_allocations b WHERE b.attempt=a.id AND b.scope<>'batch'),'[]'::jsonb)
+                 FROM af6_attempts a WHERE a.environment=%s AND a.merchant=%s AND a.request_key=%s AND a.finished_at IS NULL
+                 ON CONFLICT DO NOTHING""",
+                (env, merchant, key),
+            )
             db.execute(
                 "DELETE FROM af6_allocations WHERE attempt IN(SELECT id FROM af6_attempts WHERE environment=%s AND merchant=%s AND request_key=%s)",
                 (env, merchant, key),
@@ -51,3 +66,28 @@ def erase_journey(journal, merchant, journey):
     if unmapped:
         raise ValueError("legacy_evaluation_scope_unmapped")
     return {"source": "wakaru", "journey_id": journey, "erased": True}
+
+
+def settle_erased_attempt(db, environment, merchant, token, attempt, measured_micros):
+    """Resolve known late usage once; never refund erased/unknown reservations."""
+    row = db.execute(
+        "SELECT charged,allocations,finished_at,unknown_usage FROM af11_cost_holds WHERE id=%s AND environment=%s AND merchant=%s AND lease_token=%s FOR UPDATE",
+        (attempt, environment, merchant, token),
+    ).fetchone()
+    if not row or (row[2] is not None and (not row[3] or measured_micros is None)):
+        return None
+    charged = max(row[0], measured_micros) if measured_micros is not None else row[0]
+    delta = charged - row[0]
+    if delta:
+        for env, scope, identity, period in row[1]:
+            updated = db.execute(
+                "UPDATE af6_budgets SET spent=spent+%s WHERE environment=%s AND scope=%s AND identity=%s AND period=%s",
+                (delta, env, scope, identity, period),
+            )
+            if updated.rowcount != 1:
+                raise ValueError("erased_cost_allocation_missing")
+    db.execute(
+        "UPDATE af11_cost_holds SET charged=%s,finished_at=clock_timestamp(),unknown_usage=%s WHERE id=%s",
+        (charged, measured_micros is None, attempt),
+    )
+    return charged

@@ -109,7 +109,8 @@ func uniqueKeys(d *json.Decoder) error {
 	if !ok {
 		return nil
 	}
-	if delim == '{' {
+	switch delim {
+	case '{':
 		seen := map[string]bool{}
 		for d.More() {
 			k, e := d.Token()
@@ -125,13 +126,13 @@ func uniqueKeys(d *json.Decoder) error {
 				return e
 			}
 		}
-	} else if delim == '[' {
+	case '[':
 		for d.More() {
 			if e = uniqueKeys(d); e != nil {
 				return e
 			}
 		}
-	} else {
+	default:
 		return errors.New("unexpected delimiter")
 	}
 	_, e = d.Token()

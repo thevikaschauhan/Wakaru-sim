@@ -13,6 +13,6 @@
     "tests/knowledge/test_lifecycle.py": "cab4860bed5fa39cd8596c75cb78101f26a9678cfda2dd9d8efd9eb0d6483e6a",
     "ops/runtime/verify_privacy.py": "9c8a7d1e52c166152a79b87a8d395f1e973f45f841c51aa5cbaa5417c51cd414",
     "backend/tests/test_combined_privacy_inventory.py": "56dd6128f4bd0cd471ffe49e0d8934480a2c375f7aa9269476ffd68e861bccb1",
-    "contracts/integrations/c14/wakaru-runtime-addendum.json": "0348b187840f60620c46b4940ceecf06924707f9f17cdb0564903d81b930c89e"
+    "contracts/integrations/c14/wakaru-runtime-addendum.json": "e2df433aa5492e7e0344cfbbe5c47e2a0b51aeb7eb00fea0ff86c28f65897efc"
   }
 }
