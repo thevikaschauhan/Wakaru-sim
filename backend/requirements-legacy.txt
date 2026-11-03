@@ -1,0 +1,7 @@
+# Compatibility image only: simulation, scratch graph cleanup and legacy LLMs.
+# Install CPU torch first, as in backend/Dockerfile.
+openai>=1.0.0
+zep-cloud==3.13.0
+camel-oasis==0.2.5
+camel-ai==0.2.78
+pydantic>=2.0.0

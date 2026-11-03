@@ -12,6 +12,7 @@
     "policy-profile.json": "594cb3673156914e4073be0a489af0684a700569b01178b8405034b51ee9ebe7",
     "recovery-plan.schema.json": "909c7bf8180e8570e0e787d17bc25e9e942dc5452d50b349fc227c54f36f97c2",
     "second-slice-fixtures.json": "dddad5c15f6867dd45a9f917405d04b52e9828f17429652f2dbf2dc2c5824054",
-    "semantic-validation.schema.json": "9b767fb4b6f1b7dbd822dd71badb5b3c8ddd1fea004141b787de694f3e443734"
+    "semantic-validation.schema.json": "9b767fb4b6f1b7dbd822dd71badb5b3c8ddd1fea004141b787de694f3e443734",
+    "storage.sql": "6c2fb69182d50ba62111f68142da662b9a366d49a0c765a4cebdbcfbf41748d3"
   }
 }

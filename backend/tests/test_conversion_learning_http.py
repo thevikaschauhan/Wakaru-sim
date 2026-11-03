@@ -10,7 +10,7 @@ def test_queue_pins_conversion_revision_and_freezes_unavailable(
 
     queue = wire(monkeypatch, asynchronous=True)
     merchant = "11111111-1111-4111-8111-111111111111"
-    monkeypatch.setenv("RECOVERY_ANALYSIS_MODE", "direct_v1")
+    monkeypatch.setenv("RECOVERY_ANALYSIS_MODE", "legacy_simulation")
     monkeypatch.setenv("TYPESAFE_RECOVERY_MODE", "assist")
     monkeypatch.setenv("TYPESAFE_RECOVERY_MERCHANTS", merchant)
     monkeypatch.setenv("CONVERSION_MODEL_MERCHANTS", merchant)

@@ -1,0 +1,45 @@
+[
+  {
+    "id": "c13_default_off_round_robin_and_outage",
+    "required_tests": [
+      "vakaru-engine/internal/integrationworker/TestC13WorkerDefaultOffFairnessAndShutdown",
+      "vakaru-engine/internal/integrationworker/TestC13WorkerOutageBackoffAndFairScopes",
+      "github.com/thevikaschauhan/inkwell/internal/integrationworker/TestC13WorkerDefaultOffFairnessAndShutdown",
+      "github.com/thevikaschauhan/inkwell/internal/integrationworker/TestC13WorkerOutageBackoffAndFairScopes"
+    ]
+  },
+  {
+    "id": "c13_durable_delivery_health",
+    "required_tests": [
+      "vakaru-engine/internal/integrations/TestC13WorkerDeliveryRecoveryAndHealth"
+    ]
+  },
+  {
+    "id": "c13_cleanup_restart_backoff",
+    "required_tests": [
+      "github.com/thevikaschauhan/inkwell/internal/integrationprivacy/TestC13CleanupWorkerRestartBackoffAndHealth"
+    ]
+  },
+  {
+    "id": "c13_authenticated_receiver_health",
+    "required_tests": [
+      "tests.test_integration_worker_health/test_c13_authenticated_health_restart_and_no_payload"
+    ]
+  },
+  {
+    "id": "c13_actual_workers_and_browser",
+    "required_tests": [
+      "vakaru-engine/internal/integrations/TestC13WorkerCrossRepositoryAndBrowser"
+    ]
+  },
+  {
+    "id": "c13_health_wire_and_stale_ui",
+    "required_tests": [
+      "vakaru-engine/internal/integrationhealth/TestC13HealthSharedWire",
+      "github.com/thevikaschauhan/inkwell/internal/integrationhealth/TestC13HealthSharedWire",
+      "lib/integration-worker-health.test.ts/reads actual scoped Engine and Inkwell health output",
+      "components/integration-worker-health.test.tsx/C13 context update experience > clears expired progress and hides the previous tenant immediately",
+      "components/integration-worker-health.test.tsx/C13 context update experience > withdraws the parent decision projection when delivery acknowledgement changes"
+    ]
+  }
+]

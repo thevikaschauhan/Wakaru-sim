@@ -85,14 +85,11 @@ class Config:
         monkeypatch / 测试 / 运行时改动 env 需要 validate() 读取最新值.
         生产环境下两者等价 (env 已由 load_dotenv() 注入)."""
         errors: list[str] = []
-        mode = os.environ.get('RECOVERY_ANALYSIS_MODE', 'legacy_simulation')
-        if mode not in {'direct_v1', 'legacy_simulation'}:
-            errors.append('RECOVERY_ANALYSIS_MODE must be direct_v1 or legacy_simulation')
-        if mode == 'legacy_simulation':
-            if not os.environ.get('LLM_API_KEY'):
-                errors.append("LLM_API_KEY 未配置")
-            if not os.environ.get('ZEP_API_KEY'):
-                errors.append("ZEP_API_KEY 未配置")
+        from app.services.recovery_admission import AdmissionConfigurationError, approved_direct_merchants
+        try:
+            approved_direct_merchants()
+        except AdmissionConfigurationError as error:
+            errors.append(str(error))
         # Issue #10: the X-API-Key guard on /api/* fails closed at boot. An empty
         # key would also make hmac.compare_digest("", "") return True at request
         # time (auth bypass), so refuse to start without it. .strip() + placeholder

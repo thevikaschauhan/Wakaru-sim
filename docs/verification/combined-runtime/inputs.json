@@ -1,0 +1,26 @@
+{
+  "integration": {
+    "head": "23fa11b0153b34a2e6097b982cb1f801f434b6b6",
+    "patch_sha256": "a28d0c3351481c5f6873be61c38320fe17504f6ac861780e568b2525810d3506"
+  },
+  "adaptive": {
+    "head": "acc704663b774943e0e9219dacd53cf1bfd524ea",
+    "patch_sha256": "ae26f7ea075627354b57801c19028be29286e614a79237598d39196d48370f68"
+  },
+  "lean": {
+    "base": "b079ad453775886af26267fa8db967ae34abe7ef",
+    "patch_sha256": "d43859d1f42357100c4cf1fe8b9433820e69c5740a85e20040b9f2089dd1e9bf",
+    "new_files": {
+      "backend/Dockerfile.lean": "7eca4cd753db743d54cb7a6a5d3d0f4c8bffdb66147000c326677e94733e705c",
+      "backend/app/services/legacy_cart_recovery.py": "a2eb4adc09614af19a4dc98e8398bec20c32acffd0d9bff006e1b39de31d5716",
+      "backend/app/services/readiness.py": "5df2ec37ee2e365c3cc6913f4b5c2e8cd519f1e86c388fa0d0b28ed85df5ac69",
+      "backend/requirements-core.txt": "427d20d0a6f175bddd8f57650b6b525ccec6518606ac91fa71c5e8149ce82e1f",
+      "backend/requirements-legacy.txt": "b0334e133ba1f38d355214d09034bd3dedf124b6dc2a588917c68fd687b692ef",
+      "backend/tests/test_lean_runtime.py": "02d9ccbeeea699d701942ec1ce821f37d1b7b2b0e40fb24ffc005de0260bf29d",
+      "docs/lean-runtime.md": "1aa1292cdd044747d9fd2c61eec580c9d04f0cda950da87559916b59f7d2836d",
+      "ops/runtime/build.py": "fbd45fe78f89ceb53f28471f5c7cefefd2d2d4cf46db0ab1d867798a7684bcc2",
+      "ops/runtime/lean-files.txt": "2c716e6db8b7f95c4887c702e2ab09dcdc4431ba2cd30a994285b1fb52eaaafc",
+      "ops/runtime/verify_container.py": "b6a56401fdd5479f21c28af6b4d849fc111b1c0e8c6f81f762a400b32141e0c1"
+    }
+  }
+}

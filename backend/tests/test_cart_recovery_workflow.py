@@ -20,7 +20,7 @@ from types import SimpleNamespace
 import pytest
 
 from app.config import Config
-from app.services import cart_recovery_workflow as wf
+from app.services import legacy_cart_recovery as wf
 from app.services.report_agent import ReportStatus
 from app.services.simulation_manager import SimulationStatus
 from app.services.simulation_runner import RunnerStatus

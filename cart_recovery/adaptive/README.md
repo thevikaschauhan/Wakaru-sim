@@ -39,8 +39,15 @@ Application access is backend-only; RLS/PUBLIC revocations do not grant an
 application role automatically. Production database roles, encryption, retention
 and erasure need operational review.
 
-The AF05 worker is not wired to call this endpoint yet. AF07 integration must
-assemble complete resolved inputs, authenticate the call, reject stale bindings
-under Engine's current lease and persist composition work atomically. Neither
+The combined candidate also contains draft checking, measurement, erasure and
+fresh Engine release-authority checks. See the current
+[combined runtime qualification](../../docs/combined-runtime.md). Engine's caller
+must assemble complete resolved inputs, authenticate the call, reject stale
+bindings under its current lease and persist composition work atomically. Neither
 this endpoint nor a passing semantic bundle substitutes for AF08 dispatch checks.
-Current production qualification and TF08 remain disabled.
+Production qualification and TF08 remain disabled. Apply `002_erasure.sql` and
+`003_erased_cost_holds.sql` after the journal migration when qualifying the
+combined adaptive database; runtime images do not execute migrations automatically.
+The retained cost holds keep in-flight reservations accountable after content
+erasure. Late usage can settle once without restoring erased requests or answers;
+unknown usage never refunds the reservation or authorizes replay.
