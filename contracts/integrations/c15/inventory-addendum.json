@@ -1,0 +1,254 @@
+{
+  "version": "integration_lineage_inventory_c15_v1",
+  "base_effective_sha256": "0f7cdfcef334e0e68dfb082f19851bc18d85d8cd37efff3d033ebca5e3318f54",
+  "families": [
+    {
+      "id": "engine.lineage_ledger",
+      "owner": "engine offline privacy operator",
+      "status": "retained_fence",
+      "subject_selector": "Explicit reviewed merchant/store, typed alias and subject hashes, exact source revisions and registered opaque object keys",
+      "export": "Operator metadata and scoped receipt only; no whole customer export",
+      "erasure": "Retain lineage metadata; erase registered raw outputs and Wakaru plans only. Other legacy and external families remain blocked.",
+      "retention": "Retain stop fences, proof hashes and completed membership; no automatic TTL or spending claim retirement",
+      "restore": "Latest independent lineage ledger after historical payload, before runtime access; refresh receipt and re-drain restored content",
+      "blocker": "Offline only, reviewed attribution and target-owner grants required. Runtime readers/producers and external/archive custody remain unqualified.",
+      "evidence": [
+        {
+          "repo": "engine",
+          "path": "scripts/integration_lineage.py",
+          "sha256": "635477d52d19ee5fc8ef5ce2829cafae903fce2dd924a4c82fa3362c79eb2b44"
+        }
+      ]
+    },
+    {
+      "id": "inkwell.lineage_ledger",
+      "owner": "inkwell offline privacy operator",
+      "status": "retained_fence",
+      "subject_selector": "Explicit reviewed merchant/store, typed alias and subject hashes, exact source revisions and registered opaque object keys",
+      "export": "Operator metadata and scoped receipt only; no whole customer export",
+      "erasure": "Retain lineage metadata; erase registered raw outputs and Wakaru plans only. Other legacy and external families remain blocked.",
+      "retention": "Retain stop fences, proof hashes and completed membership; no automatic TTL or spending claim retirement",
+      "restore": "Latest independent lineage ledger after historical payload, before runtime access; refresh receipt and re-drain restored content",
+      "blocker": "Offline only, reviewed attribution and target-owner grants required. Runtime readers/producers and external/archive custody remain unqualified.",
+      "evidence": [
+        {
+          "repo": "inkwell",
+          "path": "scripts/integration_lineage.py",
+          "sha256": "635477d52d19ee5fc8ef5ce2829cafae903fce2dd924a4c82fa3362c79eb2b44"
+        }
+      ]
+    },
+    {
+      "id": "wakaru.lineage_ledger",
+      "owner": "wakaru offline privacy operator",
+      "status": "retained_fence",
+      "subject_selector": "Explicit reviewed merchant/store, typed alias and subject hashes, exact source revisions and registered opaque object keys",
+      "export": "Operator metadata and scoped receipt only; no whole customer export",
+      "erasure": "Retain lineage metadata; erase registered raw outputs and Wakaru plans only. Other legacy and external families remain blocked.",
+      "retention": "Retain stop fences, proof hashes and completed membership; no automatic TTL or spending claim retirement",
+      "restore": "Latest independent lineage ledger after historical payload, before runtime access; refresh receipt and re-drain restored content",
+      "blocker": "Offline only, reviewed attribution and target-owner grants required. Runtime readers/producers and external/archive custody remain unqualified.",
+      "evidence": [
+        {
+          "repo": "wakaru",
+          "path": "scripts/integration_lineage.py",
+          "sha256": "635477d52d19ee5fc8ef5ce2829cafae903fce2dd924a4c82fa3362c79eb2b44"
+        }
+      ]
+    }
+  ],
+  "migrations": {
+    "engine": {
+      "migrations/092_integration_lineage.sql": "c599084125d30ad089d1635eb6c7ec9af63b2b825b209a9f2e85f412b9f5722e"
+    },
+    "inkwell": {
+      "migrations/0066_integration_lineage.sql": "6d6eb0481f611eda71a727a3e840d2d4356ceb8a7401b6c7f79bf8072bab503d"
+    }
+  },
+  "relations": {
+    "engine": [
+      {
+        "relation": "public.integration_lineage_aliases",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "merchant",
+          "store",
+          "kind",
+          "ref",
+          "subject",
+          "proof"
+        ],
+        "family": "engine.lineage_ledger"
+      },
+      {
+        "relation": "public.integration_lineage_resources",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "merchant",
+          "store",
+          "kind",
+          "key",
+          "subject",
+          "proof",
+          "image",
+          "alias_kind",
+          "alias_ref"
+        ],
+        "family": "engine.lineage_ledger"
+      },
+      {
+        "relation": "public.integration_lineage_sources",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "merchant",
+          "store",
+          "kind",
+          "key",
+          "source"
+        ],
+        "family": "engine.lineage_ledger"
+      },
+      {
+        "relation": "public.integration_lineage_stops",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "merchant",
+          "store",
+          "target",
+          "ref"
+        ],
+        "family": "engine.lineage_ledger"
+      },
+      {
+        "relation": "public.integration_lineage_requests",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "merchant",
+          "store",
+          "id",
+          "task"
+        ],
+        "family": "engine.lineage_ledger"
+      },
+      {
+        "relation": "public.integration_lineage_members",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "merchant",
+          "store",
+          "request",
+          "kind",
+          "key",
+          "state",
+          "blocker"
+        ],
+        "family": "engine.lineage_ledger"
+      }
+    ],
+    "inkwell": [
+      {
+        "relation": "integration_privacy.integration_lineage_aliases",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "merchant",
+          "store",
+          "kind",
+          "ref",
+          "subject",
+          "proof"
+        ],
+        "family": "inkwell.lineage_ledger"
+      },
+      {
+        "relation": "integration_privacy.integration_lineage_resources",
+        "kind": "r",
+        "rls": true,
+        "force_rls": false,
+        "columns": [
+          "merchant",
+          "store",
+          "kind",
+          "key",
+          "subject",
+          "proof",
+          "image",
+          "alias_kind",
+          "alias_ref"
+        ],
+        "family": "inkwell.lineage_ledger"
+      },
+      {
+        "relation": "integration_privacy.integration_lineage_sources",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "merchant",
+          "store",
+          "kind",
+          "key",
+          "source"
+        ],
+        "family": "inkwell.lineage_ledger"
+      },
+      {
+        "relation": "integration_privacy.integration_lineage_stops",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "merchant",
+          "store",
+          "target",
+          "ref"
+        ],
+        "family": "inkwell.lineage_ledger"
+      },
+      {
+        "relation": "integration_privacy.integration_lineage_requests",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "merchant",
+          "store",
+          "id",
+          "task"
+        ],
+        "family": "inkwell.lineage_ledger"
+      },
+      {
+        "relation": "integration_privacy.integration_lineage_members",
+        "kind": "r",
+        "rls": true,
+        "force_rls": true,
+        "columns": [
+          "merchant",
+          "store",
+          "request",
+          "kind",
+          "key",
+          "state",
+          "blocker"
+        ],
+        "family": "inkwell.lineage_ledger"
+      }
+    ]
+  },
+  "runtime_enabled": false,
+  "whole_application_erasure_complete": false
+}

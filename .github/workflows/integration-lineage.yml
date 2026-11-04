@@ -1,0 +1,19 @@
+name: C15 offline subject and source lineage
+on:
+  pull_request:
+    paths: ['scripts/*integration_lineage*', 'migrations/**', 'contracts/integrations/c15/**', '.github/workflows/integration-lineage.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  lineage-offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python scripts/test_integration_lineage.py SQLiteTests -v
