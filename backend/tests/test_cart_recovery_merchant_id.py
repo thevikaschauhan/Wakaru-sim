@@ -121,23 +121,15 @@ def test_valid_merchant_id_bound_to_log_prefix(client, monkeypatch, caplog):
 
 
 def test_missing_merchant_id_falls_back_to_sentinel(client, monkeypatch, caplog):
-    # No X-Merchant-Id (legacy /analyze caller, or pre-deploy engine) must not
-    # 400 — it is bucketed under the nil-UUID sentinel so the route still runs,
-    # and the sentinel (not None) is what the route forwards into the pipeline.
-    forwarded = []
-
-    def capture_run(cart, on_progress=None, merchant_id=None):
-        forwarded.append(merchant_id)
-        return _fake_run_with_progress(cart, on_progress=on_progress, merchant_id=merchant_id)
-
-    monkeypatch.setattr("app.api.cart_recovery.run_cart_recovery", capture_run)
-    with caplog.at_level(logging.INFO, logger="mirofish.cart_recovery"):
-        resp = client.post("/api/cart-recovery/analyze", json=VALID_PAYLOAD)
-    assert resp.status_code == 200, resp.get_data(as_text=True)
-    progress = [r.getMessage() for r in caplog.records if "stub progress" in r.getMessage()]
-    assert progress, "expected a progress log line"
-    assert f"m={SENTINEL_MERCHANT_ID}" in progress[0], progress[0]
-    assert forwarded == [SENTINEL_MERCHANT_ID]
+    # A missing identity still resolves to the sentinel, but cannot be admitted.
+    client.environ_base.pop("HTTP_X_MERCHANT_ID")
+    calls = []
+    monkeypatch.setattr("app.api.cart_recovery.run_cart_recovery", lambda *a, **k: calls.append(1))
+    for route in ("/api/cart-recovery/analyze", "/api/cart-recovery/jobs"):
+        resp = client.post(route, json=VALID_PAYLOAD)
+        assert resp.status_code == 410
+        assert resp.json == {"success": False, "error": "legacy_simulation_retired"}
+    assert calls == []
 
 
 # --- idempotency scope is namespaced by merchant (no cross-tenant replay) ------
@@ -221,6 +213,7 @@ def test_cross_tenant_job_poll_returns_404(client, monkeypatch):
     assert r_b.get_json()["error"] == "Job not found"
 
     # A poll with no merchant header (sentinel) also cannot read merchant A's job.
+    client.environ_base.pop("HTTP_X_MERCHANT_ID")
     r_none = client.get(f"/api/cart-recovery/jobs/{job_id}")
     assert r_none.status_code == 404
 
@@ -234,6 +227,7 @@ def test_pre_24_job_without_merchant_meta_is_sentinel_scoped(client, monkeypatch
     _wire(monkeypatch, conn, queue)
     job = queue.enqueue(run_analysis_job, dict(VALID_PAYLOAD), description="legacy (no merchant meta)")
 
+    client.environ_base.pop("HTTP_X_MERCHANT_ID")
     r_sentinel = client.get(f"/api/cart-recovery/jobs/{job.id}")
     assert r_sentinel.status_code == 200, r_sentinel.get_data(as_text=True)
     assert r_sentinel.get_json()["success"] is True
@@ -263,6 +257,7 @@ def test_worker_log_line_carries_merchant_id(monkeypatch, caplog):
     monkeypatch.setattr(logging.getLogger("mirofish"), "propagate", True)
 
     cart_dict = {
+        "analysis_mode": "direct_v1",
         "customer_id": "cust_test",
         "customer_name": "Shopper",
         "email": "shopper@example.com",

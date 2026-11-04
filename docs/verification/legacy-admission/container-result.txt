@@ -1,0 +1,4 @@
+{"adaptive_default_off": true, "release_binding": true, "integration_authenticated_sqlite_erasure": true}
+{"signed_http": true, "real_redis_worker": true, "lean_dependencies": true, "result": "passed"}
+{"packaged_retirement_worker": true, "historical_payloads_preserved": true, "automatic_retry_disabled": true}
+{"image": "wakaru-legacy-admission:qualified-20261029", "image_bytes": 328723945}

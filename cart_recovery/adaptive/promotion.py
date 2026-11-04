@@ -46,28 +46,23 @@ def required():
 
 @lru_cache(maxsize=1)
 def artifact_hash():
-    # Release builders compute this same source/lock manifest. Files and
-    # interpreter/dependencies must be immutable in the approved deployment.
-    root = Path(__file__).resolve().parents[1]
-    files = sorted(
-        p
-        for p in root.rglob("*")
-        if p.is_file()
-        and p.suffix in {".py", ".json", ".sql"}
-        and "__pycache__" not in p.parts
-        and "tests" not in p.parts
-    )
-    manifest = {
-        str(p.relative_to(root.parent)): hashlib.sha256(p.read_bytes()).hexdigest()
-        for p in files
-    }
-    for name in (
-        "backend/pyproject.toml",
-        "backend/uv.lock",
-        "backend/requirements.txt",
-    ):
-        p = root.parent / name
-        manifest[name] = hashlib.sha256(p.read_bytes()).hexdigest()
+    # The explicit runtime manifest is identical in the source checkout and
+    # built image. Include HTTP/auth/config and split requirements, not just
+    # cart_recovery or obsolete lockfiles from a different packaging layout.
+    root = Path(__file__).resolve().parents[2]
+    manifest_path = root / "ops/runtime/lean-files.txt"
+    names = {"ops/runtime/lean-files.txt"}
+    names.update(line for line in manifest_path.read_text().splitlines()
+                 if line and not line.startswith("#"))
+    manifest = {}
+    for name in sorted(names):
+        relative = Path(name)
+        if relative.is_absolute() or ".." in relative.parts:
+            raise Conflict("invalid_runtime_manifest")
+        path = root / relative
+        if not path.is_file() or path.is_symlink():
+            raise Conflict("runtime_artifact_missing")
+        manifest[name] = hashlib.sha256(path.read_bytes()).hexdigest()
     return digest(manifest)
 
 

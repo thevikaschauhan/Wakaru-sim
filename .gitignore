@@ -62,3 +62,6 @@ backend/uploads/
 # Docker 数据
 data/
 .gitnexus
+
+# Generated C10 qualification evidence
+output/playwright/integration-acceptance/

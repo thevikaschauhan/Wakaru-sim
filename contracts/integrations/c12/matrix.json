@@ -1,0 +1,37 @@
+[
+  {
+    "id": "c12_durable_relay",
+    "required_tests": [
+      "vakaru-engine/internal/integrations/TestC12RelayLeaseRetryAndEpochAdvance",
+      "vakaru-engine/internal/integrations/TestC12RelayLostResponseAndAuthenticatedRetry"
+    ]
+  },
+  {
+    "id": "c12_immediate_consumer_fences",
+    "required_tests": [
+      "github.com/thevikaschauhan/inkwell/internal/integrationprivacy/TestC12DurableFenceAndLargeFanout",
+      "tests.test_integration_invalidation/test_c12_fence_http_restart_late_result_and_recapture"
+    ]
+  },
+  {
+    "id": "c12_authenticated_cross_service",
+    "required_tests": [
+      "vakaru-engine/internal/integrations/TestC12AuthenticatedInvalidationCrossRepository"
+    ]
+  },
+  {
+    "id": "c12_strict_wire",
+    "required_tests": [
+      "vakaru-engine/internal/invalidation/TestC12InvalidationWireBoundaries",
+      "github.com/thevikaschauhan/inkwell/internal/invalidation/TestC12InvalidationWireBoundaries",
+      "tests.test_integration_invalidation/test_c12_wire_validation"
+    ]
+  },
+  {
+    "id": "c12_dormant_runtime_privileges",
+    "required_tests": [
+      "github.com/thevikaschauhan/inkwell/internal/db/TestMigrations_NewRelationsCarryExplicitGrants",
+      "github.com/thevikaschauhan/inkwell/internal/db/TestC5PrivacyAppRoleDenied"
+    ]
+  }
+]

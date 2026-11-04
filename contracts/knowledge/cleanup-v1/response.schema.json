@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "request_sha256",
+    "status",
+    "result"
+  ],
+  "properties": {
+    "version": {
+      "const": "knowledge_cleanup_response_v1"
+    },
+    "request_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "status": {
+      "enum": [
+        "applied",
+        "refused",
+        "unknown"
+      ]
+    },
+    "result": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "version",
+            "removed_sources",
+            "removed_objects",
+            "whole_application_complete"
+          ],
+          "properties": {
+            "version": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "removed_sources": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "removed_objects": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "whole_application_complete": {
+              "const": false
+            }
+          }
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "unknown"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "result": {
+            "type": "null"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "result": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "version",
+              "removed_sources",
+              "removed_objects",
+              "whole_application_complete"
+            ],
+            "properties": {
+              "version": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "removed_sources": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "removed_objects": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "whole_application_complete": {
+                "const": false
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

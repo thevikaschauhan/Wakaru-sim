@@ -27,7 +27,8 @@ def test_completion_signed_queue_restart(client, monkeypatch, tmp_path):
         TYPESAFE_ENVIRONMENT="development",
         TYPESAFE_RECOVERY_MODE="enforce",
         TYPESAFE_RECOVERY_MERCHANTS=merchant,
-        RECOVERY_ANALYSIS_MODE="direct_v1",
+        RECOVERY_ANALYSIS_MODE="legacy_simulation",
+        RECOVERY_DIRECT_MERCHANT_IDS=merchant,
     ).items():
         monkeypatch.setenv(k, v)
     calls = []

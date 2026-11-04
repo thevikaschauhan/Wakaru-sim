@@ -90,6 +90,11 @@ def config_env(monkeypatch):
     monkeypatch.setenv("ZEP_API_KEY", "test")
     monkeypatch.setenv("WAKARU_API_KEY", TEST_WAKARU_API_KEY)
     monkeypatch.setenv("WAKARU_INTERNAL_SECRET", TEST_WAKARU_INTERNAL_SECRET)
+    # General HTTP tests exercise supported direct admission. Retirement tests
+    # explicitly clear the allowlist to cover the deny-by-default policy.
+    monkeypatch.setenv("RECOVERY_ANALYSIS_MODE", "legacy_simulation")
+    monkeypatch.setenv("RECOVERY_DIRECT_MERCHANT_IDS",
+        "11111111-1111-4111-8111-111111111111,22222222-2222-4222-8222-222222222222")
 
 
 @pytest.fixture
@@ -122,4 +127,5 @@ def client(app):
     # need no changes. Tests that want an unauthenticated request build their own
     # client from the `app` fixture.
     c.environ_base["HTTP_X_API_KEY"] = TEST_WAKARU_API_KEY
+    c.environ_base["HTTP_X_MERCHANT_ID"] = "11111111-1111-4111-8111-111111111111"
     return c

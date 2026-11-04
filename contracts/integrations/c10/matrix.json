@@ -1,0 +1,134 @@
+[
+  {
+    "id": "01",
+    "behavior": "Account lifecycle and restart",
+    "evidence_scope": "fixtures",
+    "required_tests": [
+      "vakaru-engine/internal/integrations/TestGorgiasOAuthStateAccountScopesAndRefresh",
+      "vakaru-engine/internal/integrations/TestGorgiasBackfillResumeAtomicProjectionAndIsolation"
+    ]
+  },
+  {
+    "id": "02",
+    "behavior": "Open support holds and connected merchant visibility",
+    "evidence_scope": "fixtures",
+    "required_tests": [
+      "vakaru-engine/internal/integrations/TestC10CrossServiceAcceptance",
+      "vakaru-engine/internal/integrations/TestSupportBindingAndOperationalInventory"
+    ]
+  },
+  {
+    "id": "03",
+    "behavior": "AI failure cannot remove deterministic holds",
+    "evidence_scope": "fixtures",
+    "required_tests": [
+      "vakaru-engine/internal/integrations/TestBoundedForwardFrozenRetryAndCurrentHold",
+      "vakaru-engine/internal/integrations/TestContextCompilerUnavailableMalformedAndBinding"
+    ]
+  },
+  {
+    "id": "04",
+    "behavior": "Current product and approved fact bounds",
+    "evidence_scope": "fixtures",
+    "required_tests": [
+      "vakaru-engine/internal/contextcopy/TestBoundedInputRejectsUnsafeStatementsAndBindings",
+      "vakaru-engine/internal/contextcopy/TestBoundedCopyCrossLanguageAuthority"
+    ]
+  },
+  {
+    "id": "05",
+    "behavior": "Private text and hostile statements",
+    "evidence_scope": "fixtures",
+    "required_tests": [
+      "vakaru-engine/internal/integrations/TestGorgiasEventsMessagesIdentityAndUncertainty",
+      "vakaru-engine/internal/contextcopy/TestBoundedInputRejectsUnsafeStatementsAndBindings"
+    ]
+  },
+  {
+    "id": "06",
+    "behavior": "Close reopen and revision supersession",
+    "evidence_scope": "fixtures",
+    "required_tests": [
+      "vakaru-engine/internal/integrations/TestSupportBindingAndOperationalInventory",
+      "github.com/thevikaschauhan/inkwell/internal/integrationprivacy/TestMerchantReviewCurrentRevisionAndErasure"
+    ]
+  },
+  {
+    "id": "07",
+    "behavior": "Direct coordinated and external dispatch hold",
+    "evidence_scope": "fixtures",
+    "required_tests": [
+      "vakaru-engine/handlers/TestSupportHTTPAndDispatchOrdering",
+      "vakaru-engine/services/TestSupportHoldsCoordinatedDispatchAndKlaviyo"
+    ]
+  },
+  {
+    "id": "08",
+    "behavior": "Revoked stale partial or rate limited sources",
+    "evidence_scope": "fixtures",
+    "required_tests": [
+      "vakaru-engine/internal/integrations/TestSupportUncertaintyNeverClears",
+      "vakaru-engine/internal/integrations/TestGorgiasAccountBudgetRevocationAndLateResponse"
+    ]
+  },
+  {
+    "id": "09",
+    "behavior": "Tenant store and identity isolation",
+    "evidence_scope": "fixtures",
+    "required_tests": [
+      "vakaru-engine/internal/integrations/TestShopifyExplicitIdentityReusesOrderRevisions",
+      "vakaru-engine/internal/integrations/TestGorgiasMalformedPagesAndUntrustedIdentity"
+    ]
+  },
+  {
+    "id": "10",
+    "behavior": "Replay conflict and frozen decision convergence",
+    "evidence_scope": "fixtures",
+    "required_tests": [
+      "vakaru-engine/internal/integrations/TestGorgiasCursorRestartConflictsAndMissingObjectsPreserveEvidence",
+      "vakaru-engine/internal/integrations/TestContextCompilerFrozenRetryAndTenantBoundary"
+    ]
+  },
+  {
+    "id": "11",
+    "behavior": "Existing policy gates retain authority",
+    "evidence_scope": "fixtures",
+    "required_tests": [
+      "vakaru-engine/handlers/TestSupportHTTPAndDispatchOrdering",
+      "vakaru-engine/services/TestSupportHoldsCoordinatedDispatchAndKlaviyo",
+      "vakaru-engine/handlers/TestPurchaseStop_ReceiptCannotCommitBetweenCheckAndDispatch",
+      "github.com/thevikaschauhan/inkwell/internal/sender/TestSend_GateSuppressesPurchasedCart",
+      "github.com/thevikaschauhan/inkwell/internal/sender/TestSend_GateSuppressesSuppressedRecipient",
+      "github.com/thevikaschauhan/inkwell/internal/sender/TestSenderResumeRechecksCurrentEligibility"
+    ]
+  },
+  {
+    "id": "12",
+    "behavior": "Cross service erasure retention and replay fences",
+    "evidence_scope": "fixtures",
+    "required_tests": [
+      "vakaru-engine/internal/integrations/TestPrivacyCrossRepositoryParticipants",
+      "vakaru-engine/internal/integrations/TestPrivacyRetentionExactRevisionAndDatabaseFence",
+      "vakaru-engine/internal/integrations/TestContextCompilerErasureDuringFetchAndNoResurrection"
+    ]
+  },
+  {
+    "id": "13",
+    "behavior": "Mixed version enforced contracts",
+    "evidence_scope": "fixtures",
+    "required_tests": [
+      "vakaru-engine/internal/contextcopy/TestBoundedCopyCrossLanguageAuthority",
+      "github.com/thevikaschauhan/inkwell/internal/engineclient/TestSupportNoAttemptProofStrict",
+      "github.com/thevikaschauhan/inkwell/internal/engineclient/TestSupportAdvisoryRequiresCompleteReceipt"
+    ]
+  },
+  {
+    "id": "14",
+    "behavior": "Actual browser reads and stale copy removal",
+    "evidence_scope": "fixtures",
+    "required_tests": [
+      "vakaru-engine/internal/integrations/TestC10CrossServiceAcceptance",
+      "vakaru-engine/internal/integrations/TestMerchantOverviewLifecycleHoldsAndPrivacy"
+    ]
+  }
+]

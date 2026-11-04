@@ -1,0 +1,1223 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "knowledge_service_request_v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "operation",
+    "scope",
+    "arguments"
+  ],
+  "properties": {
+    "version": {
+      "const": "knowledge_service_request_v1"
+    },
+    "operation": {
+      "enum": [
+        "provision",
+        "current",
+        "export_subject",
+        "erase_subject",
+        "source",
+        "entity",
+        "save",
+        "withdraw_source",
+        "revise_identity"
+      ]
+    },
+    "scope": {
+      "$ref": "#/$defs/scope"
+    },
+    "arguments": {
+      "type": "object"
+    }
+  },
+  "$defs": {
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "merchant_id",
+        "store_id",
+        "subject_kind",
+        "subject_id",
+        "identity_revision",
+        "privacy_generation"
+      ],
+      "properties": {
+        "merchant_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,127}$"
+        },
+        "store_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,127}$"
+        },
+        "subject_kind": {
+          "enum": [
+            "shopper",
+            "merchant"
+          ]
+        },
+        "subject_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,127}$"
+        },
+        "identity_revision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "privacy_generation": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        }
+      }
+    },
+    "source_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_id",
+        "revision"
+      ],
+      "properties": {
+        "source_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,127}$"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        }
+      }
+    },
+    "entity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "id"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "product",
+            "category",
+            "brand",
+            "policy"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,127}$"
+        }
+      }
+    },
+    "preference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dimension",
+        "value",
+        "applies_to"
+      ],
+      "properties": {
+        "dimension": {
+          "enum": [
+            "size",
+            "color",
+            "category_interest",
+            "brand_interest",
+            "communication_channel"
+          ]
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048,
+          "pattern": "\\S"
+        },
+        "applies_to": {
+          "$ref": "#/$defs/entity"
+        }
+      }
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_type",
+        "event_id",
+        "episode_id"
+      ],
+      "properties": {
+        "event_type": {
+          "enum": [
+            "product_viewed",
+            "cart_added",
+            "payment_failed",
+            "checkout_started"
+          ]
+        },
+        "event_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,127}$"
+        },
+        "episode_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,127}$"
+        }
+      }
+    },
+    "merchant_knowledge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "topic",
+        "claim",
+        "applies_to"
+      ],
+      "properties": {
+        "topic": {
+          "enum": [
+            "delivery",
+            "returns",
+            "product",
+            "brand"
+          ]
+        },
+        "claim": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048,
+          "pattern": "\\S"
+        },
+        "applies_to": {
+          "$ref": "#/$defs/entity"
+        }
+      }
+    },
+    "episode_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "episode_id",
+        "constraint",
+        "detail"
+      ],
+      "properties": {
+        "episode_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,127}$"
+        },
+        "constraint": {
+          "enum": [
+            "delivery_deadline",
+            "checkout_friction"
+          ]
+        },
+        "detail": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048,
+          "pattern": "\\S"
+        }
+      }
+    },
+    "outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_type",
+        "event_id",
+        "episode_id",
+        "attribution"
+      ],
+      "properties": {
+        "event_type": {
+          "enum": [
+            "purchase",
+            "message_open",
+            "message_click"
+          ]
+        },
+        "event_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,127}$"
+        },
+        "episode_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,127}$"
+        },
+        "attribution": {
+          "const": "observed_only"
+        }
+      }
+    },
+    "unknown": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "topic",
+        "reason"
+      ],
+      "properties": {
+        "topic": {
+          "enum": [
+            "preference",
+            "merchant_policy",
+            "episode_state",
+            "relationship",
+            "outcome"
+          ]
+        },
+        "reason": {
+          "enum": [
+            "not_observed",
+            "source_unavailable",
+            "identity_uncertain",
+            "conflicting_evidence"
+          ]
+        }
+      }
+    },
+    "relationship": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "predicate",
+        "from",
+        "to"
+      ],
+      "properties": {
+        "predicate": {
+          "enum": [
+            "interested_in",
+            "governed_by"
+          ]
+        },
+        "from": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "id"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "subject"
+                },
+                "id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,127}$"
+                }
+              }
+            },
+            {
+              "$ref": "#/$defs/entity"
+            }
+          ]
+        },
+        "to": {
+          "$ref": "#/$defs/entity"
+        }
+      }
+    },
+    "derivation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "method",
+        "version",
+        "model_version",
+        "input_ids"
+      ],
+      "properties": {
+        "method": {
+          "enum": [
+            "rule",
+            "model"
+          ]
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,127}$"
+        },
+        "model_version": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,127}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "input_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,127}$"
+          },
+          "minItems": 1,
+          "maxItems": 64,
+          "uniqueItems": true
+        }
+      }
+    },
+    "link": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "relation",
+        "from",
+        "to"
+      ],
+      "properties": {
+        "relation": {
+          "enum": [
+            "supports",
+            "contradicts",
+            "supersedes"
+          ]
+        },
+        "from": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,127}$"
+        },
+        "to": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,127}$"
+        }
+      }
+    },
+    "intelligence_object": {
+      "oneOf": [
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/envelope"
+            },
+            {
+              "type": "object",
+              "required": [
+                "expires_at",
+                "sources",
+                "derivation",
+                "kind",
+                "value"
+              ],
+              "properties": {
+                "expires_at": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "Z$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "sources": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/source_ref"
+                  },
+                  "minItems": 1,
+                  "maxItems": 64,
+                  "uniqueItems": true
+                },
+                "derivation": {
+                  "type": "null"
+                },
+                "kind": {
+                  "const": "observation"
+                },
+                "value": {
+                  "$ref": "#/$defs/observation"
+                }
+              }
+            }
+          ],
+          "unevaluatedProperties": false
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/envelope"
+            },
+            {
+              "type": "object",
+              "required": [
+                "expires_at",
+                "sources",
+                "derivation",
+                "kind",
+                "value"
+              ],
+              "properties": {
+                "expires_at": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "Z$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "sources": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/source_ref"
+                  },
+                  "minItems": 1,
+                  "maxItems": 64,
+                  "uniqueItems": true
+                },
+                "derivation": {
+                  "type": "null"
+                },
+                "kind": {
+                  "const": "merchant_knowledge"
+                },
+                "value": {
+                  "$ref": "#/$defs/merchant_knowledge"
+                }
+              }
+            }
+          ],
+          "unevaluatedProperties": false
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/envelope"
+            },
+            {
+              "type": "object",
+              "required": [
+                "expires_at",
+                "sources",
+                "derivation",
+                "kind",
+                "value"
+              ],
+              "properties": {
+                "expires_at": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "Z$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "sources": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/source_ref"
+                  },
+                  "minItems": 1,
+                  "maxItems": 64,
+                  "uniqueItems": true
+                },
+                "derivation": {
+                  "type": "null"
+                },
+                "kind": {
+                  "const": "explicit_preference"
+                },
+                "value": {
+                  "$ref": "#/$defs/preference"
+                }
+              }
+            }
+          ],
+          "unevaluatedProperties": false
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/envelope"
+            },
+            {
+              "type": "object",
+              "required": [
+                "expires_at",
+                "sources",
+                "derivation",
+                "kind",
+                "value"
+              ],
+              "properties": {
+                "expires_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "Z$"
+                },
+                "sources": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/source_ref"
+                  },
+                  "minItems": 1,
+                  "maxItems": 64,
+                  "uniqueItems": true
+                },
+                "derivation": {
+                  "$ref": "#/$defs/derivation"
+                },
+                "kind": {
+                  "const": "inferred_preference"
+                },
+                "value": {
+                  "$ref": "#/$defs/preference"
+                }
+              }
+            }
+          ],
+          "unevaluatedProperties": false
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/envelope"
+            },
+            {
+              "type": "object",
+              "required": [
+                "expires_at",
+                "sources",
+                "derivation",
+                "kind",
+                "value"
+              ],
+              "properties": {
+                "expires_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "Z$"
+                },
+                "sources": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/source_ref"
+                  },
+                  "minItems": 1,
+                  "maxItems": 64,
+                  "uniqueItems": true
+                },
+                "derivation": {
+                  "type": "null"
+                },
+                "kind": {
+                  "const": "episode_state"
+                },
+                "value": {
+                  "$ref": "#/$defs/episode_state"
+                }
+              }
+            }
+          ],
+          "unevaluatedProperties": false
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/envelope"
+            },
+            {
+              "type": "object",
+              "required": [
+                "expires_at",
+                "sources",
+                "derivation",
+                "kind",
+                "value"
+              ],
+              "properties": {
+                "expires_at": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "Z$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "sources": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/source_ref"
+                  },
+                  "minItems": 1,
+                  "maxItems": 64,
+                  "uniqueItems": true
+                },
+                "derivation": {
+                  "type": "null"
+                },
+                "kind": {
+                  "const": "relationship"
+                },
+                "value": {
+                  "$ref": "#/$defs/relationship"
+                }
+              }
+            }
+          ],
+          "unevaluatedProperties": false
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/envelope"
+            },
+            {
+              "type": "object",
+              "required": [
+                "expires_at",
+                "sources",
+                "derivation",
+                "kind",
+                "value"
+              ],
+              "properties": {
+                "expires_at": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "Z$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "sources": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/source_ref"
+                  },
+                  "minItems": 1,
+                  "maxItems": 64,
+                  "uniqueItems": true
+                },
+                "derivation": {
+                  "type": "null"
+                },
+                "kind": {
+                  "const": "outcome"
+                },
+                "value": {
+                  "$ref": "#/$defs/outcome"
+                }
+              }
+            }
+          ],
+          "unevaluatedProperties": false
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/envelope"
+            },
+            {
+              "type": "object",
+              "required": [
+                "expires_at",
+                "sources",
+                "derivation",
+                "kind",
+                "value"
+              ],
+              "properties": {
+                "expires_at": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "Z$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "sources": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/source_ref"
+                  },
+                  "minItems": 0,
+                  "maxItems": 0,
+                  "uniqueItems": true
+                },
+                "derivation": {
+                  "type": "null"
+                },
+                "kind": {
+                  "const": "unknown"
+                },
+                "value": {
+                  "$ref": "#/$defs/unknown"
+                }
+              }
+            }
+          ],
+          "unevaluatedProperties": false
+        }
+      ]
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_id",
+        "revision",
+        "scope",
+        "authority",
+        "observed_at",
+        "content_sha256",
+        "claims"
+      ],
+      "properties": {
+        "source_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,127}$"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "scope": {
+          "$ref": "#/$defs/scope"
+        },
+        "authority": {
+          "enum": [
+            "engine_observation",
+            "shopper_statement",
+            "merchant_approved"
+          ]
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "Z$"
+        },
+        "content_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "claims": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "value"
+            ],
+            "properties": {
+              "kind": {
+                "enum": [
+                  "observation",
+                  "merchant_knowledge",
+                  "explicit_preference",
+                  "episode_state",
+                  "relationship",
+                  "outcome"
+                ]
+              },
+              "value": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/observation"
+                  },
+                  {
+                    "$ref": "#/$defs/merchant_knowledge"
+                  },
+                  {
+                    "$ref": "#/$defs/preference"
+                  },
+                  {
+                    "$ref": "#/$defs/episode_state"
+                  },
+                  {
+                    "$ref": "#/$defs/relationship"
+                  },
+                  {
+                    "$ref": "#/$defs/outcome"
+                  }
+                ]
+              }
+            }
+          },
+          "minItems": 1,
+          "maxItems": 64,
+          "uniqueItems": true
+        }
+      }
+    },
+    "envelope": {
+      "type": "object",
+      "required": [
+        "object_id",
+        "assertion_id",
+        "revision",
+        "status",
+        "observed_at",
+        "recorded_at",
+        "valid_from",
+        "valid_to"
+      ],
+      "properties": {
+        "object_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,127}$"
+        },
+        "assertion_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,127}$"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "status": {
+          "enum": [
+            "current",
+            "superseded",
+            "revoked"
+          ]
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "Z$"
+        },
+        "recorded_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "Z$"
+        },
+        "valid_from": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "Z$"
+        },
+        "valid_to": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "catalog_entity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "merchant_id",
+        "store_id",
+        "entity"
+      ],
+      "properties": {
+        "merchant_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,127}$"
+        },
+        "store_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,127}$"
+        },
+        "entity": {
+          "$ref": "#/$defs/entity"
+        }
+      }
+    },
+    "knowledge_batch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "scope",
+        "objects",
+        "links"
+      ],
+      "properties": {
+        "version": {
+          "const": "knowledge_batch_v1"
+        },
+        "scope": {
+          "$ref": "#/$defs/scope"
+        },
+        "objects": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/intelligence_object"
+          },
+          "minItems": 1,
+          "maxItems": 64,
+          "uniqueItems": true
+        },
+        "links": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/link"
+          },
+          "minItems": 0,
+          "maxItems": 128,
+          "uniqueItems": true
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "const": "provision"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "arguments": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [],
+            "properties": {}
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "const": "current"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "arguments": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [],
+            "properties": {}
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "const": "export_subject"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "arguments": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [],
+            "properties": {}
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "const": "erase_subject"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "arguments": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [],
+            "properties": {}
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "const": "source"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "arguments": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "receipt",
+              "content_base64"
+            ],
+            "properties": {
+              "receipt": {
+                "$ref": "#/$defs/source"
+              },
+              "content_base64": {
+                "type": "string",
+                "maxLength": 160000
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "const": "entity"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "arguments": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "receipt"
+            ],
+            "properties": {
+              "receipt": {
+                "$ref": "#/$defs/catalog_entity"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "const": "save"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "arguments": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "payload",
+              "command_id",
+              "expected_version"
+            ],
+            "properties": {
+              "payload": {
+                "$ref": "#/$defs/knowledge_batch"
+              },
+              "command_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "expected_version": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "const": "withdraw_source"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "arguments": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "source_ref"
+            ],
+            "properties": {
+              "source_ref": {
+                "$ref": "#/$defs/source_ref"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "const": "revise_identity"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "arguments": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "new_scope"
+            ],
+            "properties": {
+              "new_scope": {
+                "$ref": "#/$defs/scope"
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

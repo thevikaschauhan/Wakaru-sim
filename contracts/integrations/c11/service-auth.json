@@ -1,0 +1,18 @@
+{
+  "version": "integration_service_request_v1",
+  "grant": {
+    "key_id": "fixture-key",
+    "secret": "fixture-only-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "merchant_id": "11111111-1111-1111-1111-111111111111",
+    "store_id": "17",
+    "audience": "wakaru",
+    "operations": [
+      "POST /internal/integrations/analyze"
+    ]
+  },
+  "method": "POST",
+  "path": "/internal/integrations/analyze",
+  "body": "{\"fixture\":true}",
+  "unix_time": 1792920000,
+  "authorization": "Integration v1.fixture-key.1792920000.ef2ffaf5886e4034e85497a8cf2c27d8155c6b2efd8a42ba80e421e7d32ed044"
+}

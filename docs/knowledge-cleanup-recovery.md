@@ -1,0 +1,13 @@
+# Cleanup-ledger export and recovery candidate
+
+Local, unmounted implementation. No deployment, worker, service grant or production data change.
+
+Scoped retained exports now require migration 003 and enumerate withdrawals, delivery receipts, cleanup receipts and events under one snapshot token. A cleanup refusal changes that token even when data versions and events do not change. Cleanup rows contain scoped HMAC command identity, request/scope digests, terminal status and bounded result; no raw source payload is exported. This strict schema change requires the matching Engine client. Earlier artifacts are not qualified for this candidate.
+
+`cart_recovery.domain.checkpoint` provides restricted operator-only `retained_checkpoint`, `restore_checkpoint` and `release_checkpoint`. The new `knowledge_checkpoint_v1` envelope includes the existing fences plus delivery receipts, cleanup receipts and events. Acquire its digest independently from the CURRENT authoritative retained ledger. A self-consistent digest inside a backup is not proof of freshness or authority.
+
+Restore into an isolated, quarantined database with migrations 001, 002 and 003. Overlay the current checkpoint, then validate against its independently supplied digest before release. Restore is atomic across all families, rejects conflicting immutable rows, omitted existing rows, duplicate identities, invalid references, regressed fences, wrong keys and malformed results. It preserves event sequence progression. Release separately validates active data against current fences and purge tombstones. Receipt-aware databases cannot use the old fence-only release path without the full checkpoint digest. This also prevents receipt-only databases from being mistaken for empty bootstrap targets.
+
+A stale data backup remains quarantined when active data is behind current fences. For erased subjects, release removes restored data under the current erasure fence. Historical applied/refused receipts remain historical; they never recreate source bytes. An absent receipt stays unknown. Restored receipt replay returns the original result without a new mutation.
+
+Tests use real `pg_dump`/`psql`, fresh local databases, real service authentication, lost replies, event continuation and rollback/conflict injection. They do not qualify production roles, external checkpoint custody, encrypted artifact delivery, physical backup/WAL/media erasure, failover, hosted/native AMD64 artifacts, or whole-application privacy completion. Engine's paired cold-restore fixture checks its retained commands against an independent current snapshot and keeps all workers disabled.

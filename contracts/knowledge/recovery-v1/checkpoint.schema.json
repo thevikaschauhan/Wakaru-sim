@@ -1,0 +1,274 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "fences",
+    "delivery_receipts",
+    "cleanup_receipts",
+    "events"
+  ],
+  "properties": {
+    "version": {
+      "const": "knowledge_checkpoint_v1"
+    },
+    "fences": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "key_fingerprint",
+        "tenants",
+        "subjects",
+        "withdrawals"
+      ],
+      "properties": {
+        "version": {
+          "const": "knowledge_fences_v1"
+        },
+        "key_fingerprint": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "tenants": {
+          "type": "array",
+          "maxItems": 100000,
+          "uniqueItems": true,
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              {
+                "type": "boolean"
+              }
+            ],
+            "items": false,
+            "minItems": 2,
+            "maxItems": 2
+          }
+        },
+        "subjects": {
+          "type": "array",
+          "maxItems": 100000,
+          "uniqueItems": true,
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "boolean"
+              }
+            ],
+            "items": false,
+            "minItems": 6,
+            "maxItems": 6
+          }
+        },
+        "withdrawals": {
+          "type": "array",
+          "maxItems": 100000,
+          "uniqueItems": true,
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            ],
+            "items": false,
+            "minItems": 2,
+            "maxItems": 2
+          }
+        }
+      }
+    },
+    "delivery_receipts": {
+      "type": "array",
+      "maxItems": 100000,
+      "uniqueItems": true,
+      "items": {
+        "type": "array",
+        "minItems": 5,
+        "maxItems": 5,
+        "prefixItems": [
+          {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          {
+            "enum": [
+              "scope_sync",
+              "source",
+              "withdraw_source",
+              "erase_subject"
+            ]
+          }
+        ],
+        "items": false
+      }
+    },
+    "cleanup_receipts": {
+      "type": "array",
+      "maxItems": 100000,
+      "uniqueItems": true,
+      "items": {
+        "type": "array",
+        "minItems": 6,
+        "maxItems": 6,
+        "prefixItems": [
+          {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          {
+            "enum": [
+              "applied",
+              "refused"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "version",
+              "removed_sources",
+              "removed_objects",
+              "whole_application_complete"
+            ],
+            "properties": {
+              "version": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "removed_sources": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "removed_objects": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "whole_application_complete": {
+                "const": false
+              }
+            }
+          }
+        ],
+        "items": false
+      }
+    },
+    "events": {
+      "type": "array",
+      "maxItems": 100000,
+      "uniqueItems": true,
+      "items": {
+        "type": "array",
+        "minItems": 5,
+        "maxItems": 5,
+        "prefixItems": [
+          {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          {
+            "oneOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          {
+            "enum": [
+              "write",
+              "source_withdrawal",
+              "identity_revision",
+              "subject_erasure",
+              "merchant_erasure"
+            ]
+          }
+        ],
+        "items": false
+      }
+    }
+  }
+}

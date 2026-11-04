@@ -11,7 +11,7 @@ is exercised in test_cart_recovery_workflow.py.
 """
 from types import SimpleNamespace
 
-import app.services.cart_recovery_workflow as wf
+import app.services.legacy_cart_recovery as wf
 from app.services.report_agent import ReportManager
 from app.services.simulation_manager import SimulationManager
 

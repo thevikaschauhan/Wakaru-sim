@@ -1,0 +1,30 @@
+[
+  {
+    "id": "c11_authoritative_projection",
+    "required_tests": [
+      "vakaru-engine/internal/integrations/TestC11ProjectedCoverageHTTP",
+      "vakaru-engine/internal/integrations/TestC11CoverageUncertaintyNeverClears"
+    ]
+  },
+  {
+    "id": "c11_sticky_enrollment",
+    "required_tests": [
+      "vakaru-engine/internal/integrations/TestC11EnrollmentDefaultOffAndTenantScope"
+    ]
+  },
+  {
+    "id": "c11_signed_cross_service",
+    "required_tests": [
+      "vakaru-engine/internal/integrations/TestC11AuthenticatedCrossRepository",
+      "vakaru-engine/internal/integrationauth/TestC11ServiceAuthWireAndBoundaries",
+      "github.com/thevikaschauhan/inkwell/internal/integrationauth/TestC11ServiceAuthWireAndBoundaries"
+    ]
+  },
+  {
+    "id": "c11_current_copy_and_privacy",
+    "required_tests": [
+      "github.com/thevikaschauhan/inkwell/internal/integrationprivacy/TestC11AuthenticatedCompositionCurrentFactsAndHold",
+      "tests.test_integration_service/test_c11_authenticated_analysis_restart_and_privacy"
+    ]
+  }
+]
