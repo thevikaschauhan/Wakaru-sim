@@ -65,3 +65,6 @@ data/
 
 # Generated C10 qualification evidence
 output/playwright/integration-acceptance/
+
+# Offline operator bytecode is not source evidence.
+scripts/__pycache__/
