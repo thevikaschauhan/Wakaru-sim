@@ -237,6 +237,11 @@ def adjudicate(pack, submissions, resolutions):
             who = resolution["reviewer"]
             exact(who, {"id", "kind", "independent_ref"})
             if (
+                who["kind"] == "fixture_human"
+                and pack["provenance"] != "synthetic_fixture"
+            ):
+                raise ValueError("fixture reviewers cannot label a real corpus")
+            if (
                 who["id"] in ids
                 or who["kind"] not in {"human", "fixture_human"}
                 or not who["independent_ref"]

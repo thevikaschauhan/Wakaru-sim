@@ -3,6 +3,7 @@
 import copy
 import json
 import math
+import os
 from hashlib import sha256
 from datetime import datetime
 from pathlib import Path
@@ -79,15 +80,14 @@ def load(path):
 
 def write_new(path, value):
     path = Path(path)
+    data = (
+        json.dumps(value, ensure_ascii=False, sort_keys=True, indent=2, allow_nan=False)
+        + "\n"
+    )
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("x", encoding="utf-8") as stream:
-        stream.write(
-            json.dumps(
-                value, ensure_ascii=False, sort_keys=True, indent=2, allow_nan=False
-            )
-            + "\n"
-        )
-    path.chmod(0o600)
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as stream:
+        stream.write(data)
 
 
 def questions(case):

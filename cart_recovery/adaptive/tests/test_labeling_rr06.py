@@ -391,3 +391,83 @@ def test_rr06_unsafe_primitive_is_visible_when_another_checker_blocks(frozen):
     assert report["safety"]["full"]["hazard_false_pass_journeys"] == 0
     assert report["raw_task_safety"]["TF05"]["false_pass_journeys"] > 0
     assert "critical_task_false_passes:TF05" in report["blocked_gates"]
+
+
+def test_rr06_private_output_is_restricted_from_creation(tmp_path, monkeypatch):
+    import io
+    import os
+
+    opened_modes = []
+    original_open = io.open
+
+    def observe_creation(*args, **kwargs):
+        stream = original_open(*args, **kwargs)
+        opened_modes.append(os.fstat(stream.fileno()).st_mode & 0o777)
+        return stream
+
+    monkeypatch.setattr(io, "open", observe_creation)
+    previous = os.umask(0o022)
+    try:
+        output = tmp_path / "private-review.json"
+        pack.write_new(output, {"evidence": "private review material"})
+        assert opened_modes == [0o600]
+        assert pack.load(output) == {"evidence": "private review material"}
+    finally:
+        os.umask(previous)
+
+
+@pytest.mark.parametrize("kind", ["human", "fixture_human"])
+def test_rr06_real_corpus_adjudication_requires_human_reviewer(frozen, kind):
+    case = frozen["cases"][0]
+    real = pack.freeze(
+        [case],
+        frozen["scope"],
+        frozen["candidate_sha256"],
+        provenance="authorized_deidentified",
+        frozen_at=fixtures.FROZEN_AT,
+    )
+    submissions = []
+    gold = fixtures.gold(case)
+    for index in range(2):
+        packet, mapping = reviews.blind(
+            real,
+            {
+                "id": "reviewer-" + str(index),
+                "kind": "human",
+                "independent_ref": "declared:independent-review-" + str(index),
+            },
+            b"test-private-blinding-key-000000000",
+            "development",
+        )
+        label = copy.deepcopy(gold)
+        if index:
+            label["repetitive"] = not label["repetitive"]
+        submissions.append(
+            reviews.submit(
+                real,
+                packet,
+                mapping,
+                {token: label for token in mapping["mapping"]},
+                "2026-10-31T01:00:00Z",
+            )
+        )
+    resolutions = {
+        case["case_id"]: {
+            "reviewer": {
+                "id": "adjudicator",
+                "kind": kind,
+                "independent_ref": "declared:independent-adjudication",
+            },
+            "input_submissions": [s["submission_sha256"] for s in submissions],
+            "label": gold,
+            "resolved_at": "2026-10-31T02:00:00Z",
+        }
+    }
+    if kind == "fixture_human":
+        with pytest.raises(ValueError, match="fixture reviewers"):
+            reviews.adjudicate(real, submissions, resolutions)
+    else:
+        result = reviews.adjudicate(real, submissions, resolutions)
+        assert result["labels"][case["case_id"]] == gold
+        assert result["unresolved"] == []
+        assert result["independence_authenticated"] is False
