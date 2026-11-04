@@ -58,7 +58,9 @@ subject, source, proof and original payload-hash membership.
 
 `bind -> adopt -> start -> drain -> receipt` is the explicit operator sequence.
 Subject erase and exact source withdrawal are separate targets. Start commits
-a durable stop and a frozen member census before deletion. An unresolved/empty
+a durable stop and request identity before resolving the frozen member census.
+The pending census cannot produce completion; attribution failure keeps the
+stop committed and an exact retry can resume after metadata is restored. An unresolved/empty
 census stays blocked, including erase before first arrival. New adoption under
 a stopped subject/source fails. A different source revision remains eligible
 unless its subject is also stopped.
@@ -105,10 +107,15 @@ census hash. Counts and blockers describe registered rows only. A receipt is a
 fresh operator observation, not an authenticated cross-service authorization.
 Web requires all three services and exact expected bindings supplied by a
 trusted caller. All activation booleans and whole-application completion must
-be false. Saved receipts are not accepted as evidence of a fresh restore.
+be false. The trusted caller must collect fresh observations for each restore. This
+unmounted JSON projection does not authenticate a receipt or establish its
+freshness. A saved packet is not evidence of a fresh restore.
 
 Every receipt rechecks completed members against physical payload storage.
-A stale restored payload resets that member to pending. C15 reads deny stopped
+A stale restored payload resets that member to pending.
+Every adopted object freezes its full alias/source attribution fingerprint,
+and each request retains its original census hash. Missing source edges, alias
+proofs, stop fences or members fail closed rather than narrowing completion. C15 reads deny stopped
 content even before cleanup. Restore the independently retained latest lineage
 ledger after historical payload and before granting runtime access. Preserve
 aliases, source edges, tasks, stop fences and member accounting across restore

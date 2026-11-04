@@ -16,7 +16,7 @@
         {
           "repo": "engine",
           "path": "scripts/integration_lineage.py",
-          "sha256": "635477d52d19ee5fc8ef5ce2829cafae903fce2dd924a4c82fa3362c79eb2b44"
+          "sha256": "325b8620be6bbcc49fdb41142ad461767a57aed274a62d3e0fa51d6ebea85eb5"
         }
       ]
     },
@@ -34,7 +34,7 @@
         {
           "repo": "inkwell",
           "path": "scripts/integration_lineage.py",
-          "sha256": "635477d52d19ee5fc8ef5ce2829cafae903fce2dd924a4c82fa3362c79eb2b44"
+          "sha256": "325b8620be6bbcc49fdb41142ad461767a57aed274a62d3e0fa51d6ebea85eb5"
         }
       ]
     },
@@ -52,17 +52,17 @@
         {
           "repo": "wakaru",
           "path": "scripts/integration_lineage.py",
-          "sha256": "635477d52d19ee5fc8ef5ce2829cafae903fce2dd924a4c82fa3362c79eb2b44"
+          "sha256": "325b8620be6bbcc49fdb41142ad461767a57aed274a62d3e0fa51d6ebea85eb5"
         }
       ]
     }
   ],
   "migrations": {
     "engine": {
-      "migrations/092_integration_lineage.sql": "c599084125d30ad089d1635eb6c7ec9af63b2b825b209a9f2e85f412b9f5722e"
+      "migrations/092_integration_lineage.sql": "b8e290d7b06740364ddd1dacb3f2af436a5f394e5472e06cc01bccb059881382"
     },
     "inkwell": {
-      "migrations/0066_integration_lineage.sql": "6d6eb0481f611eda71a727a3e840d2d4356ceb8a7401b6c7f79bf8072bab503d"
+      "migrations/0066_integration_lineage.sql": "2916ffbf13ad3d789865a6501c259a327cba1b604b1afb0d315fb3eaa6fa987b"
     }
   },
   "relations": {
@@ -96,7 +96,8 @@
           "proof",
           "image",
           "alias_kind",
-          "alias_ref"
+          "alias_ref",
+          "lineage"
         ],
         "family": "engine.lineage_ledger"
       },
@@ -136,7 +137,8 @@
           "merchant",
           "store",
           "id",
-          "task"
+          "task",
+          "census"
         ],
         "family": "engine.lineage_ledger"
       },
@@ -187,7 +189,8 @@
           "proof",
           "image",
           "alias_kind",
-          "alias_ref"
+          "alias_ref",
+          "lineage"
         ],
         "family": "inkwell.lineage_ledger"
       },
@@ -227,7 +230,8 @@
           "merchant",
           "store",
           "id",
-          "task"
+          "task",
+          "census"
         ],
         "family": "inkwell.lineage_ledger"
       },

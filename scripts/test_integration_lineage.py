@@ -247,6 +247,29 @@ class Behavior:
         with self.assertRaisesRegex(ValueError, "attempt_ownership_conflict"):
             op.read("raw_output", "attempt-1")
 
+    def test_attribution_failure_commits_stop_and_can_resume(self):
+        self.seed()
+        op = self.adopt()
+        request = str(uuid.uuid4())
+        op.q("DELETE FROM integration_lineage_sources")
+        with self.assertRaisesRegex(ValueError, "retained_lineage_required"):
+            op.start(request, "subject", SUBJECT)
+        with self.assertRaisesRegex(ValueError, "lineage_stopped"):
+            op.read("raw_output", "attempt-1")
+        op.q(
+            "INSERT INTO integration_lineage_sources VALUES(?,?,?,?,?)",
+            (M, "17", "raw_output", "attempt-1", SOURCE),
+        )
+        op.start(request, "subject", SUBJECT)
+        self.assertTrue(op.drain(request)["registered_scope_complete"])
+
+    def test_read_rejects_attribution_drift_before_exposing_payload(self):
+        self.seed()
+        op = self.adopt()
+        op.q("DELETE FROM integration_lineage_sources")
+        with self.assertRaisesRegex(ValueError, "retained_lineage_required"):
+            op.read("raw_output", "attempt-1")
+
     def test_census_changes_when_source_membership_changes(self):
         self.seed()
         op = self.adopt()
@@ -281,6 +304,35 @@ class SQLiteTests(Behavior, unittest.TestCase):
     def tearDown(self):
         self.db.close()
         self.temp.cleanup()
+
+    def test_missing_retained_source_never_narrows_completion(self):
+        self.seed()
+        op = self.adopt()
+        request = self.request(op)
+        self.assertTrue(op.drain(request)["registered_scope_complete"])
+        self.db.execute("DELETE FROM integration_lineage_sources")
+        with self.assertRaisesRegex(ValueError, "retained_lineage_required"):
+            op.receipt(request)
+
+    def test_missing_retained_member_never_narrows_completion(self):
+        self.seed()
+        self.seed("attempt-2")
+        op = self.adopt()
+        self.adopt("attempt-2")
+        request = self.request(op)
+        self.assertTrue(op.drain(request)["registered_scope_complete"])
+        self.db.execute("DELETE FROM integration_lineage_members WHERE key='attempt-2'")
+        with self.assertRaisesRegex(ValueError, "retained_lineage_required"):
+            op.receipt(request)
+
+    def test_missing_retained_stop_never_completes(self):
+        self.seed()
+        op = self.adopt()
+        request = self.request(op)
+        self.assertTrue(op.drain(request)["registered_scope_complete"])
+        self.db.execute("DELETE FROM integration_lineage_stops")
+        with self.assertRaisesRegex(ValueError, "retained_stop_required"):
+            op.receipt(request)
 
     def test_table_created_after_install_requires_guard_enrollment(self):
         self.db.execute("DROP TABLE recovery_plans")
