@@ -1,10 +1,31 @@
 """File-only workflow. No network calls, provider execution or release operation."""
 
 import argparse
+import os
+import stat
 import sys
 from pathlib import Path
 
 from . import pack, reviews, metrics
+
+
+def private_key(path):
+    # Nonblocking open prevents a FIFO from hanging before its type is checked;
+    # O_NOFOLLOW and fstat bind validation/read to the same regular inode.
+    path = Path(path)
+    if path.is_symlink():
+        raise ValueError("blinding key requires a private regular file")
+    fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK | getattr(os, "O_NOFOLLOW", 0))
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode) or info.st_mode & 0o077:
+            raise ValueError("blinding key requires a private regular file")
+        with os.fdopen(fd, "rb") as stream:
+            fd = None
+            return stream.read()
+    finally:
+        if fd is not None:
+            os.close(fd)
 
 
 def main(argv=None):
@@ -50,16 +71,15 @@ def main(argv=None):
             frozen = pack.load(args.pack)
             pack.verify(frozen)
             if args.command == "blind":
-                key = Path(args.key_file)
-                if key.is_symlink() or key.stat().st_mode & 0o077:
-                    raise ValueError("blinding key requires a private regular file")
                 result, mapping = reviews.blind(
-                    frozen, pack.load(args.reviewer), key.read_bytes(), args.partition
+                    frozen,
+                    pack.load(args.reviewer),
+                    private_key(args.key_file),
+                    args.partition,
                 )
-                # Reserve both paths first to avoid overwriting either side.
-                if Path(args.output).exists() or Path(args.mapping_output).exists():
-                    raise ValueError("blind outputs must be new")
-                pack.write_new(args.mapping_output, mapping)
+                pack.write_new_pair(
+                    [(args.mapping_output, mapping), (args.output, result)]
+                )
             elif args.command == "submit":
                 result = reviews.submit(
                     frozen,
@@ -76,7 +96,8 @@ def main(argv=None):
                     result = metrics.analyze(
                         frozen, result, pack.load(args.predictions)
                     )
-        pack.write_new(args.output, result)
+        if args.command != "blind":
+            pack.write_new(args.output, result)
         print(args.command + ": written locally")
         return 0
     except (ValueError, KeyError, TypeError, OSError) as error:

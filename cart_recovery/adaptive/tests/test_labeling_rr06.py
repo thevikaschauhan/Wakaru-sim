@@ -471,3 +471,315 @@ def test_rr06_real_corpus_adjudication_requires_human_reviewer(frozen, kind):
         assert result["labels"][case["case_id"]] == gold
         assert result["unresolved"] == []
         assert result["independence_authenticated"] is False
+
+
+def blind_cli_inputs(frozen, tmp_path):
+    pack.write_new(tmp_path / "pack.json", frozen)
+    pack.write_new(
+        tmp_path / "reviewer.json",
+        {"id": "human", "kind": "human", "independent_ref": "declared:review"},
+    )
+    key = tmp_path / "key"
+    key.write_bytes(b"a" * 32)
+    key.chmod(0o600)
+    return [
+        "blind",
+        "--pack",
+        str(tmp_path / "pack.json"),
+        "--reviewer",
+        str(tmp_path / "reviewer.json"),
+        "--partition",
+        "development",
+        "--key-file",
+        str(key),
+        "--mapping-output",
+        str(tmp_path / "mapping.json"),
+        "--output",
+        str(tmp_path / "packet.json"),
+    ]
+
+
+@pytest.mark.parametrize("kind", ["fifo", "directory", "symlink", "public_permissions"])
+def test_rr06_blind_cli_requires_private_regular_key(frozen, tmp_path, kind):
+    import os
+    import subprocess
+    import sys
+
+    args = blind_cli_inputs(frozen, tmp_path)
+    key = tmp_path / "key"
+    if kind == "public_permissions":
+        key.chmod(0o644)
+    else:
+        key.unlink()
+        if kind == "fifo":
+            os.mkfifo(key, 0o600)
+        elif kind == "directory":
+            key.mkdir(mode=0o700)
+        else:
+            target = tmp_path / "key-target"
+            target.write_bytes(b"a" * 32)
+            target.chmod(0o600)
+            key.symlink_to(target)
+    # A FIFO regression must fail promptly instead of hanging the test process.
+    result = subprocess.run(
+        [sys.executable, "-m", "cart_recovery.adaptive.labeling.cli", *args],
+        capture_output=True,
+        timeout=5,
+        check=False,
+    )
+    assert result.returncode == 2
+    assert not (tmp_path / "mapping.json").exists()
+    assert not (tmp_path / "packet.json").exists()
+
+
+def test_rr06_blind_cli_publishes_two_private_outputs(frozen, tmp_path):
+    assert cli.main(blind_cli_inputs(frozen, tmp_path)) == 0
+    packet = pack.load(tmp_path / "packet.json")
+    mapping = pack.load(tmp_path / "mapping.json")
+    assert mapping["packet_sha256"] == planning.digest(packet)
+    assert all(
+        (tmp_path / name).stat().st_mode & 0o777 == 0o600
+        for name in ("packet.json", "mapping.json")
+    )
+
+
+@pytest.mark.parametrize(
+    "fault", ["same_path", "packet_write", "late_packet", "replaced_mapping"]
+)
+def test_rr06_blind_cli_rolls_back_only_owned_outputs(
+    frozen, tmp_path, monkeypatch, fault
+):
+    args = blind_cli_inputs(frozen, tmp_path)
+    mapping, packet_file = tmp_path / "mapping.json", tmp_path / "packet.json"
+    original_open, original_fdopen = pack.os.open, pack.os.fdopen
+    if fault == "same_path":
+        args[-1] = str(mapping)
+    elif fault in {"late_packet", "replaced_mapping"}:
+
+        def fail_second_output(path, flags, *rest, **kwargs):
+            if str(path) == str(packet_file):
+                if fault == "late_packet":
+                    packet_file.write_text("foreign packet")
+                else:
+                    mapping.unlink()
+                    mapping.write_text("foreign mapping")
+                    raise OSError("second output unavailable")
+            return original_open(path, flags, *rest, **kwargs)
+
+        monkeypatch.setattr(pack.os, "open", fail_second_output)
+    else:
+
+        class BrokenWriter:
+            def __init__(self, stream):
+                self.stream = stream
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                self.stream.close()
+
+            def write(self, _):
+                raise OSError("packet write failed after mapping write")
+
+            def flush(self):
+                self.stream.flush()
+
+        def fail_packet_write(fd, *rest, **kwargs):
+            stream = original_fdopen(fd, *rest, **kwargs)
+            return (
+                BrokenWriter(stream)
+                if packet_file.exists()
+                and pack.os.fstat(fd).st_ino == packet_file.stat().st_ino
+                else stream
+            )
+
+        monkeypatch.setattr(pack.os, "fdopen", fail_packet_write)
+    assert cli.main(args) == 2
+    if fault == "replaced_mapping":
+        assert mapping.read_text() == "foreign mapping"
+    else:
+        assert not mapping.exists()
+    if fault == "late_packet":
+        assert packet_file.read_text() == "foreign packet"
+    else:
+        assert not packet_file.exists()
+
+
+@pytest.mark.parametrize(
+    "dependency", ["cart_recovery/buyer_state.py", "contracts/recovery/v2/verify.py"]
+)
+def test_rr06_binding_includes_native_validation_dependencies(
+    frozen, monkeypatch, dependency
+):
+    from pathlib import Path
+    from hashlib import sha256
+
+    root = Path(pack.__file__).resolve().parents[3]
+    target = root / dependency
+    assert (
+        frozen["binding"]["source_hashes"][dependency]
+        == sha256(target.read_bytes()).hexdigest()
+    )
+    read = Path.read_bytes
+    monkeypatch.setattr(
+        Path,
+        "read_bytes",
+        lambda p: read(p) + b"\n# changed validator\n" if p == target else read(p),
+    )
+    with pytest.raises(ValueError, match="binding changed"):
+        pack.verify(frozen)
+
+
+def rekey_journey(case, *, origin=True, message=True):
+    from uuid import NAMESPACE_URL, uuid5
+
+    clone = copy.deepcopy(case)
+    clone["case_id"] += ":variant"
+    context = clone["selection"]["context"]
+    changes = {
+        case["journey_id"]: str(
+            uuid5(NAMESPACE_URL, case["journey_id"] + ":independent")
+        )
+    }
+    if origin:
+        changes[context["origin_episode_id"]] = str(
+            uuid5(NAMESPACE_URL, context["origin_episode_id"] + ":independent")
+        )
+    if message:
+        changes[clone["selection"]["message_id"]] = str(
+            uuid5(NAMESPACE_URL, clone["selection"]["message_id"] + ":independent")
+        )
+
+    def replace(value):
+        if isinstance(value, dict):
+            return {k: replace(v) for k, v in value.items()}
+        if isinstance(value, list):
+            return [replace(v) for v in value]
+        return changes.get(value, value) if isinstance(value, str) else value
+
+    clone = replace(clone)
+    body = clone["selection"]
+    for source in body["sources"].values():
+        source["ref"]["sha256"] = planning.digest(source["value"])
+    body["context"].update(
+        buyer_state_ref=body["sources"]["buyer"]["ref"],
+        cart_ref=body["sources"]["cart"]["ref"],
+        fact_refs=[body["sources"]["shipping"]["ref"]],
+    )
+    body["context"]["fact_set_sha256"] = planning.digest(body["context"]["fact_refs"])
+    clone["evidence"] = pack.review_evidence(body, clone["evidence"]["draft"])
+    return clone
+
+
+def test_rr06_independent_journeys_can_share_review_text(frozen):
+    case = frozen["cases"][0]
+    other = rekey_journey(case)
+    assert other["evidence"] == case["evidence"]
+    assert pack.validate_cases([case, other], frozen["scope"]) == 2
+    pack.freeze([case, other], frozen["scope"], "a" * 64, frozen_at=fixtures.FROZEN_AT)
+
+
+@pytest.mark.parametrize("identity", ["origin", "message"])
+def test_rr06_draft_variants_cannot_relabel_native_journey(frozen, identity):
+    case = frozen["cases"][0]
+    other = rekey_journey(
+        case, origin=identity != "origin", message=identity != "message"
+    )
+    other["evidence"]["draft"]["body"] = "A differently worded draft of this evidence."
+    with pytest.raises(ValueError, match="origin identity|message reused"):
+        pack.freeze(
+            [case, other], frozen["scope"], "a" * 64, frozen_at=fixtures.FROZEN_AT
+        )
+
+
+def test_rr06_multiple_drafts_remain_one_independent_journey(frozen):
+    case = frozen["cases"][0]
+    other = copy.deepcopy(case)
+    other["case_id"] += ":variant"
+    other["evidence"]["draft"]["body"] = "Another draft for the same native journey."
+    assert pack.validate_cases([case, other], frozen["scope"]) == 1
+
+
+@pytest.mark.parametrize("layout", ["adjacent", "overlap", "gap"])
+def test_rr06_replay_and_metrics_share_span_union(frozen, layout):
+    case = frozen["cases"][0]
+    record = fixtures.records(frozen)[0]
+    n = len(case["evidence"]["draft"]["body"].encode())
+    record["checked_spans"] = [
+        s for s in record["checked_spans"] if s["surface"] != "body"
+    ]
+    record["checked_spans"] += [
+        {"surface": "body", "start": 0, "end": n // 2},
+        {
+            "surface": "body",
+            "start": n // 2 + {"adjacent": 0, "overlap": -1, "gap": 1}[layout],
+            "end": n,
+        },
+    ]
+    replay.validate_record(frozen, case, record)
+    covered = metrics.covered(
+        {"surface": "body", "start": 0, "end": n}, record["checked_spans"]
+    )
+    assert covered == (layout != "gap")
+    assert all(
+        v["full_text_coverage"] == covered
+        for v in replay.variants(case, record).values()
+    )
+
+
+def test_rr06_hmac_tokens_bind_unambiguous_components(frozen):
+    cases = copy.deepcopy(frozen["cases"][:2])
+    cases[0]["case_id"], cases[1]["case_id"] = "bc", "c"
+    frozen = pack.freeze(cases, frozen["scope"], "a" * 64, frozen_at=fixtures.FROZEN_AT)
+
+    def who(ident):
+        return {
+            "id": ident,
+            "kind": "human",
+            "independent_ref": "declared:review",
+        }
+
+    _, left = reviews.blind(frozen, who("a"), b"a" * 32, "development")
+    _, right = reviews.blind(frozen, who("ab"), b"a" * 32, "development")
+    assert set(left["mapping"]).isdisjoint(right["mapping"])
+
+
+@pytest.mark.parametrize("partition", ["test", "safety"])
+def test_rr06_handbuilt_submission_cannot_unblind_real_holdout(frozen, partition):
+    real = pack.freeze(
+        frozen["cases"],
+        frozen["scope"],
+        "a" * 64,
+        provenance="authorized_deidentified",
+        frozen_at=fixtures.FROZEN_AT,
+    )
+    case = next(c for c in real["cases"] if c["split"] == partition)
+    token = "1" * 64
+    packet = {
+        "schema_version": "rr06_blind_packet_v1",
+        "pack_sha256": real["pack_sha256"],
+        "reviewer": {
+            "id": "human",
+            "kind": "human",
+            "independent_ref": "declared:review",
+        },
+        "partition": partition,
+        "items": [
+            {
+                "item_id": token,
+                "domain": case["domain"],
+                "locale": case["locale"],
+                "evidence": case["evidence"],
+                "questions": pack.questions(case),
+            }
+        ],
+    }
+    mapping = {
+        "packet_sha256": planning.digest(packet),
+        "mapping": {token: case["case_id"]},
+    }
+    with pytest.raises(ValueError, match="separately authorized"):
+        reviews.submit(
+            real, packet, mapping, {token: fixtures.gold(case)}, "2026-10-31T01:00:00Z"
+        )

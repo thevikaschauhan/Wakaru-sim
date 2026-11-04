@@ -170,6 +170,10 @@ def selection(case, response, omit=()):
 
 
 def variants(case, record):
+    # Metrics imports replay; resolve the shared coverage helper after both
+    # modules have initialized rather than introducing a top-level cycle.
+    from .metrics import covered
+
     full_checks = (
         {
             key: draft.verdict(key[:4], a, draft.POLICY)
@@ -180,9 +184,9 @@ def variants(case, record):
     )
     surface_coverage = all(
         not text
-        or any(
-            s["surface"] == name and s["start"] == 0 and s["end"] == len(text.encode())
-            for s in record["checked_spans"]
+        or covered(
+            {"surface": name, "start": 0, "end": len(text.encode())},
+            record["checked_spans"],
         )
         for name, text in case["evidence"]["draft"].items()
     )

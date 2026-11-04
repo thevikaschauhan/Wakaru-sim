@@ -459,7 +459,10 @@ def job_status(job_id):
     if job_merchant != g.merchant_id:
         return jsonify({"success": False, "error": "Job not found"}), 404
 
-    status = job.get_status()
+    # Job.fetch loaded status and meta together. A fresh status-only read can
+    # race worker completion and pair failed/finished with stale metadata.
+    # Keep one coherent snapshot; the next HTTP poll fetches the next snapshot.
+    status = job.get_status(refresh=False)
     # Don't echo the internal merchant_id binding (#24) into the public progress
     # contract — expose only the worker-written progress keys (stage/state/error).
     progress = {k: v for k, v in (job.meta or {}).items() if k != "merchant_id"}

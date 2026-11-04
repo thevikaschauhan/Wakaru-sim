@@ -4,6 +4,7 @@ import copy
 import json
 import math
 import os
+from contextlib import ExitStack
 from hashlib import sha256
 from datetime import datetime
 from pathlib import Path
@@ -88,6 +89,51 @@ def write_new(path, value):
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     with os.fdopen(fd, "w", encoding="utf-8") as stream:
         stream.write(data)
+
+
+def write_new_pair(values):
+    """Reserve both private outputs before writing and roll back owned files."""
+    if len(values) != 2:
+        raise ValueError("exactly two output files required")
+    encoded = [
+        (
+            Path(path),
+            json.dumps(
+                value, ensure_ascii=False, sort_keys=True, indent=2, allow_nan=False
+            )
+            + "\n",
+        )
+        for path, value in values
+    ]
+    if len({p.resolve() for p, _ in encoded}) != 2:
+        raise ValueError("blind outputs require distinct new paths")
+    owned = []
+    try:
+        with ExitStack() as stack:
+            streams = []
+            for path, data in encoded:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+                info = os.fstat(fd)
+                owned.append((path, info.st_dev, info.st_ino))
+                try:
+                    stream = os.fdopen(fd, "w", encoding="utf-8")
+                except BaseException:
+                    os.close(fd)
+                    raise
+                streams.append((stack.enter_context(stream), data))
+            for stream, data in streams:
+                stream.write(data)
+                stream.flush()
+    except BaseException:
+        for path, device, inode in reversed(owned):
+            try:
+                current = path.lstat()
+                if (current.st_dev, current.st_ino) == (device, inode):
+                    path.unlink()
+            except FileNotFoundError:
+                pass
+        raise
 
 
 def questions(case):
@@ -215,7 +261,11 @@ def runtime_binding():
             "qualification.py",
         )
     ]
-    files += [root / "intelligence" / "typesafe.py"]
+    files += [
+        root / "intelligence" / "typesafe.py",
+        root / "buyer_state.py",
+        root.parent / "contracts" / "recovery" / "v2" / "verify.py",
+    ]
     files += sorted(Path(__file__).parent.glob("*.py"))
     value = {
         "catalog": copy.deepcopy(planning.CATALOG),
@@ -228,7 +278,8 @@ def runtime_binding():
             "adapter": "openrouter-v1",
         },
         "source_hashes": {
-            str(p.relative_to(root)): sha256(p.read_bytes()).hexdigest() for p in files
+            str(p.relative_to(root.parent)): sha256(p.read_bytes()).hexdigest()
+            for p in files
         },
     }
     value["semantic_sha256"] = {
@@ -272,8 +323,10 @@ def decision_template():
 def validate_cases(cases, scope):
     if not isinstance(cases, list) or not cases:
         raise ValueError("nonempty corpus required")
-    seen, groups, merchants, contents, times = (
+    seen, groups, merchants, origins, journey_origins, messages, times = (
         set(),
+        {},
+        {},
         {},
         {},
         {},
@@ -343,10 +396,20 @@ def validate_cases(cases, scope):
                 raise ValueError("draft text required")
         if e != review_evidence(c["selection"], e["draft"]):
             raise ValueError("review evidence does not match native snapshot")
-        # Relabeled exact content cannot manufacture independent cases.
-        content = planning.digest(e)
-        if contents.setdefault(content, c["journey_id"]) != c["journey_id"]:
-            raise ValueError("duplicate evidence counted as independent")
+        context = c["selection"]["context"]
+        # Native journey origins are immutable and unique per merchant/store/
+        # episode. Text can coincide across independent journeys and drafts can
+        # vary within one journey, so rendered evidence is not an identity key.
+        origin = (c["merchant_id"], context["store_id"], context["origin_episode_id"])
+        journey = (c["merchant_id"], c["journey_id"])
+        if (
+            origins.setdefault(origin, journey) != journey
+            or journey_origins.setdefault(journey, origin) != origin
+        ):
+            raise ValueError("journey origin identity changed")
+        message = (c["merchant_id"], c["selection"]["message_id"])
+        if messages.setdefault(message, journey) != journey:
+            raise ValueError("message reused across independent journeys")
         if (
             c["selection"]["context"]["merchant_id"] != c["merchant_id"]
             or c["selection"]["context"]["journey_id"] != c["journey_id"]

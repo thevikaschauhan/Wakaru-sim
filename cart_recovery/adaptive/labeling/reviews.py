@@ -37,7 +37,14 @@ def blind(pack, reviewer, secret, partition):
             continue
         token = hmac.new(
             secret,
-            (pack["pack_sha256"] + reviewer["id"] + c["case_id"]).encode(),
+            digest(
+                [
+                    "rr06_blind_item_v1",
+                    pack["pack_sha256"],
+                    reviewer["id"],
+                    c["case_id"],
+                ]
+            ).encode(),
             sha256,
         ).hexdigest()
         mapping[token] = c["case_id"]
@@ -138,6 +145,13 @@ def validate_label(case, label):
 
 def submit(pack, packet, mapping, labels, submitted_at):
     verify(pack)
+    if pack["provenance"] != "synthetic_fixture" and packet["partition"] in {
+        "test",
+        "safety",
+    }:
+        raise ValueError(
+            "protected holdout requires separately authorized unblinding workflow"
+        )
     if (
         mapping["packet_sha256"] != digest(packet)
         or packet["pack_sha256"] != pack["pack_sha256"]

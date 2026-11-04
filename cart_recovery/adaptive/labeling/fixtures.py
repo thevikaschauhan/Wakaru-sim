@@ -27,6 +27,9 @@ def cases():
             old = {
                 b["context"]["merchant_id"]: merchant,
                 b["context"]["journey_id"]: journey,
+                b["context"]["origin_episode_id"]: str(
+                    uuid5(NAMESPACE_URL, journey + ":episode")
+                ),
                 b["message_id"]: str(uuid5(NAMESPACE_URL, journey + ":message")),
                 b["context"]["conversation"]["confirmed_messages"][0][
                     "message_id"
