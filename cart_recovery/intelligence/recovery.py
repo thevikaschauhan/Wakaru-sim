@@ -181,9 +181,23 @@ class PlanJournal:
                 "CREATE TABLE IF NOT EXISTS recovery_plans(merchant TEXT NOT NULL, revision TEXT NOT NULL, payload TEXT NOT NULL, created REAL NOT NULL, PRIMARY KEY(merchant,revision))"
             )
 
+    @staticmethod
+    def require_legacy_access(db, merchant, revision):
+        # A legacy process sharing this file must not serve an adopted plan.
+        if db.execute("SELECT 1 FROM main.sqlite_master WHERE type='trigger' AND name='c16_authenticated_recovery_plans_insert'").fetchone():
+            raise ValueError("authenticated_plan_access_required")
+        has_ledger = db.execute("SELECT 1 FROM main.sqlite_master WHERE type='table' AND name='integration_lineage_resources'").fetchone()
+        if has_ledger and db.execute(
+            "SELECT 1 FROM main.integration_lineage_resources WHERE merchant=? AND kind='plan' AND key=?",
+            (merchant, revision),
+        ).fetchone():
+            raise ValueError("authenticated_plan_access_required")
+
     def load(self, merchant, revision):
         """Expire plans globally, then read only the requested tenant revision."""
         with sqlite3.connect(self.path, timeout=1) as db:
+            db.execute("BEGIN IMMEDIATE")
+            self.require_legacy_access(db, merchant, revision)
             db.execute(
                 "DELETE FROM recovery_plans WHERE created<?",
                 (time.time() - 7 * 86400,),
@@ -196,6 +210,8 @@ class PlanJournal:
 
     def select(self, merchant, revision, intelligence, plan):
         with sqlite3.connect(self.path, timeout=1) as db:
+            db.execute("BEGIN IMMEDIATE")
+            self.require_legacy_access(db, merchant, revision)
             db.execute(
                 "INSERT OR IGNORE INTO recovery_plans VALUES(?,?,?,?)",
                 (
@@ -286,11 +302,13 @@ class RecoveryWorkflow:
             + ([cart.conversion_model_id] if cart.conversion_model_id else [])
         )
         plan.update(plan_id=revision, revision=revision)
-        journal = (
-            PlanJournal(self.store.path)
-            if self.store and hasattr(self.store, "path")
-            else None
-        )
+        journal = getattr(self.store, "lineage", None)
+        if journal is None:
+            journal = (
+                PlanJournal(self.store.path)
+                if self.store and hasattr(self.store, "path")
+                else None
+            )
         if blocked:
             plan["reason_codes"] = ["prelaunch_workflow_held"]
             return replace(returned, buyer_intelligence=intelligence, recovery_plan=plan)

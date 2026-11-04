@@ -13,7 +13,7 @@ spec.loader.exec_module(privacy)
 
 
 def snapshot(tmp_path):
-    for name in ['backend','cart_recovery','contracts/integrations/c14']:
+    for name in ['backend','cart_recovery','contracts/integrations/c14','contracts/integrations/c16']:
         shutil.copytree(ROOT/name,tmp_path/name,ignore=shutil.ignore_patterns('__pycache__','.venv','uploads'))
     return tmp_path
 

@@ -196,7 +196,8 @@ class Store:
     A 10-second lease outlives the 3-second provider deadline. Crash recovery can
     repeat inference after lease expiry; it cannot overwrite a selected judgment.
     """
-    def __init__(self, path, client, environment="development", tenant_cap=1, environment_cap=10):
+    def __init__(self, path, client, environment="development", tenant_cap=1, environment_cap=10, *, lineage=None):
+        self.lineage = lineage
         self.path, self.client = str(path), client
         self.environment, self.tenant_cap, self.environment_cap = environment, tenant_cap, environment_cap
         Path(path).parent.mkdir(parents=True, exist_ok=True)
@@ -231,14 +232,22 @@ class Store:
             if controls["model"] != self.client.model or sorted(controls["approved_models"]) != sorted(self.client.approved):
                 raise ValueError("prelaunch_model_mismatch")
             identity = {**identity, "policy_version": identity["policy_version"] + ":" + deployment}
-        self.purge()
         request = {**request, "model": self.client.model}
         rh = digest(request)
         key = digest([identity[k] for k in required if k != "as_of"]+[rh, self.client.binding])
         merchant, owner = identity["merchant_id"], str(uuid.uuid4())
+        if self.lineage is not None:
+            self.lineage.request(merchant, "raw_output", key, admit=True)
         with self.connection() as db:
+            if self.lineage is None and db.execute(
+                "SELECT 1 FROM main.sqlite_master WHERE type='trigger' AND name='c16_authenticated_raw_outputs_insert'"
+            ).fetchone():
+                raise ValueError("authenticated_raw_access_required")
+            self.purge()
             saved = db.execute("SELECT judgment FROM selected WHERE merchant=? AND request_key=?", (merchant,key)).fetchone()
             if saved:
+                if self.lineage is not None:
+                    self.lineage.request(merchant, "raw_output", key, admit=True)
                 return {**json.loads(saved[0]), "cache_hit": True}
             db.execute("BEGIN IMMEDIATE")
             db.execute("DELETE FROM leases WHERE expires<?", (time.time(),))
@@ -249,6 +258,8 @@ class Store:
                 db.execute("ROLLBACK")
                 raise RuntimeError("tenant_backpressure") from None
         def before(attempt):
+            if self.lineage is not None:
+                self.lineage.request(merchant, "raw_output", key, admit=True)
             with self.connection() as db:
                 db.execute("BEGIN IMMEDIATE")
                 day = time.strftime("%Y-%m-%d",time.gmtime())
@@ -263,7 +274,7 @@ class Store:
         def finish(attempt):
             with self.connection() as db:
                 db.execute("BEGIN IMMEDIATE")
-                if attempt.get("_raw_response"):
+                if attempt.get("_raw_response") and self.lineage is None:
                     db.execute("INSERT INTO raw_outputs VALUES(?,?,?,?)",(attempt["id"],merchant,attempt["_raw_response"],time.time()))
                 metadata={k:v for k,v in attempt.items() if k!="_raw_response"}
                 db.execute("INSERT INTO results VALUES(?,?,?)",(attempt["id"],merchant,json.dumps(metadata)))
@@ -271,6 +282,8 @@ class Store:
                     for key in [self.environment+":all",self.environment+":tenant:"+merchant,self.environment+":draft:"+merchant+":"+identity["workflow"]+":"+identity.get("episode_id","")]:
                         db.execute("UPDATE budgets SET spent=spent+? WHERE key=? AND day=?",(attempt["cost"]-RESERVATION,key,time.strftime("%Y-%m-%d",time.gmtime())))
                 db.execute("COMMIT")
+            if attempt.get("_raw_response") and self.lineage is not None:
+                self.lineage.request(merchant, "raw_output", attempt["id"], attempt["_raw_response"])
         try:
             result=self.client.evaluate(request,before,finish)
             try:

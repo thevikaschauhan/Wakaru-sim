@@ -261,22 +261,60 @@ class Lineage:
         for source in sources:
             token(source)
         with self.tx():
-            alias = self.q(
-                "SELECT subject,proof FROM integration_lineage_aliases WHERE merchant=? AND store=? AND kind=? AND ref=?",
-                (self.m, self.s, alias_kind, alias_ref),
-            ).fetchone()
-            if not alias:
-                raise ValueError("unresolved_alias")
-            subject = alias[0]
-            if self.stopped(subject, sources):
-                raise ValueError("lineage_stopped")
-            body = self.payload(kind, key, lock=True)
-            if body is None:
-                raise ValueError("owned_payload_required")
-            if not isinstance(body, str) or len(body.encode()) > 2**20:
-                raise ValueError("bounded_text_payload_required")
-            image = digest(body)
-            frozen = fingerprint(
+            self._adopt_locked(kind, key, alias_kind, alias_ref, sources, proof)
+
+    def _adopt_locked(self, kind, key, alias_kind, alias_ref, sources, proof):
+        """Freeze a validated attribution while holding the C15 merchant lock."""
+        alias = self.q(
+            "SELECT subject,proof FROM integration_lineage_aliases WHERE merchant=? AND store=? AND kind=? AND ref=?",
+            (self.m, self.s, alias_kind, alias_ref),
+        ).fetchone()
+        if not alias:
+            raise ValueError("unresolved_alias")
+        subject = alias[0]
+        if self.stopped(subject, sources):
+            raise ValueError("lineage_stopped")
+        body = self.payload(kind, key, lock=True)
+        if body is None:
+            raise ValueError("owned_payload_required")
+        if not isinstance(body, str) or len(body.encode()) > 2**20:
+            raise ValueError("bounded_text_payload_required")
+        image = digest(body)
+        frozen = fingerprint(
+            self.s,
+            kind,
+            key,
+            subject,
+            proof,
+            image,
+            alias_kind,
+            alias_ref,
+            alias[1],
+            sources,
+        )
+        old = self.q(
+            "SELECT store,subject,proof,image,alias_kind,alias_ref,lineage FROM integration_lineage_resources WHERE merchant=? AND kind=? AND key=?",
+            (self.m, kind, key),
+        ).fetchone()
+        if old:
+            previous = [
+                r[0]
+                for r in self.q(
+                    "SELECT source FROM integration_lineage_sources WHERE merchant=? AND kind=? AND key=? ORDER BY source",
+                    (self.m, kind, key),
+                ).fetchall()
+            ]
+            if (
+                tuple(old)
+                != (self.s, subject, proof, image, alias_kind, alias_ref, frozen)
+                or previous != sources
+            ):
+                raise ValueError("resource_lineage_conflict")
+            return
+        self.q(
+            "INSERT INTO integration_lineage_resources VALUES(?,?,?,?,?,?,?,?,?,?)",
+            (
+                self.m,
                 self.s,
                 kind,
                 key,
@@ -285,48 +323,14 @@ class Lineage:
                 image,
                 alias_kind,
                 alias_ref,
-                alias[1],
-                sources,
-            )
-            old = self.q(
-                "SELECT store,subject,proof,image,alias_kind,alias_ref,lineage FROM integration_lineage_resources WHERE merchant=? AND kind=? AND key=?",
-                (self.m, kind, key),
-            ).fetchone()
-            if old:
-                previous = [
-                    r[0]
-                    for r in self.q(
-                        "SELECT source FROM integration_lineage_sources WHERE merchant=? AND kind=? AND key=? ORDER BY source",
-                        (self.m, kind, key),
-                    ).fetchall()
-                ]
-                if (
-                    tuple(old)
-                    != (self.s, subject, proof, image, alias_kind, alias_ref, frozen)
-                    or previous != sources
-                ):
-                    raise ValueError("resource_lineage_conflict")
-                return
+                frozen,
+            ),
+        )
+        for source in sources:
             self.q(
-                "INSERT INTO integration_lineage_resources VALUES(?,?,?,?,?,?,?,?,?,?)",
-                (
-                    self.m,
-                    self.s,
-                    kind,
-                    key,
-                    subject,
-                    proof,
-                    image,
-                    alias_kind,
-                    alias_ref,
-                    frozen,
-                ),
+                "INSERT INTO integration_lineage_sources VALUES(?,?,?,?,?)",
+                (self.m, self.s, kind, key, source),
             )
-            for source in sources:
-                self.q(
-                    "INSERT INTO integration_lineage_sources VALUES(?,?,?,?,?)",
-                    (self.m, self.s, kind, key, source),
-                )
 
     def census(self, keys):
         """Validate retained attribution before hashing a fixed member set."""
@@ -493,26 +497,29 @@ class Lineage:
 
     def read(self, kind, key):
         with self.tx():
-            row = self.q(
-                "SELECT subject,image FROM integration_lineage_resources WHERE merchant=? AND store=? AND kind=? AND key=?",
+            return self._read_locked(kind, key)
+
+    def _read_locked(self, kind, key):
+        row = self.q(
+            "SELECT subject,image FROM integration_lineage_resources WHERE merchant=? AND store=? AND kind=? AND key=?",
+            (self.m, self.s, kind, key),
+        ).fetchone()
+        if not row:
+            raise ValueError("registered_record_required")
+        sources = [
+            r[0]
+            for r in self.q(
+                "SELECT source FROM integration_lineage_sources WHERE merchant=? AND store=? AND kind=? AND key=?",
                 (self.m, self.s, kind, key),
-            ).fetchone()
-            if not row:
-                raise ValueError("registered_record_required")
-            sources = [
-                r[0]
-                for r in self.q(
-                    "SELECT source FROM integration_lineage_sources WHERE merchant=? AND store=? AND kind=? AND key=?",
-                    (self.m, self.s, kind, key),
-                )
-            ]
-            if self.stopped(row[0], sources):
-                raise ValueError("lineage_stopped")
-            self.census([(kind, key)])
-            body = self.payload(kind, key, lock=True)
-            if body is None or digest(body) != row[1]:
-                raise ValueError("payload_missing_or_changed")
-            return body
+            )
+        ]
+        if self.stopped(row[0], sources):
+            raise ValueError("lineage_stopped")
+        self.census([(kind, key)])
+        body = self.payload(kind, key, lock=True)
+        if body is None or digest(body) != row[1]:
+            raise ValueError("payload_missing_or_changed")
+        return body
 
     def drain(self, request_id, *, limit=100):
         identity(request_id)

@@ -1,0 +1,60 @@
+{
+  "controls": {
+    "engine": {
+      "internal/integrationauth/client.go": "3c60b4d96843cccf7a2e493691dc3d633854689df549837c781d1a834569f635",
+      "internal/typesafe/lineage.go": "56710cc64623aa4c8fedc6c754e6ce91cf3226dd371d6fb5a9177578d2862c16",
+      "scripts/integration_lineage_service.py": "11f3b2e42f1847af33db565b5804b7b6f5efd21744cbe3de94a3d6e058fec018",
+      "scripts/integration_service_auth.py": "d671008085b49a1390b129724dc5ae046afd6e49e2eec9e6bd40bd72aa363736"
+    },
+    "inkwell": {
+      "internal/integrationauth/client.go": "3c60b4d96843cccf7a2e493691dc3d633854689df549837c781d1a834569f635",
+      "internal/typesafe/lineage.go": "c7a0ca55ecfe771b0853b58bac4d8846c24432748e50cbf7beaa530fb06bae4b",
+      "scripts/integration_lineage_service.py": "11f3b2e42f1847af33db565b5804b7b6f5efd21744cbe3de94a3d6e058fec018",
+      "scripts/integration_service_auth.py": "d671008085b49a1390b129724dc5ae046afd6e49e2eec9e6bd40bd72aa363736"
+    },
+    "wakaru": {
+      "cart_recovery/lineage_client.py": "72cdc4644f8945a85751f97ee79d1b9bd6359bd98fab513c7f6496afe3485dd1",
+      "scripts/integration_lineage_service.py": "11f3b2e42f1847af33db565b5804b7b6f5efd21744cbe3de94a3d6e058fec018",
+      "scripts/integration_service_auth.py": "d671008085b49a1390b129724dc5ae046afd6e49e2eec9e6bd40bd72aa363736"
+    }
+  },
+  "replacements": {
+    "engine": {
+      "internal/typesafe/store.go": {
+        "current": "6f491b584fa279e4a18cdfe9448f8fa093403959ddc13402b443704bca14d2b0",
+        "previous": "3e2609046eed2b65a6a78d297cdd0a4a99eb588bfdb8c2c21f37ac282f32828d"
+      },
+      "scripts/integration_lineage.py": {
+        "current": "cd64d0cc002d739b5b6f2b3245ca5e52b02842054bdb70f2e5869fa95d763480",
+        "previous": "325b8620be6bbcc49fdb41142ad461767a57aed274a62d3e0fa51d6ebea85eb5"
+      }
+    },
+    "inkwell": {
+      "internal/typesafe/store.go": {
+        "current": "4c5157c3e4361ce5cedf0712d99039c72f03987bc452305816e156cb3d658f5b",
+        "previous": "66b1d900555b5e39033ebfe41ddaef2a510e921c38bd120ccba5df2d0106a908"
+      },
+      "scripts/integration_lineage.py": {
+        "current": "cd64d0cc002d739b5b6f2b3245ca5e52b02842054bdb70f2e5869fa95d763480",
+        "previous": "325b8620be6bbcc49fdb41142ad461767a57aed274a62d3e0fa51d6ebea85eb5"
+      }
+    },
+    "wakaru": {
+      "cart_recovery/intelligence/recovery.py": {
+        "current": "a0be18d4166929bf1617029e0d09ccb93509f876524a2e51cef898be07b04e1e",
+        "previous": "db650457ea5f96cddecce20aea78be472c4efe900d41e93ff96097f4388235cc"
+      },
+      "cart_recovery/intelligence/typesafe.py": {
+        "current": "d5f65c19c898013f07864d1018349b2072ec9bd5e099a067c901fe5282ad50d2",
+        "previous": "6dad8d8083d8653eba63544191e79f84b1c088890c36ae7dca336fc44688dc20"
+      },
+      "scripts/integration_lineage.py": {
+        "current": "cd64d0cc002d739b5b6f2b3245ca5e52b02842054bdb70f2e5869fa95d763480",
+        "previous": "325b8620be6bbcc49fdb41142ad461767a57aed274a62d3e0fa51d6ebea85eb5"
+      }
+    }
+  },
+  "runtime_enabled": false,
+  "version": "integration_lineage_sources_c16_v1",
+  "whole_application_erasure_complete": false
+}
