@@ -19,6 +19,10 @@ C5/C14 receipts continue to cover their existing owned tables only. C15 adds
 It does not widen C5 completion or certify whole-customer/application erasure.
 C14 inventory and retained-ledger restore remain the baseline; a bound C15
 addendum classifies new ledger relations without rewriting historical evidence.
+The effective inventory also binds the exact prior and regenerated Inkwell
+sqlc model hashes; external-copy ownership and blockers stay unchanged.
+Native qualification takes a separately reviewed exact migration catalog.
+Frozen harnesses and the historical rollback packet remain unchanged.
 Existing authenticated C11/C12 receivers and C13 schedulers remain untouched.
 
 The operator library is deliberately under scripts, outside application startup.

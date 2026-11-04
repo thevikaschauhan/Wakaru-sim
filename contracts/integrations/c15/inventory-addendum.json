@@ -1,4 +1,19 @@
 {
+  "evidence_replacements": [
+    {
+      "family": "external.downloads_blobs",
+      "previous": {
+        "repo": "inkwell",
+        "path": "internal/db/models.go",
+        "sha256": "34ad9e23eb596992c592ffeec47e7eb902803f335ae77dde7c71732f3944fcc2"
+      },
+      "current": {
+        "repo": "inkwell",
+        "path": "internal/db/models.go",
+        "sha256": "e431321965962e8f2d2e8e603b2175da143d0b5dd0a9a76bed190dbad4ffed00"
+      }
+    }
+  ],
   "version": "integration_lineage_inventory_c15_v1",
   "base_effective_sha256": "0f7cdfcef334e0e68dfb082f19851bc18d85d8cd37efff3d033ebca5e3318f54",
   "families": [
