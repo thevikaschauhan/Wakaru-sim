@@ -154,6 +154,59 @@ class Behavior:
         self.assertFalse(receipt["registered_scope_complete"])
         self.assertEqual(receipt["blockers"], ["payload_missing_or_changed"])
 
+    def test_repaired_blocked_member_is_retried_with_bounded_page(self):
+        for key in ("attempt-1", "attempt-2", "attempt-3"):
+            self.seed(key)
+            op = self.adopt(key)
+        request = self.request(op)
+        table = "raw_outputs" if op.sqlite else "intelligence.raw_outputs"
+        op.q("DELETE FROM " + table)
+        for _ in range(3):
+            receipt = op.drain(request, limit=1)
+        self.assertEqual((receipt["erased"], receipt["remaining"]), (0, 3))
+
+        # Simulate a physical restore of the latter two payloads while the
+        # first member remains missing. Reinstate the normal guard before drain.
+        if op.sqlite:
+            op.q("DROP TRIGGER integration_lineage_raw_outputs_insert")
+        else:
+            op.q("ALTER TABLE intelligence.raw_outputs DISABLE TRIGGER integration_lineage_raw_guard")
+        try:
+            for key in ("attempt-2", "attempt-3"):
+                op.q(
+                    "INSERT INTO raw_outputs VALUES(?,?,?,1)" if op.sqlite
+                    else "INSERT INTO intelligence.raw_outputs VALUES(?,?,?,now())",
+                    (key, M, "private buyer text"),
+                )
+        finally:
+            if op.sqlite:
+                op.install_sqlite()
+            else:
+                op.q("ALTER TABLE intelligence.raw_outputs ENABLE TRIGGER integration_lineage_raw_guard")
+
+        for count in (1, 2):
+            receipt = self.operator().drain(request, limit=1)
+            self.assertEqual(receipt["erased"], count)
+            self.assertEqual(receipt["blockers"], ["payload_missing_or_changed"])
+        self.assertFalse(receipt["registered_scope_complete"])
+        self.assertIsNone(op.payload("raw_output", "attempt-2"))
+        self.assertIsNone(op.payload("raw_output", "attempt-3"))
+
+    def test_lost_stop_denies_reads_and_new_admission(self):
+        self.seed()
+        op = self.adopt()
+        self.seed("new")
+        for target, ref in (("source", SOURCE), ("subject", SUBJECT)):
+            request = self.request(op, target, ref)
+            op.q("DELETE FROM integration_lineage_stops WHERE target=? AND ref=?", (target, ref))
+            with self.assertRaisesRegex(ValueError, "retained_stop_required"):
+                self.operator().read("raw_output", "attempt-1")
+            with self.assertRaisesRegex(ValueError, "retained_stop_required"):
+                self.operator().adopt("raw_output", "new", "shopify_customer", A, [SOURCE], PROOF)
+            self.assertFalse(self.operator(store="18").stopped(SUBJECT, [SOURCE]))
+            op.q("INSERT INTO integration_lineage_stops VALUES(?,?,?,?)", (M, "17", target, ref))
+            self.assertEqual(op.receipt(request)["remaining"], 1)
+
     def test_overlapping_subject_and_source_requests(self):
         self.seed()
         op = self.adopt()
@@ -477,36 +530,34 @@ class PostgresTests(Behavior, unittest.TestCase):
             or url.fragment
         ):
             raise ValueError("fresh_loopback_fixture_required")
+        migrations = {
+            "engine": ("054_typesafe_intelligence.sql", "092_integration_lineage.sql"),
+            "inkwell": ("0047_intelligence.sql", "0066_integration_lineage.sql"),
+        }
+        if self.service not in migrations:
+            raise ValueError("postgres_fixture_service_required")
+        directory = Path(__file__).parents[1] / "migrations"
+        baseline, lineage = [
+            (directory / name).read_text().split("-- +goose Down")[0]
+            for name in migrations[self.service]
+        ]
+        if not baseline.strip() or not lineage.strip():
+            raise ValueError("fixture_migrations_required")
         self.db = psycopg.connect(dsn, autocommit=True)
-        self.db.execute(
-            "DO $$ BEGIN IF NOT EXISTS(SELECT FROM pg_roles WHERE rolname='inkwell_app') THEN CREATE ROLE inkwell_app NOLOGIN; END IF; END $$"
-        )
-        # A fresh explicitly named test DB only. Never accepts another DB name.
-        self.db.execute(
-            "DROP SCHEMA IF EXISTS intelligence CASCADE; DROP SCHEMA IF EXISTS integration_privacy CASCADE; DROP SCHEMA public CASCADE; CREATE SCHEMA public"
-        )
-        migration = (
-            "054_typesafe_intelligence.sql"
-            if self.service == "engine"
-            else "0047_intelligence.sql"
-        )
-        self.db.execute(
-            (Path(__file__).parents[1] / "migrations" / migration)
-            .read_text()
-            .split("-- +goose Down")[0]
-        )
-        if self.service == "inkwell":
-            self.db.execute("CREATE SCHEMA integration_privacy")
-        path = (
-            "092_integration_lineage.sql"
-            if self.service == "engine"
-            else "0066_integration_lineage.sql"
-        )
-        self.db.execute(
-            (Path(__file__).parents[1] / "migrations" / path)
-            .read_text()
-            .split("-- +goose Down")[0]
-        )
+        self.addCleanup(self.db.close)
+        # Both migration files must be readable before touching the fixture.
+        # Roll back the schema reset if either migration fails to apply.
+        with self.db.transaction():
+            self.db.execute(
+                "DO $$ BEGIN IF NOT EXISTS(SELECT FROM pg_roles WHERE rolname='inkwell_app') THEN CREATE ROLE inkwell_app NOLOGIN; END IF; END $$"
+            )
+            self.db.execute(
+                "DROP SCHEMA IF EXISTS intelligence CASCADE; DROP SCHEMA IF EXISTS integration_privacy CASCADE; DROP SCHEMA public CASCADE; CREATE SCHEMA public"
+            )
+            self.db.execute(baseline)
+            if self.service == "inkwell":
+                self.db.execute("CREATE SCHEMA integration_privacy")
+            self.db.execute(lineage)
 
     def test_postgres_stop_races_with_adoption(self):
         import psycopg
@@ -567,9 +618,6 @@ class PostgresTests(Behavior, unittest.TestCase):
                 self.operator().bind("shopify_customer", A, SUBJECT, PROOF)
             holder.execute("ROLLBACK")
         self.assertEqual(self.db.info.transaction_status, 0)
-
-    def tearDown(self):
-        self.db.close()
 
 
 if __name__ == "__main__":

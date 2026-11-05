@@ -157,6 +157,17 @@ class Lineage:
                     )
 
     def stopped(self, subject, sources):
+        # A partial restore can retain the erasure request while losing its
+        # fence. Ordinary admission and reads must fail before any disclosure.
+        task = "r.task" if self.sqlite else "CAST(r.task AS jsonb)"
+        if self.q(
+            "SELECT 1 FROM integration_lineage_requests r WHERE r.merchant=? AND r.store=? "
+            "AND NOT EXISTS (SELECT 1 FROM integration_lineage_stops s "
+            "WHERE s.merchant=r.merchant AND s.store=r.store "
+            f"AND s.target=({task}->>'target') AND s.ref=({task}->>'ref')) LIMIT 1",
+            (self.m, self.s),
+        ).fetchone():
+            raise ValueError("retained_stop_required")
         if self.q(
             "SELECT 1 FROM integration_lineage_stops WHERE merchant=? AND store=? AND target='subject' AND ref=?",
             (self.m, self.s, subject),
@@ -550,37 +561,52 @@ class Lineage:
             raise ValueError("payload_missing_or_changed")
         return body
 
+    def _erasable(self, kind, key, body, image):
+        if body is not None:
+            return digest(body) == image
+        # A prior, committed erasure of this exact member explains absence.
+        return self.q(
+            "SELECT 1 FROM integration_lineage_members WHERE merchant=? AND store=? AND kind=? AND key=? AND state='erased' LIMIT 1",
+            (self.m, self.s, kind, key),
+        ).fetchone() is not None
+
+    def _reconcile_members(self, request_id):
+        rows = self.q(
+            "SELECT m.kind,m.key,m.state,r.image FROM integration_lineage_members m "
+            "JOIN integration_lineage_resources r ON r.merchant=m.merchant AND r.store=m.store "
+            "AND r.kind=m.kind AND r.key=m.key WHERE m.merchant=? AND m.store=? "
+            "AND m.request=? AND m.state IN ('blocked','erased')",
+            (self.m, self.s, request_id),
+        ).fetchall()
+        for kind, key, state, image in rows:
+            body = self.payload(kind, key, lock=True)
+            if state == "erased":
+                retry = body is not None
+            else:
+                retry = self._erasable(kind, key, body, image)
+            if retry:
+                self.q(
+                    "UPDATE integration_lineage_members SET state='pending',blocker='' WHERE merchant=? AND store=? AND request=? AND kind=? AND key=?",
+                    (self.m, self.s, request_id, kind, key),
+                )
+
     def drain(self, request_id, *, limit=100):
         identity(request_id)
         if type(limit) is not int or not 1 <= limit <= 100:
             raise ValueError("bounded_page_required")
         with self.tx():
             self.validate_request(request_id)
+            self._reconcile_members(request_id)
             rows = self.q(
-                "SELECT kind,key,state FROM integration_lineage_members WHERE merchant=? AND store=? AND request=? AND state<>'erased' ORDER BY CASE state WHEN 'pending' THEN 0 ELSE 1 END,kind,key LIMIT ?",
+                "SELECT m.kind,m.key,r.image FROM integration_lineage_members m "
+                "JOIN integration_lineage_resources r ON r.merchant=m.merchant AND r.store=m.store "
+                "AND r.kind=m.kind AND r.key=m.key WHERE m.merchant=? AND m.store=? AND m.request=? "
+                "AND m.state='pending' ORDER BY m.kind,m.key LIMIT ?",
                 (self.m, self.s, request_id, limit),
             ).fetchall()
-            for kind, key, state in rows:
-                expected = self.q(
-                    "SELECT image FROM integration_lineage_resources WHERE merchant=? AND store=? AND kind=? AND key=?",
-                    (self.m, self.s, kind, key),
-                ).fetchone()[0]
+            for kind, key, expected in rows:
                 body = self.payload(kind, key, lock=True)
-                # A prior, committed erasure of the same exact row by another
-                # request is sufficient. Unexplained absence never is.
-                accounted = self.q(
-                    "SELECT 1 FROM integration_lineage_members WHERE merchant=? AND store=? AND kind=? AND key=? AND state='erased'",
-                    (self.m, self.s, kind, key),
-                ).fetchone()
-                blocker = (
-                    ""
-                    if body is not None and digest(body) == expected
-                    else (
-                        ""
-                        if body is None and accounted
-                        else "payload_missing_or_changed"
-                    )
-                )
+                blocker = "" if self._erasable(kind, key, body, expected) else "payload_missing_or_changed"
                 if not blocker and body is not None:
                     table, column, tenant = (
                         ("recovery_plans", "revision", "merchant")
@@ -619,18 +645,9 @@ class Lineage:
         identity(request_id)
         with self.tx():
             task, frozen = self.validate_request(request_id)
-            rows = self.q(
-                "SELECT kind,key,state,blocker FROM integration_lineage_members WHERE merchant=? AND store=? AND request=? ORDER BY kind,key",
-                (self.m, self.s, request_id),
-            ).fetchall()
             # Reconcile even completed members after a stale payload restore.
             # These reads never return payloads. Do not trust a saved receipt.
-            for kind, key, state, blocker in rows:
-                if state == "erased" and self.payload(kind, key, lock=True) is not None:
-                    self.q(
-                        "UPDATE integration_lineage_members SET state='pending',blocker='' WHERE merchant=? AND store=? AND request=? AND kind=? AND key=?",
-                        (self.m, self.s, request_id, kind, key),
-                    )
+            self._reconcile_members(request_id)
             rows = self.q(
                 "SELECT kind,key,state,blocker FROM integration_lineage_members WHERE merchant=? AND store=? AND request=? ORDER BY kind,key",
                 (self.m, self.s, request_id),

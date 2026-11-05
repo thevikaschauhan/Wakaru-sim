@@ -13,6 +13,7 @@ import time
 
 from .typesafe import configured_store, digest
 from .operations import control
+from .maintenance import has_lineage_ledger, purge_unregistered
 from ..buyer_state import direct_insight
 
 VERSION = "buyer_intelligence_v1"
@@ -186,8 +187,7 @@ class PlanJournal:
         # A legacy process sharing this file must not serve an adopted plan.
         if db.execute("SELECT 1 FROM main.sqlite_master WHERE type='trigger' AND name='c16_authenticated_recovery_plans_insert'").fetchone():
             raise ValueError("authenticated_plan_access_required")
-        has_ledger = db.execute("SELECT 1 FROM main.sqlite_master WHERE type='table' AND name='integration_lineage_resources'").fetchone()
-        if has_ledger and db.execute(
+        if has_lineage_ledger(db) and db.execute(
             "SELECT 1 FROM main.integration_lineage_resources WHERE merchant=? AND kind='plan' AND key=?",
             (merchant, revision),
         ).fetchone():
@@ -198,10 +198,7 @@ class PlanJournal:
         with sqlite3.connect(self.path, timeout=1) as db:
             db.execute("BEGIN IMMEDIATE")
             self.require_legacy_access(db, merchant, revision)
-            db.execute(
-                "DELETE FROM recovery_plans WHERE created<?",
-                (time.time() - 7 * 86400,),
-            )
+            purge_unregistered(db, "recovery_plans", "created<?", (time.time() - 7 * 86400,))
             row = db.execute(
                 "SELECT payload FROM recovery_plans WHERE merchant=? AND revision=?",
                 (merchant, revision),

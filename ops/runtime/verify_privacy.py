@@ -53,9 +53,20 @@ def verify(root=ROOT):
             or c16['runtime_enabled'] is not False or c16['whole_application_erasure_complete'] is not False):
         raise ValueError('c16_scope')
     replacements = c16['replacements']['wakaru']
-    native = {'cart_recovery/intelligence/recovery.py', 'cart_recovery/intelligence/typesafe.py'}
+    native = {'cart_recovery/intelligence/recovery.py', 'cart_recovery/intelligence/typesafe.py',
+              'cart_recovery/intelligence/maintenance.py'}
     if set(replacements) != native | {'scripts/integration_lineage.py'}:
         raise ValueError('c16_writer_scope')
+    controls = c16['controls']['wakaru']
+    if set(controls) != {'cart_recovery/lineage_client.py', 'scripts/integration_lineage_service.py',
+                         'scripts/integration_service_auth.py'}:
+        raise ValueError('c16_control_scope')
+    for name, expected in controls.items():
+        if digest(root/name) != expected:
+            raise ValueError('c16_source_drift:' + name)
+    for name, revision in replacements.items():
+        if set(revision) != {'previous', 'current'} or digest(root/name) != revision['current']:
+            raise ValueError('c16_source_drift:' + name)
     for name in native:
         if reviewed[name] != replacements[name]['previous']:
             raise ValueError('c16_previous_writer_drift')

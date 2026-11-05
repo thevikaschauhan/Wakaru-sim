@@ -11,6 +11,10 @@ from urllib.parse import urlsplit
 from .integration_service_auth import MAX_BODY, ServiceGrants
 
 
+class LineageConflict(ValueError):
+    pass
+
+
 class OfflineLineageClient:
     def __init__(self, origin, grant):
         url = urlsplit(origin)
@@ -79,6 +83,8 @@ class OfflineLineageClient:
                 {"Authorization": auth, "Content-Type": "application/json"},
             )
             reply = conn.getresponse()
+            if reply.status == 409:
+                raise LineageConflict("lineage_unavailable")
             if reply.status != 200:
                 raise ValueError("lineage_unavailable")
             data = reply.read(400001)
@@ -111,23 +117,26 @@ class OfflineLineageClient:
         else:
             raise ValueError("lineage_read_unavailable")
 
-    def lookup_plan(self, merchant, revision):
-        body, binding = self.request(merchant, "plan", revision)
-        return (json.loads(body) if body is not None else None), binding
+    def lookup_plan(self, merchant, revision, *, binding=None):
+        body, current = self.request(merchant, "plan", revision, binding=binding)
+        return (json.loads(body) if body is not None else None), current
 
     def load(self, merchant, revision):
         value, _ = self.lookup_plan(merchant, revision)
         return value
 
     def select(self, merchant, revision, intelligence, plan, *, binding=None):
-        self.request(
-            merchant,
-            "plan",
-            revision,
-            json.dumps([intelligence, plan], allow_nan=False),
-            binding=binding,
-        )
-        value = self.load(merchant, revision)
+        try:
+            self.request(
+                merchant, "plan", revision,
+                json.dumps([intelligence, plan], allow_nan=False),
+                binding=binding,
+            )
+        except LineageConflict:
+            # A competing producer may have selected a different plan since our miss.
+            # Only a current authenticated read with the original binding can win.
+            pass
+        value, _ = self.lookup_plan(merchant, revision, binding=binding)
         if value is None:
             raise ValueError("plan_unavailable")
         return value

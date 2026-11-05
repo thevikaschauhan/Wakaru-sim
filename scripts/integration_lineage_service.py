@@ -276,6 +276,8 @@ def create_lineage_app(
                 fields.update(("body", "binding"))
             elif request.path == ADMIT and isinstance(data, dict):
                 fields.update({"attempt_id", "binding"}.intersection(data))
+            elif request.path == READ and isinstance(data, dict) and data.get("kind") == "plan" and "binding" in data:
+                fields.add("binding")
             if (
                 not isinstance(data, dict)
                 or set(data) != fields

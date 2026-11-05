@@ -13,8 +13,11 @@ spec.loader.exec_module(privacy)
 
 
 def snapshot(tmp_path):
-    for name in ['backend','cart_recovery','contracts/integrations/c14','contracts/integrations/c16']:
+    for name in ['backend','cart_recovery','contracts/integrations/c14','contracts/integrations/c16','contracts/knowledge']:
         shutil.copytree(ROOT/name,tmp_path/name,ignore=shutil.ignore_patterns('__pycache__','.venv','uploads'))
+    (tmp_path/'scripts').mkdir()
+    for name in ('integration_lineage.py', 'integration_lineage_service.py', 'integration_service_auth.py'):
+        shutil.copyfile(ROOT/'scripts'/name, tmp_path/'scripts'/name)
     return tmp_path
 
 
@@ -45,4 +48,17 @@ def test_unreviewed_knowledge_migration_fails(tmp_path):
     root = snapshot(tmp_path)
     (root/'cart_recovery/domain/migrations/002_unreviewed.sql').write_text('CREATE TABLE unreviewed(payload jsonb);')
     with pytest.raises(ValueError,match='knowledge_migration_drift'):
+        privacy.verify(root)
+
+
+@pytest.mark.parametrize("name", [
+    "scripts/integration_lineage.py", "scripts/integration_lineage_service.py",
+    "scripts/integration_service_auth.py", "cart_recovery/lineage_client.py",
+])
+def test_modified_lineage_control_fails_standalone_gate(tmp_path, name):
+    root = snapshot(tmp_path)
+    privacy.verify(root)
+    with (root/name).open("a") as changed:
+        changed.write("\n# modified lineage control\n")
+    with pytest.raises(ValueError, match="c16_source_drift"):
         privacy.verify(root)

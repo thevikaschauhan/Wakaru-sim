@@ -3,53 +3,62 @@
     "engine": {
       "internal/integrationauth/client.go": "3c60b4d96843cccf7a2e493691dc3d633854689df549837c781d1a834569f635",
       "internal/typesafe/lineage.go": "c29e021624695818f2f3abaa1b964d63180fdf593c86a110f031d3f0c36a0d6a",
-      "scripts/integration_lineage_service.py": "8647532a79f12ae6124f5d1fb871eaf914f09a37879aaf865ac37177711bc9c5",
+      "internal/typesafe/lineage_guard.go": "9675c41acda887d39a8c54c1dc6b5e7683b2706e3c581342059989701df05f79",
+      "migrations/093_integration_lineage_native_guard.sql": "193abf688933fa1e8535d98b4895f11429827453c0b916de8659a5174374b9f5",
+      "scripts/integration_lineage_service.py": "535d0e7dedd0005a7cd988f7bfb40c00651b5e3ef566a097aec7d7e583d1bcaa",
       "scripts/integration_service_auth.py": "d671008085b49a1390b129724dc5ae046afd6e49e2eec9e6bd40bd72aa363736"
     },
     "inkwell": {
+      "internal/designquality/semantic.go": "d1f349c14fdd84d3d9fe54a0afdc2609158304b5c7a62433135eb2297bbc810e",
       "internal/integrationauth/client.go": "2a9cd331fffec2f523133801705ee6c166d2f8386029f05478db398013895d8d",
       "internal/typesafe/lineage.go": "3219ee2ce2b937b8532c00ed4b271bb28fca574afcfd9d2e6ee4224c8dc505db",
-      "scripts/integration_lineage_service.py": "8647532a79f12ae6124f5d1fb871eaf914f09a37879aaf865ac37177711bc9c5",
+      "internal/typesafe/lineage_guard.go": "d3cac37d363a3bb28f36c584cda93b7f40e3ced3d7564dd07e1114f37ee71a9b",
+      "migrations/0067_integration_lineage_native_guard.sql": "0f1e55697f357c3407b237b39bd1c85cb8aae5759b9ff2dccc4506cc3b7964f4",
+      "scripts/integration_lineage_service.py": "535d0e7dedd0005a7cd988f7bfb40c00651b5e3ef566a097aec7d7e583d1bcaa",
       "scripts/integration_service_auth.py": "d671008085b49a1390b129724dc5ae046afd6e49e2eec9e6bd40bd72aa363736"
     },
     "wakaru": {
-      "cart_recovery/lineage_client.py": "5213ebd688f238958d33f3bd8105b619c4d470a39082bee591f43109b5f2a985",
-      "scripts/integration_lineage_service.py": "8647532a79f12ae6124f5d1fb871eaf914f09a37879aaf865ac37177711bc9c5",
+      "cart_recovery/lineage_client.py": "f55f7d6af55b3dd66375999d8f78c4d1a72f2e576f36c10d591fef762b8a97f1",
+      "scripts/integration_lineage_service.py": "535d0e7dedd0005a7cd988f7bfb40c00651b5e3ef566a097aec7d7e583d1bcaa",
       "scripts/integration_service_auth.py": "d671008085b49a1390b129724dc5ae046afd6e49e2eec9e6bd40bd72aa363736"
     }
   },
   "replacements": {
     "engine": {
       "internal/typesafe/store.go": {
-        "current": "26c254b0228a0ce0fad896632de6d9c81703b38652f06601b93c3c8465fae170",
+        "current": "26244d3088dd98a4ce700ec51a4a3047870cfd1b950cb2671280f4e5394f7ddc",
         "previous": "3e2609046eed2b65a6a78d297cdd0a4a99eb588bfdb8c2c21f37ac282f32828d"
       },
       "scripts/integration_lineage.py": {
-        "current": "01db0a0559e370c9cbce88df6ace7d360bb8bc074405c40180a93671ce903c01",
+        "current": "18a5a6f45c0f9190b5700f01c05c181d466e95a6b12f2205a0f1cd40a3b131c1",
         "previous": "325b8620be6bbcc49fdb41142ad461767a57aed274a62d3e0fa51d6ebea85eb5"
       }
     },
     "inkwell": {
       "internal/typesafe/store.go": {
-        "current": "98b086c5d3c51c3505cbb555be514cdf612980fdc38ba4e54cbdb2cd08d7d224",
+        "current": "da2fffaccef2cd40b78676bb24db6f72521626dfddb06f996cdea3ae30429bb6",
         "previous": "66b1d900555b5e39033ebfe41ddaef2a510e921c38bd120ccba5df2d0106a908"
       },
       "scripts/integration_lineage.py": {
-        "current": "01db0a0559e370c9cbce88df6ace7d360bb8bc074405c40180a93671ce903c01",
+        "current": "18a5a6f45c0f9190b5700f01c05c181d466e95a6b12f2205a0f1cd40a3b131c1",
         "previous": "325b8620be6bbcc49fdb41142ad461767a57aed274a62d3e0fa51d6ebea85eb5"
       }
     },
     "wakaru": {
+      "cart_recovery/intelligence/maintenance.py": {
+        "current": "80735dedcacf6b64c9706a5dc93be99d4416ec8cef28d11c446ffece3b00504f",
+        "previous": "cfa94769cbc2cce058fa2b58386ca5cb3c5e98cce547705a352c9c1aac653b1f"
+      },
       "cart_recovery/intelligence/recovery.py": {
-        "current": "11ce2c04470c0675732c7d235b39fefbf72652ff841fe1bc54ce7d25c0ca4204",
+        "current": "bc31cf35083b0d8b5e89dee72462be5ed46e6d8d35692bb5044260bac796a88f",
         "previous": "db650457ea5f96cddecce20aea78be472c4efe900d41e93ff96097f4388235cc"
       },
       "cart_recovery/intelligence/typesafe.py": {
-        "current": "127085fd24f031febf564fb9abbabf3a195a89674976846501a2d51cfc152601",
+        "current": "fce5116e7fd4db3effa91a8a5acb98e2ff065c323b433826732a31d93cfffd68",
         "previous": "6dad8d8083d8653eba63544191e79f84b1c088890c36ae7dca336fc44688dc20"
       },
       "scripts/integration_lineage.py": {
-        "current": "01db0a0559e370c9cbce88df6ace7d360bb8bc074405c40180a93671ce903c01",
+        "current": "18a5a6f45c0f9190b5700f01c05c181d466e95a6b12f2205a0f1cd40a3b131c1",
         "previous": "325b8620be6bbcc49fdb41142ad461767a57aed274a62d3e0fa51d6ebea85eb5"
       }
     }

@@ -16,11 +16,13 @@ import unittest
 from uuid import uuid4
 
 import httpx
+from flask import request
 from werkzeug.serving import make_server
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from cart_recovery.buyer_state import direct_insight
+from cart_recovery.intelligence.maintenance import purge_journal
 from cart_recovery.shopify_formatter import ShopifyCartData
 from cart_recovery.intelligence.recovery import PlanJournal, RecoveryWorkflow
 from cart_recovery.intelligence.typesafe import Client, Store, digest as judgment_digest
@@ -94,8 +96,14 @@ class AuthenticatedPaths(unittest.TestCase):
         )
 
     @contextmanager
-    def server(self, bindings):
-        server = make_server("127.0.0.1", 0, self.app(bindings))
+    def server(self, bindings, *, responses=None):
+        app = self.app(bindings)
+        if responses is not None:
+            @app.after_request
+            def record(response):
+                responses.append((request.path, response.status_code, response.get_data()))
+                return response
+        server = make_server("127.0.0.1", 0, app)
         thread = Thread(target=server.serve_forever)
         thread.start()
         try:
@@ -177,12 +185,13 @@ class AuthenticatedPaths(unittest.TestCase):
             )
             with self.assertRaisesRegex(ValueError, "authenticated_plan"):
                 self.journal.load(M, revision)
+            _, plan_binding = client.lookup_plan(M, revision)
             self.op.start(str(uuid4()), "source", SRC)
             for action in (
                 lambda: client.request(M, "raw_output", attempt),
                 lambda: self.store.judge(identity, req),
                 lambda: RecoveryWorkflow(self.store).run(cart, original, M, "enforce"),
-                lambda: client.select(M, revision, {}, {}),
+                lambda: client.select(M, revision, {}, {}, binding=plan_binding),
             ):
                 with self.assertRaises(ValueError):
                     action()
@@ -217,10 +226,59 @@ class AuthenticatedPaths(unittest.TestCase):
             self.assertIsNone(client.load(M, rev))
             value, original = client.lookup_plan(M, rev)
             self.assertIsNone(value)
-        with self.server({key: replace(BINDING, sources=(digest("new-source"),))}) as client:
+        responses = []
+        with self.server({key: replace(BINDING, sources=(digest("new-source"),))},
+                         responses=responses) as client:
             with self.assertRaises(ValueError):
                 client.select(M, rev, {}, {}, binding=original)
             self.assertIsNone(self.db.execute("SELECT 1 FROM recovery_plans").fetchone())
+            _, current = client.lookup_plan(M, rev)
+            selected = client.select(M, rev, {}, {"action": "wait"}, binding=current)
+            self.assertEqual(client.select(M, rev, {}, {"action": "review"}, binding=current), selected)
+            responses.clear()
+            with self.assertRaises(ValueError):
+                client.select(M, rev, {}, {}, binding=original)
+            self.assertEqual([(path, status) for path, status, _ in responses],
+                             [(CAPTURE, 409), (READ, 409)])
+            for _, _, body in responses:
+                self.assertNotIn(b"wait", body)
+                self.assertEqual(json.loads(body), {"error": "lineage_unavailable"})
+
+    def test_legacy_readers_and_cleanup_respect_c15_registrations(self):
+        # Original C15 files have row registrations but no C16 file-wide enrollment.
+        for table in ("raw_outputs", "recovery_plans"):
+            for operation in ("insert", "update"):
+                self.db.execute(f"DROP TRIGGER c16_authenticated_{table}_{operation}")
+        identity = dict(merchant_id=M, workflow="fixture", revision="revision",
+                        snapshot_hash="snapshot", rubric_hash="rubric", policy_version="policy",
+                        candidate_hash="candidate", as_of="2026-01-01")
+        req = self.fixture["request"]
+        stored = self.store.judge(identity, req)
+        attempt = stored["result"]["attempts"][0]["id"]
+        expired = time.time() - 8 * 86400
+        self.db.execute("UPDATE raw_outputs SET created=?", (expired,))
+        self.op.adopt("raw_output", attempt, "cart_id", A, [SRC], P)
+        for merchant in (M, str(uuid4())):
+            self.db.execute("INSERT INTO recovery_plans VALUES(?,?,?,?)", (merchant, "rev", "[{},{}]", expired))
+        self.op.adopt("plan", "rev", "cart_id", A, [SRC], P)
+        erasure = str(uuid4())
+        self.op.start(erasure, "source", SRC)
+        with self.assertRaisesRegex(ValueError, "authenticated_raw"):
+            self.store.judge(identity, req)
+        with self.assertRaisesRegex(ValueError, "authenticated_plan"):
+            self.journal.load(M, "rev")
+        with self.assertRaisesRegex(ValueError, "lineage_operator"):
+            self.store.delete_tenant(M)
+        self.assertEqual(self.calls, 1)
+        self.assertIsNone(self.journal.load(M, "unrelated"))
+        self.db.execute("UPDATE attempts SET started=?", (time.time() - 91 * 86400,))
+        with self.assertLogs("typesafe.retention", level="WARNING") as logs:
+            self.assertEqual(purge_journal(self.path), 3)
+        self.assertIn("deferred", " ".join(logs.output))
+        self.assertEqual(self.db.execute("SELECT merchant FROM recovery_plans").fetchall(), [(M,)])
+        self.assertEqual(self.db.execute("SELECT id FROM attempts").fetchall(), [(attempt,)])
+        self.assertTrue(self.op.drain(erasure)["registered_scope_complete"])
+        self.assertEqual(self.op.receipt(erasure)["erased"], 2)
 
     def test_rejected_answers_stay_out_of_judgment_history_and_return(self):
         identity = dict(merchant_id=M, workflow="fixture", revision="revision",
