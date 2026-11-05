@@ -13,6 +13,7 @@ import time
 
 from .typesafe import configured_store, digest
 from .operations import control
+from .maintenance import has_lineage_ledger, purge_unregistered
 from ..buyer_state import direct_insight
 
 VERSION = "buyer_intelligence_v1"
@@ -181,13 +182,23 @@ class PlanJournal:
                 "CREATE TABLE IF NOT EXISTS recovery_plans(merchant TEXT NOT NULL, revision TEXT NOT NULL, payload TEXT NOT NULL, created REAL NOT NULL, PRIMARY KEY(merchant,revision))"
             )
 
+    @staticmethod
+    def require_legacy_access(db, merchant, revision):
+        # A legacy process sharing this file must not serve an adopted plan.
+        if db.execute("SELECT 1 FROM main.sqlite_master WHERE type='trigger' AND name='c16_authenticated_recovery_plans_insert'").fetchone():
+            raise ValueError("authenticated_plan_access_required")
+        if has_lineage_ledger(db) and db.execute(
+            "SELECT 1 FROM main.integration_lineage_resources WHERE merchant=? AND kind='plan' AND key=?",
+            (merchant, revision),
+        ).fetchone():
+            raise ValueError("authenticated_plan_access_required")
+
     def load(self, merchant, revision):
         """Expire plans globally, then read only the requested tenant revision."""
         with sqlite3.connect(self.path, timeout=1) as db:
-            db.execute(
-                "DELETE FROM recovery_plans WHERE created<?",
-                (time.time() - 7 * 86400,),
-            )
+            db.execute("BEGIN IMMEDIATE")
+            self.require_legacy_access(db, merchant, revision)
+            purge_unregistered(db, "recovery_plans", "created<?", (time.time() - 7 * 86400,))
             row = db.execute(
                 "SELECT payload FROM recovery_plans WHERE merchant=? AND revision=?",
                 (merchant, revision),
@@ -196,6 +207,8 @@ class PlanJournal:
 
     def select(self, merchant, revision, intelligence, plan):
         with sqlite3.connect(self.path, timeout=1) as db:
+            db.execute("BEGIN IMMEDIATE")
+            self.require_legacy_access(db, merchant, revision)
             db.execute(
                 "INSERT OR IGNORE INTO recovery_plans VALUES(?,?,?,?)",
                 (
@@ -286,16 +299,23 @@ class RecoveryWorkflow:
             + ([cart.conversion_model_id] if cart.conversion_model_id else [])
         )
         plan.update(plan_id=revision, revision=revision)
-        journal = (
-            PlanJournal(self.store.path)
-            if self.store and hasattr(self.store, "path")
-            else None
-        )
+        lineage = getattr(self.store, "lineage", None)
+        journal = lineage
+        if journal is None:
+            journal = (
+                PlanJournal(self.store.path)
+                if self.store and hasattr(self.store, "path")
+                else None
+            )
         if blocked:
             plan["reason_codes"] = ["prelaunch_workflow_held"]
             return replace(returned, buyer_intelligence=intelligence, recovery_plan=plan)
+        plan_binding = None
         if journal:
-            saved = journal.load(merchant, revision)
+            if lineage is not None:
+                saved, plan_binding = lineage.lookup_plan(merchant, revision)
+            else:
+                saved = journal.load(merchant, revision)
             if saved:
                 if mode == "observe" and original.buyer_state is None:
                     return original
@@ -325,11 +345,13 @@ class RecoveryWorkflow:
                 intelligence["conversion_estimate"] = estimate_snapshot(
                     cart.conversion_model_id, state, intelligence
                 )
-            selected = (
-                journal.select(merchant, revision, intelligence, plan)
-                if journal
-                else [intelligence, plan]
-            )
+            if lineage is not None:
+                selected = lineage.select(merchant, revision, intelligence, plan,
+                                          binding=plan_binding)
+            elif journal:
+                selected = journal.select(merchant, revision, intelligence, plan)
+            else:
+                selected = [intelligence, plan]
             if mode == "observe" and original.buyer_state is None:
                 return original
             return replace(

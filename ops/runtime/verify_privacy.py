@@ -47,7 +47,31 @@ def verify(root=ROOT):
         families[f['id']] = f
     if any(row['family'] not in families for row in value['writers'].values()):
         raise ValueError('unclassified_writer')
-    if writers(root) != {p:r['sha256'] for p,r in value['writers'].items()}:
+    reviewed = {p:r['sha256'] for p,r in value['writers'].items()}
+    c16 = json.loads((root/'contracts/integrations/c16/source-revisions.json').read_text())
+    if (c16['version'] != 'integration_lineage_sources_c16_v1'
+            or c16['runtime_enabled'] is not False or c16['whole_application_erasure_complete'] is not False):
+        raise ValueError('c16_scope')
+    replacements = c16['replacements']['wakaru']
+    native = {'cart_recovery/intelligence/recovery.py', 'cart_recovery/intelligence/typesafe.py',
+              'cart_recovery/intelligence/maintenance.py'}
+    if set(replacements) != native | {'scripts/integration_lineage.py'}:
+        raise ValueError('c16_writer_scope')
+    controls = c16['controls']['wakaru']
+    if set(controls) != {'cart_recovery/lineage_client.py', 'scripts/integration_lineage_service.py',
+                         'scripts/integration_service_auth.py'}:
+        raise ValueError('c16_control_scope')
+    for name, expected in controls.items():
+        if digest(root/name) != expected:
+            raise ValueError('c16_source_drift:' + name)
+    for name, revision in replacements.items():
+        if set(revision) != {'previous', 'current'} or digest(root/name) != revision['current']:
+            raise ValueError('c16_source_drift:' + name)
+    for name in native:
+        if reviewed[name] != replacements[name]['previous']:
+            raise ValueError('c16_previous_writer_drift')
+        reviewed[name] = replacements[name]['current']
+    if writers(root) != reviewed:
         raise ValueError('writer_inventory_drift')
     migrations = {str(p.relative_to(root)):digest(p) for p in (root/'cart_recovery/adaptive/migrations').glob('*.sql')}
     if migrations != value['adaptive_migrations']:

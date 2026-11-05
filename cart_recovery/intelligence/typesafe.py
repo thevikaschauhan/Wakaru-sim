@@ -20,6 +20,7 @@ from pathlib import Path
 import httpx
 from .operations import control
 from .telemetry import observe_judgment
+from .maintenance import has_lineage_ledger
 
 ENDPOINT = "https://openrouter.ai/api/alpha/decisions"
 ADAPTER_VERSION = "openrouter-v1"
@@ -196,7 +197,8 @@ class Store:
     A 10-second lease outlives the 3-second provider deadline. Crash recovery can
     repeat inference after lease expiry; it cannot overwrite a selected judgment.
     """
-    def __init__(self, path, client, environment="development", tenant_cap=1, environment_cap=10):
+    def __init__(self, path, client, environment="development", tenant_cap=1, environment_cap=10, *, lineage=None):
+        self.lineage = lineage
         self.path, self.client = str(path), client
         self.environment, self.tenant_cap, self.environment_cap = environment, tenant_cap, environment_cap
         Path(path).parent.mkdir(parents=True, exist_ok=True)
@@ -231,16 +233,49 @@ class Store:
             if controls["model"] != self.client.model or sorted(controls["approved_models"]) != sorted(self.client.approved):
                 raise ValueError("prelaunch_model_mismatch")
             identity = {**identity, "policy_version": identity["policy_version"] + ":" + deployment}
-        self.purge()
         request = {**request, "model": self.client.model}
         rh = digest(request)
         key = digest([identity[k] for k in required if k != "as_of"]+[rh, self.client.binding])
         merchant, owner = identity["merchant_id"], str(uuid.uuid4())
+        binding = None
+        if self.lineage is not None:
+            binding = self.lineage.request(merchant, "raw_output", key, admit=True)
+
+        def authorize_selection(judgment):
+            if self.lineage is not None:
+                attempt = judgment["result"]["attempts"][-1]["id"]
+                if not isinstance(attempt, str) or not attempt:
+                    raise ValueError("selected_attempt_required")
+                self.lineage.request(merchant, "raw_output", key, admit=True,
+                                     binding=binding, attempt_id=attempt)
+
+        def require_legacy_access(db):
+            if self.lineage is not None:
+                return
+            enrolled = db.execute(
+                "SELECT 1 FROM main.sqlite_master WHERE type='trigger' AND name='c16_authenticated_raw_outputs_insert'"
+            ).fetchone()
+            if enrolled or (has_lineage_ledger(db) and db.execute(
+                """SELECT 1 FROM main.integration_lineage_resources r
+                   LEFT JOIN main.attempts a ON a.id=r.key AND a.merchant=r.merchant
+                   WHERE r.kind='raw_output' AND r.merchant=? AND (a.request_key=? OR a.id IS NULL) LIMIT 1""",
+                (merchant, key),
+            ).fetchone()):
+                raise ValueError("authenticated_raw_access_required")
+
+        if self.lineage is None:
+            with self.connection() as db:
+                require_legacy_access(db)
+        self.purge()
         with self.connection() as db:
+            db.execute("BEGIN IMMEDIATE")
+            require_legacy_access(db)
             saved = db.execute("SELECT judgment FROM selected WHERE merchant=? AND request_key=?", (merchant,key)).fetchone()
             if saved:
-                return {**json.loads(saved[0]), "cache_hit": True}
-            db.execute("BEGIN IMMEDIATE")
+                db.execute("COMMIT")
+                judgment = json.loads(saved[0])
+                authorize_selection(judgment)
+                return {**judgment, "cache_hit": True}
             db.execute("DELETE FROM leases WHERE expires<?", (time.time(),))
             try:
                 db.execute("INSERT INTO leases VALUES(?,?,?)", (merchant,owner,time.time()+10))
@@ -249,8 +284,11 @@ class Store:
                 db.execute("ROLLBACK")
                 raise RuntimeError("tenant_backpressure") from None
         def before(attempt):
+            if self.lineage is not None:
+                self.lineage.request(merchant, "raw_output", key, admit=True, binding=binding)
             with self.connection() as db:
                 db.execute("BEGIN IMMEDIATE")
+                require_legacy_access(db)
                 day = time.strftime("%Y-%m-%d",time.gmtime())
                 for budget,cap in [(self.environment+":all",(controls["daily_environment_usd"] if controls else self.environment_cap)),(self.environment+":tenant:"+merchant,(controls["daily_merchant_usd"] if controls else self.tenant_cap)),(self.environment+":draft:"+merchant+":"+identity["workflow"]+":"+identity.get("episode_id", ""),.005)]:
                     row=db.execute("SELECT spent FROM budgets WHERE key=? AND day=?",(budget,day)).fetchone()
@@ -263,7 +301,7 @@ class Store:
         def finish(attempt):
             with self.connection() as db:
                 db.execute("BEGIN IMMEDIATE")
-                if attempt.get("_raw_response"):
+                if attempt.get("_raw_response") and self.lineage is None:
                     db.execute("INSERT INTO raw_outputs VALUES(?,?,?,?)",(attempt["id"],merchant,attempt["_raw_response"],time.time()))
                 metadata={k:v for k,v in attempt.items() if k!="_raw_response"}
                 db.execute("INSERT INTO results VALUES(?,?,?)",(attempt["id"],merchant,json.dumps(metadata)))
@@ -271,6 +309,8 @@ class Store:
                     for key in [self.environment+":all",self.environment+":tenant:"+merchant,self.environment+":draft:"+merchant+":"+identity["workflow"]+":"+identity.get("episode_id","")]:
                         db.execute("UPDATE budgets SET spent=spent+? WHERE key=? AND day=?",(attempt["cost"]-RESERVATION,key,time.strftime("%Y-%m-%d",time.gmtime())))
                 db.execute("COMMIT")
+            if attempt.get("_raw_response") and self.lineage is not None:
+                self.lineage.request(merchant, "raw_output", attempt["id"], attempt["_raw_response"], binding=binding)
         try:
             result=self.client.evaluate(request,before,finish)
             try:
@@ -281,13 +321,22 @@ class Store:
                 result.update(status="unavailable", error_class="deployment_changed")
             if any(a["cost"] is not None and a["cost"]>RESERVATION for a in result["attempts"]):
                 result.update(status="unresolved",error_class="cost_reservation_exceeded")
+            if self.lineage is not None and result["status"] != "evaluated":
+                # Rejected answers remain accessible only as an authorized raw output.
+                result.pop("response", None)
             judgment={"schema_version":"intelligence_v1","judgment_id":key,"identity":identity,"request_hash":rh,"model_binding":self.client.binding,"adapter_version":ADAPTER_VERSION,"provider":"openrouter","requested_model":self.client.model,"result":result,"cache_hit":False}
+            if result["status"] == "evaluated":
+                authorize_selection(judgment)
             with self.connection() as db:
                 db.execute("INSERT INTO judgments VALUES(?,?,?,?,?)",(str(uuid.uuid4()),merchant,key,json.dumps(judgment),time.time()))
             if result["status"]=="evaluated":
                 with self.connection() as db:
+                    db.execute("BEGIN IMMEDIATE")
+                    require_legacy_access(db)
                     db.execute("INSERT OR IGNORE INTO selected VALUES(?,?,?)",(merchant,key,json.dumps(judgment)))
                     judgment=json.loads(db.execute("SELECT judgment FROM selected WHERE merchant=? AND request_key=?",(merchant,key)).fetchone()[0])
+                    db.execute("COMMIT")
+                authorize_selection(judgment)
             return judgment
         finally:
             with self.connection() as db:
@@ -296,6 +345,10 @@ class Store:
     def delete_tenant(self, merchant):
         with self.connection() as db:
             db.execute("BEGIN IMMEDIATE")
+            if has_lineage_ledger(db) and db.execute(
+                "SELECT 1 FROM main.integration_lineage_resources WHERE merchant=? LIMIT 1", (merchant,)
+            ).fetchone():
+                raise ValueError("lineage_operator_required")
             for table in ("raw_outputs","selected","attempts","results","leases","judgments"):
                 db.execute(f"DELETE FROM {table} WHERE merchant=?", (merchant,))
             if db.execute("SELECT 1 FROM sqlite_master WHERE name='recovery_plans'").fetchone():
