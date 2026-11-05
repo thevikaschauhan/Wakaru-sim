@@ -1,6 +1,7 @@
 """C16 synthetic signed HTTP through the actual SQLite producer and plan cache."""
 
 from contextlib import contextmanager
+from dataclasses import replace
 import hashlib
 import hmac
 import json
@@ -135,6 +136,7 @@ class AuthenticatedPaths(unittest.TestCase):
         bindings = {
             (*SCOPE, "plan", revision): BINDING,
             (*SCOPE, "raw_output", key): BINDING,
+            (*SCOPE, "raw_output", "other-request"): BINDING,
         }
         with self.server(bindings) as client:
             self.store.lineage = client
@@ -142,7 +144,21 @@ class AuthenticatedPaths(unittest.TestCase):
             attempt = result["result"]["attempts"][0]["id"]
             raw = client.request(M, "raw_output", attempt)
             self.assertEqual(json.loads(raw), self.fixture["response"])
-            client.request(M, "raw_output", attempt, raw)
+            admission = client.request(M, "raw_output", key, admit=True)
+            client.request(M, "raw_output", attempt, raw, binding=admission)
+            with self.assertRaises(ValueError):
+                client.request(M, "raw_output", "other-request", admit=True,
+                               attempt_id=attempt)
+            # A protected selection predating C16 cannot use bare enrollment to
+            # stand in for its absent frozen attempt. Restore the genuine fixture
+            # afterward to exercise cache replay following source withdrawal.
+            saved, = self.db.execute("SELECT judgment FROM selected").fetchone()
+            historical = json.loads(saved)
+            historical["result"]["attempts"][-1]["id"] = str(uuid4())
+            self.db.execute("UPDATE selected SET judgment=?", (json.dumps(historical),))
+            with self.assertRaises(ValueError):
+                self.store.judge(identity, req)
+            self.db.execute("UPDATE selected SET judgment=?", (saved,))
             self.assertIsNone(client.load(M, revision))
             with self.assertRaisesRegex(ValueError, "authenticated_plan"):
                 self.journal.select(M, revision, {}, {})
@@ -171,6 +187,71 @@ class AuthenticatedPaths(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     action()
             self.assertEqual(self.calls, 1)
+        # Restart with the same request key rebound to another reviewed source.
+        # Raw reads AND the native selected cache must honor the original stop.
+        replacement = replace(BINDING, sources=(digest("other-source"),))
+        with self.server({(*SCOPE, "raw_output", key): replacement}) as client:
+            self.store.lineage = client
+            current = client.request(M, "raw_output", key, admit=True)
+            self.assertNotEqual(current, admission)
+            with self.assertRaises(ValueError):
+                client.request(M, "raw_output", attempt)
+            with self.assertRaises(ValueError):
+                self.store.judge(identity, req)
+            self.assertEqual(self.calls, 1)
+            with self.assertRaises(ValueError):
+                client.request(M, "raw_output", key, admit=True, binding=admission)
+            # A delayed response for a distinct, previously admitted attempt must
+            # not register a raw body against the replacement source.
+            late = str(uuid4())
+            self.db.execute("INSERT INTO attempts VALUES(?,?,?,?,?)",
+                            (late, M, key, time.time(), 0))
+            with self.assertRaises(ValueError):
+                client.request(M, "raw_output", late, raw, binding=admission)
+            self.assertIsNone(self.db.execute("SELECT 1 FROM raw_outputs WHERE id=?", (late,)).fetchone())
+
+    def test_plan_miss_cannot_capture_after_rebinding(self):
+        rev = "plan-revision"
+        key = (*SCOPE, "plan", rev)
+        with self.server({key: BINDING}) as client:
+            self.assertIsNone(client.load(M, rev))
+            value, original = client.lookup_plan(M, rev)
+            self.assertIsNone(value)
+        with self.server({key: replace(BINDING, sources=(digest("new-source"),))}) as client:
+            with self.assertRaises(ValueError):
+                client.select(M, rev, {}, {}, binding=original)
+            self.assertIsNone(self.db.execute("SELECT 1 FROM recovery_plans").fetchone())
+
+    def test_rejected_answers_stay_out_of_judgment_history_and_return(self):
+        identity = dict(merchant_id=M, workflow="fixture", revision="revision",
+                        snapshot_hash="snapshot", rubric_hash="rubric",
+                        policy_version="policy", candidate_hash="candidate",
+                        as_of="2026-01-01")
+        req = self.fixture["request"]
+        key = judgment_digest(
+            [v for k, v in identity.items() if k != "as_of"]
+            + [judgment_digest({**req, "model": self.store.client.model}), self.store.client.binding]
+        )
+        approved_model = self.fixture["response"]["model"]
+        with self.server({(*SCOPE, "raw_output", key): BINDING}) as client:
+            self.store.lineage = client
+            for model, cost, reason in [
+                ("unapproved", 0.00001, "unapproved_model"),
+                (approved_model, 0.01, "cost_reservation_exceeded"),
+            ]:
+                self.fixture["response"].update(model=model, usage={"cost": cost})
+                result = self.store.judge(identity, req)["result"]
+                self.assertEqual((result["status"], result["error_class"]), ("unresolved", reason))
+                self.assertNotIn("response", result)
+                attempt, = result["attempts"]
+                self.assertEqual(attempt["cost"], cost)
+                stored = json.loads(self.db.execute(
+                    "SELECT record FROM judgments ORDER BY rowid DESC LIMIT 1"
+                ).fetchone()[0])
+                self.assertNotIn("response", stored["result"])
+                raw = json.loads(client.request(M, "raw_output", attempt["id"]))
+                self.assertEqual(raw["answers"], self.fixture["response"]["answers"])
+            self.assertEqual(self.db.execute("SELECT count(*) FROM selected").fetchone(), (0,))
 
     def test_ambiguous_store_and_shared_credentials_rejected_before_open(self):
         second = dict(
@@ -224,7 +305,9 @@ class AuthenticatedPaths(unittest.TestCase):
                 },
             )
 
-        value = dict(merchant_id=M, kind="plan", key="rev", body="private")
+        read = dict(merchant_id=M, kind="plan", key="rev")
+        admission = call(READ, read, grant=reader).json["binding"]
+        value = dict(read, body="private", binding=admission)
         for kwargs in (
             dict(grant=reader),
             dict(stamp=int(time.time()) - 31),
@@ -256,25 +339,21 @@ class AuthenticatedPaths(unittest.TestCase):
         self.assertEqual(call(CAPTURE, value).json, {"stored": True})
         self.assertEqual(call(CAPTURE, dict(value, body="changed")).status_code, 409)
         self.assertEqual(
-            call(
-                READ, {k: v for k, v in value.items() if k != "body"}, grant=reader
-            ).json,
-            {"body": "private"},
+            call(READ, read, grant=reader).json, {"body": "private", "binding": admission},
         )
         # A damaged retained source edge must not let an authorized reader expose the body.
         self.db.execute("UPDATE integration_lineage_sources SET store='18'")
-        read_value = {k: v for k, v in value.items() if k != "body"}
-        self.assertEqual(call(READ, read_value, grant=reader).status_code, 409)
+        self.assertEqual(call(READ, read, grant=reader).status_code, 409)
         self.db.execute("UPDATE integration_lineage_sources SET store='17'")
         request_id = str(uuid4())
         self.op.start(request_id, "subject", S)
-        held = call(READ, {k: v for k, v in value.items() if k != "body"}, grant=reader)
+        held = call(READ, read, grant=reader)
         self.assertEqual(held.status_code, 409)
         self.assertNotIn(b"private", held.data)
         self.assertEqual(held.headers["Cache-Control"], "no-store")
         self.assertTrue(self.op.drain(request_id)["registered_scope_complete"])
         self.assertEqual(call(CAPTURE, value).status_code, 409)
-        self.assertEqual(call(READ, read_value, grant=reader).status_code, 409)
+        self.assertEqual(call(READ, read, grant=reader).status_code, 409)
         self.assertEqual(
             self.db.execute("SELECT count(*) FROM recovery_plans").fetchone(), (0,)
         )

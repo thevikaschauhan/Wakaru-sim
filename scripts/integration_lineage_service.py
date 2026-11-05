@@ -111,7 +111,15 @@ def reviewed_binding(op, bindings, kind, revision):
     return binding
 
 
-def access(op, bindings, kind, key, body):
+def binding_digest(op, kind, revision, binding):
+    return digest([
+        "integration_lineage_admission_v1", op.service, op.m, op.s, kind, revision,
+        binding.alias_kind, binding.alias_ref, binding.subject, binding.alias_proof,
+        binding.sources, binding.proof,
+    ])
+
+
+def access(op, bindings, kind, key, body, *, admitted=None, selected_revision=None):
     """None requests a read. Only an approved, never-written plan can miss."""
     with op.tx():
         check_adapter(op, kind)
@@ -128,7 +136,12 @@ def access(op, bindings, kind, key, body):
             if not parent:
                 raise ValueError("owned_attempt_required")
             revision = parent[0]
+            if selected_revision is not None and revision != selected_revision:
+                raise ValueError("selected_attempt_mismatch")
         binding = reviewed_binding(op, bindings, kind, revision)
+        current = binding_digest(op, kind, revision, binding)
+        if admitted is not None and current != admitted:
+            raise ValueError("binding_changed")
         registered = op.q(
             "SELECT store,lineage FROM integration_lineage_resources WHERE merchant=? AND kind=? AND key=?",
             (op.m, kind, key),
@@ -168,13 +181,13 @@ def access(op, bindings, kind, key, body):
                 ).fetchone()
             if not fresh:
                 raise ValueError("expired_payload")
-            return existing
+            return existing, current
         if op.payload(kind, key, lock=True) is not None:
             raise ValueError("unregistered_legacy_payload")
         if body is None:
             if kind != "plan":
                 raise ValueError("registered_record_required")
-            return None
+            return None, current
         if kind == "plan":
             op.q(
                 "INSERT INTO main.recovery_plans(merchant,revision,payload,created) VALUES(?,?,?,?)",
@@ -198,7 +211,7 @@ def access(op, bindings, kind, key, body):
             list(binding.sources),
             binding.proof,
         )
-        return None
+        return None, current
 
 
 def create_lineage_app(
@@ -258,7 +271,11 @@ def create_lineage_app(
         capture = request.path == CAPTURE
         try:
             data = json.loads(raw, object_pairs_hook=unique_object)
-            fields = {"merchant_id", "kind", "key"} | ({"body"} if capture else set())
+            fields = {"merchant_id", "kind", "key"}
+            if capture:
+                fields.update(("body", "binding"))
+            elif request.path == ADMIT and isinstance(data, dict):
+                fields.update({"attempt_id", "binding"}.intersection(data))
             if (
                 not isinstance(data, dict)
                 or set(data) != fields
@@ -266,6 +283,8 @@ def create_lineage_app(
             ):
                 raise ValueError()
             kind, key = data["kind"], resource_key(data["key"])
+            admitted = token(data["binding"]) if "binding" in data else None
+            attempt = resource_key(data["attempt_id"]) if "attempt_id" in data else None
             if kind not in ("raw_output", "plan") or (
                 capture and not isinstance(data["body"], str)
             ):
@@ -288,12 +307,26 @@ def create_lineage_app(
                 if request.path == ADMIT:
                     if kind != "raw_output":
                         raise ValueError("unsupported_admission")
+                    if attempt is not None:
+                        # Validate the actual winner's retained membership. An updated
+                        # enrollment alone cannot authorize a historical selection.
+                        access(op, bindings, kind, attempt, None,
+                               admitted=admitted, selected_revision=key)
+                        return jsonify(admitted=True)
                     with op.tx():
                         check_adapter(op, kind)
-                        reviewed_binding(op, bindings, kind, key)
-                    return jsonify(admitted=True)
-                result = access(op, bindings, kind, key, data.get("body"))
-            return jsonify(stored=True) if capture else jsonify(body=result)
+                        binding = reviewed_binding(op, bindings, kind, key)
+                        current = binding_digest(op, kind, key, binding)
+                        if admitted is not None and current != admitted:
+                            raise ValueError("binding_changed")
+                    return jsonify(admitted=True, binding=current)
+                result, current = access(op, bindings, kind, key, data.get("body"),
+                                         admitted=admitted)
+            if capture:
+                return jsonify(stored=True)
+            if kind == "plan":
+                return jsonify(body=result, binding=current)
+            return jsonify(body=result)
         except ValueError:
             return jsonify(error="lineage_unavailable"), 409
         except Exception:

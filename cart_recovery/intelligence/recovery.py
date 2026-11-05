@@ -302,7 +302,8 @@ class RecoveryWorkflow:
             + ([cart.conversion_model_id] if cart.conversion_model_id else [])
         )
         plan.update(plan_id=revision, revision=revision)
-        journal = getattr(self.store, "lineage", None)
+        lineage = getattr(self.store, "lineage", None)
+        journal = lineage
         if journal is None:
             journal = (
                 PlanJournal(self.store.path)
@@ -312,8 +313,12 @@ class RecoveryWorkflow:
         if blocked:
             plan["reason_codes"] = ["prelaunch_workflow_held"]
             return replace(returned, buyer_intelligence=intelligence, recovery_plan=plan)
+        plan_binding = None
         if journal:
-            saved = journal.load(merchant, revision)
+            if lineage is not None:
+                saved, plan_binding = lineage.lookup_plan(merchant, revision)
+            else:
+                saved = journal.load(merchant, revision)
             if saved:
                 if mode == "observe" and original.buyer_state is None:
                     return original
@@ -343,11 +348,13 @@ class RecoveryWorkflow:
                 intelligence["conversion_estimate"] = estimate_snapshot(
                     cart.conversion_model_id, state, intelligence
                 )
-            selected = (
-                journal.select(merchant, revision, intelligence, plan)
-                if journal
-                else [intelligence, plan]
-            )
+            if lineage is not None:
+                selected = lineage.select(merchant, revision, intelligence, plan,
+                                          binding=plan_binding)
+            elif journal:
+                selected = journal.select(merchant, revision, intelligence, plan)
+            else:
+                selected = [intelligence, plan]
             if mode == "observe" and original.buyer_state is None:
                 return original
             return replace(

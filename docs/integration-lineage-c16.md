@@ -6,11 +6,11 @@ C16 connects native TypeSafe output persistence in Engine, Inkwell and Wakaru to
 
 The service uses the C11 HMAC protocol. A key binds one service audience, merchant, store and list of exact POST operations. Signatures cover the path and exact body bytes and expire after 30 seconds. Clients accept only an explicitly supplied IPv4 loopback origin. Each operation requires a valid grant and independent server-side attribution. A request cannot specify a store, alias, subject, source list, proof, address or database.
 
-The server indexes a reviewed binding by merchant, store, object kind and native request key or plan revision. It checks the prebound C15 alias, canonical subject, alias proof and current stops. Each binding supplies an exact sorted set of source revisions and the provenance proof for adoption. The operator must enroll new revisions explicitly.
+The server indexes a reviewed binding by merchant, store, object kind and native request key or plan revision. It checks the prebound C15 alias, canonical subject, alias proof and current stops. Each binding supplies an exact sorted set of source revisions and the provenance proof for adoption. The operator must enroll new revisions explicitly. Admission returns a digest of this binding. A native producer carries that digest through the attempt. Plan selection carries the digest from its cache lookup through capture. Reconfiguration during either operation causes the receiver to reject the old digest.
 
 | Private operation under /internal/integrations/lineage | Key | Behavior |
 | --- | --- | --- |
-| admit | Native judgment request key | Check the installed guard, binding and current stops before reservation or replay of a selected judgment. |
+| admit | Native judgment request key | Check the guard, binding and stops before reservation. Returning a selected judgment also requires its winning attempt ID, registered payload and intact attribution. |
 | capture | Existing attempt ID or reviewed plan revision | Lock the merchant, verify the attempt owner and request key for raw output, write a new payload and register its C15 lineage in one transaction. |
 | read | Same object key | Reauthorize, recheck the frozen membership, body hash, retention window and current stops on every read. |
 
@@ -18,7 +18,7 @@ Capture retries with the same body and provenance succeed. Conflicts, unregister
 
 ## Stops, retries and history
 
-Admission runs on every native attempt. Capture repeats the checks when a response arrives. A stop between these operations prevents payload persistence and selection. The native attempt, result and reservation accounting commit independently of capture. A failed capture never falls back to direct SQL or filesystem writes. Signed reads expose only current registered payloads in a reviewed scope. C15 remains the authority for operator adoption, stops, draining and restore. The registered-record receipt keeps its existing meaning.
+Admission runs on every native attempt. Capture repeats the checks when a response arrives. A stop between these operations prevents payload persistence and selection. The native attempt, result and reservation accounting commit independently of capture. A failed capture never falls back to direct SQL or filesystem writes. Signed reads expose only current registered payloads in a reviewed scope. A cache hit must pass the same frozen attribution, integrity and retention checks for the winning attempt. First capture trusts the authenticated native producer for the submitted bytes and the originating attempt. A compromised producer that holds admission and capture grants is outside this boundary. C15 remains the authority for operator adoption, stops, draining and restore. Before freezing a census or returning a receipt, C15 verifies the registered attributions in the store against their fingerprints, then selects the matching subject or source. Damaged attribution leaves the privacy stop active. A historical receipt whose members omit a matching registration fails validation.
 
 The PostgreSQL rehearsal uses separate native, capture and operator roles. The native role can maintain the journal but cannot read or insert raw body content. The capture role can register resources and sources but cannot change aliases, stops, privacy requests or spending. Row-lock privileges on the attempt and raw output are scoped to columns. Only disposable databases are granted these roles.
 

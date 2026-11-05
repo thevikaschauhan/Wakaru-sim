@@ -6,6 +6,7 @@ The receipt covers registered rows only, never a whole customer or application.
 """
 
 from contextlib import contextmanager
+from itertools import groupby
 import hashlib
 import json
 import re
@@ -332,31 +333,39 @@ class Lineage:
                 (self.m, self.s, kind, key, source),
             )
 
-    def census(self, keys):
-        """Validate retained attribution before hashing a fixed member set."""
-        members = []
-        for kind, key in keys:
-            row = self.q(
-                "SELECT subject,proof,image,alias_kind,alias_ref,lineage FROM integration_lineage_resources WHERE merchant=? AND store=? AND kind=? AND key=?",
-                (self.m, self.s, kind, key),
-            ).fetchone()
-            if row is None:
-                raise ValueError("retained_lineage_required")
-            subject, proof, image, alias_kind, alias_ref, frozen = row
-            alias = self.q(
-                "SELECT subject,proof FROM integration_lineage_aliases WHERE merchant=? AND store=? AND kind=? AND ref=?",
-                (self.m, self.s, alias_kind, alias_ref),
-            ).fetchone()
-            sources = [
-                r[0]
-                for r in self.q(
-                    "SELECT source FROM integration_lineage_sources WHERE merchant=? AND store=? AND kind=? AND key=? ORDER BY source",
-                    (self.m, self.s, kind, key),
-                ).fetchall()
-            ]
+    def _verified_attributions(self, resource=None):
+        """Validate frozen registrations before using their mutable lookup fields."""
+        sql = """
+            SELECT r.kind,r.key,r.subject,r.proof,r.image,r.alias_kind,r.alias_ref,
+                   r.lineage,a.subject,a.proof,s.source
+            FROM integration_lineage_resources r
+            LEFT JOIN integration_lineage_aliases a
+              ON a.merchant=r.merchant AND a.store=r.store AND a.kind=r.alias_kind AND a.ref=r.alias_ref
+            LEFT JOIN integration_lineage_sources s
+              ON s.merchant=r.merchant AND s.store=r.store AND s.kind=r.kind AND s.key=r.key
+            WHERE r.merchant=? AND r.store=?
+        """
+        params = (self.m, self.s)
+        if resource is not None:
+            sql += " AND r.kind=? AND r.key=?"
+            params += tuple(resource)
+        rows = self.q(sql + " ORDER BY r.kind,r.key,s.source", params)
+        for attribution, group in groupby(rows, key=lambda row: tuple(row[:-1])):
+            (
+                kind,
+                key,
+                subject,
+                proof,
+                image,
+                alias_kind,
+                alias_ref,
+                frozen,
+                alias_subject,
+                alias_proof,
+            ) = attribution
+            sources = [row[-1] for row in group if row[-1] is not None]
             if (
-                alias is None
-                or alias[0] != subject
+                alias_subject != subject
                 or not 1 <= len(sources) <= 64
                 or frozen
                 != fingerprint(
@@ -368,13 +377,40 @@ class Lineage:
                     image,
                     alias_kind,
                     alias_ref,
-                    alias[1],
+                    alias_proof,
                     sources,
                 )
             ):
                 raise ValueError("retained_lineage_required")
-            members.append([kind, key, frozen])
+            yield (kind, key, frozen), subject, sources
+
+    def census(self, keys):
+        members = []
+        for resource in keys:
+            attribution = next(self._verified_attributions(resource), None)
+            if attribution is None:
+                raise ValueError("retained_lineage_required")
+            members.append(attribution[0])
         return digest(members)
+
+    def _scope_members(self, target, ref):
+        orphan = self.q(
+            """
+            SELECT 1 FROM integration_lineage_sources s
+            WHERE s.merchant=? AND s.store=? AND NOT EXISTS (
+                SELECT 1 FROM integration_lineage_resources r WHERE r.merchant=s.merchant
+                AND r.store=s.store AND r.kind=s.kind AND r.key=s.key
+            ) LIMIT 1
+        """,
+            (self.m, self.s),
+        ).fetchone()
+        if orphan:
+            raise ValueError("retained_lineage_required")
+        return [
+            member
+            for member, subject, sources in self._verified_attributions()
+            if (subject == ref if target == "subject" else ref in sources)
+        ]
 
     def validate_request(self, request_id):
         row = self.q(
@@ -410,7 +446,10 @@ class Lineage:
             "SELECT kind,key FROM integration_lineage_members WHERE merchant=? AND store=? AND request=? ORDER BY kind,key",
             (self.m, self.s, request_id),
         ).fetchall()
-        if self.census(keys) != row[1]:
+        members = self._scope_members(task["target"], task["ref"])
+        if [tuple(key) for key in keys] != [member[:2] for member in members] or digest(
+            members
+        ) != row[1]:
             raise ValueError("retained_lineage_required")
         return row[0], row[1]
 
@@ -470,23 +509,13 @@ class Lineage:
                 (self.m, self.s, target, ref),
             ).fetchone():
                 raise ValueError("retained_stop_required")
-            match = (
-                "r.subject=?"
-                if target == "subject"
-                else "EXISTS(SELECT 1 FROM integration_lineage_sources s WHERE s.merchant=r.merchant AND s.store=r.store AND s.kind=r.kind AND s.key=r.key AND s.source=?)"
-            )
-            keys = self.q(
-                "SELECT r.kind,r.key FROM integration_lineage_resources r WHERE r.merchant=? AND r.store=? AND "
-                + match
-                + " ORDER BY r.kind,r.key",
-                (self.m, self.s, ref),
-            ).fetchall()
-            frozen = self.census(keys)
-            self.q(
-                "INSERT INTO integration_lineage_members SELECT r.merchant,r.store,?,r.kind,r.key,'pending','' FROM integration_lineage_resources r WHERE r.merchant=? AND r.store=? AND "
-                + match,
-                (request_id, self.m, self.s, ref),
-            )
+            members = self._scope_members(target, ref)
+            frozen = digest(members)
+            for kind, key, _ in members:
+                self.q(
+                    "INSERT INTO integration_lineage_members VALUES(?,?,?,?,?,'pending','')",
+                    (self.m, self.s, request_id, kind, key),
+                )
             changed = self.q(
                 "UPDATE integration_lineage_requests SET census=? WHERE merchant=? AND store=? AND id=? AND census=?",
                 (frozen, self.m, self.s, request_id, pending),

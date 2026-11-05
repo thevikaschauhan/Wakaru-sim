@@ -236,8 +236,18 @@ class Store:
         rh = digest(request)
         key = digest([identity[k] for k in required if k != "as_of"]+[rh, self.client.binding])
         merchant, owner = identity["merchant_id"], str(uuid.uuid4())
+        binding = None
         if self.lineage is not None:
-            self.lineage.request(merchant, "raw_output", key, admit=True)
+            binding = self.lineage.request(merchant, "raw_output", key, admit=True)
+
+        def authorize_selection(judgment):
+            if self.lineage is not None:
+                attempt = judgment["result"]["attempts"][-1]["id"]
+                if not isinstance(attempt, str) or not attempt:
+                    raise ValueError("selected_attempt_required")
+                self.lineage.request(merchant, "raw_output", key, admit=True,
+                                     binding=binding, attempt_id=attempt)
+
         with self.connection() as db:
             if self.lineage is None and db.execute(
                 "SELECT 1 FROM main.sqlite_master WHERE type='trigger' AND name='c16_authenticated_raw_outputs_insert'"
@@ -246,9 +256,9 @@ class Store:
             self.purge()
             saved = db.execute("SELECT judgment FROM selected WHERE merchant=? AND request_key=?", (merchant,key)).fetchone()
             if saved:
-                if self.lineage is not None:
-                    self.lineage.request(merchant, "raw_output", key, admit=True)
-                return {**json.loads(saved[0]), "cache_hit": True}
+                judgment = json.loads(saved[0])
+                authorize_selection(judgment)
+                return {**judgment, "cache_hit": True}
             db.execute("BEGIN IMMEDIATE")
             db.execute("DELETE FROM leases WHERE expires<?", (time.time(),))
             try:
@@ -259,7 +269,7 @@ class Store:
                 raise RuntimeError("tenant_backpressure") from None
         def before(attempt):
             if self.lineage is not None:
-                self.lineage.request(merchant, "raw_output", key, admit=True)
+                self.lineage.request(merchant, "raw_output", key, admit=True, binding=binding)
             with self.connection() as db:
                 db.execute("BEGIN IMMEDIATE")
                 day = time.strftime("%Y-%m-%d",time.gmtime())
@@ -283,7 +293,7 @@ class Store:
                         db.execute("UPDATE budgets SET spent=spent+? WHERE key=? AND day=?",(attempt["cost"]-RESERVATION,key,time.strftime("%Y-%m-%d",time.gmtime())))
                 db.execute("COMMIT")
             if attempt.get("_raw_response") and self.lineage is not None:
-                self.lineage.request(merchant, "raw_output", attempt["id"], attempt["_raw_response"])
+                self.lineage.request(merchant, "raw_output", attempt["id"], attempt["_raw_response"], binding=binding)
         try:
             result=self.client.evaluate(request,before,finish)
             try:
@@ -294,13 +304,19 @@ class Store:
                 result.update(status="unavailable", error_class="deployment_changed")
             if any(a["cost"] is not None and a["cost"]>RESERVATION for a in result["attempts"]):
                 result.update(status="unresolved",error_class="cost_reservation_exceeded")
+            if self.lineage is not None and result["status"] != "evaluated":
+                # Rejected answers remain accessible only as an authorized raw output.
+                result.pop("response", None)
             judgment={"schema_version":"intelligence_v1","judgment_id":key,"identity":identity,"request_hash":rh,"model_binding":self.client.binding,"adapter_version":ADAPTER_VERSION,"provider":"openrouter","requested_model":self.client.model,"result":result,"cache_hit":False}
+            if result["status"] == "evaluated":
+                authorize_selection(judgment)
             with self.connection() as db:
                 db.execute("INSERT INTO judgments VALUES(?,?,?,?,?)",(str(uuid.uuid4()),merchant,key,json.dumps(judgment),time.time()))
             if result["status"]=="evaluated":
                 with self.connection() as db:
                     db.execute("INSERT OR IGNORE INTO selected VALUES(?,?,?)",(merchant,key,json.dumps(judgment)))
                     judgment=json.loads(db.execute("SELECT judgment FROM selected WHERE merchant=? AND request_key=?",(merchant,key)).fetchone()[0])
+                authorize_selection(judgment)
             return judgment
         finally:
             with self.connection() as db:

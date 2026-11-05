@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import http.client
 import json
+import re
 import time
 from urllib.parse import urlsplit
 
@@ -28,7 +29,8 @@ class OfflineLineageClient:
         self.grant = verifier.grants[grant["key_id"]]
         self.port = url.port
 
-    def request(self, merchant, kind, key, body=None, *, admit=False):
+    def request(self, merchant, kind, key, body=None, *, admit=False, binding=None,
+                attempt_id=None):
         grant = self.grant
         path = "/internal/integrations/lineage/" + (
             "admit" if admit else ("read" if body is None else "capture")
@@ -39,6 +41,12 @@ class OfflineLineageClient:
         ):
             raise ValueError("lineage_unauthorized")
         value = {"merchant_id": merchant, "kind": kind, "key": key}
+        if body is not None and binding is None:
+            raise ValueError("lineage_admission_required")
+        if binding is not None:
+            value["binding"] = binding
+        if attempt_id is not None:
+            value["attempt_id"] = attempt_id
         if body is not None:
             value["body"] = body
         raw = json.dumps(value, allow_nan=False).encode()
@@ -79,30 +87,45 @@ class OfflineLineageClient:
             result = json.loads(data)
         finally:
             conn.close()
-        if admit:
+        if admit and attempt_id is not None:
             if result != {"admitted": True}:
                 raise ValueError("lineage_admission_denied")
+        elif admit or (kind == "plan" and body is None):
+            result_binding = result.get("binding") if isinstance(result, dict) else None
+            if (not isinstance(result_binding, str)
+                    or not re.fullmatch(r"[0-9a-f]{64}", result_binding)
+                    or (binding is not None and result_binding != binding)):
+                raise ValueError("lineage_admission_denied")
+            if admit and result == {"admitted": True, "binding": result_binding}:
+                return result_binding
+            if not admit and set(result) == {"body", "binding"} and (
+                result["body"] is None or isinstance(result["body"], str)
+            ):
+                return result["body"], result_binding
+            raise ValueError("lineage_response_invalid")
         elif body is not None:
             if result != {"stored": True}:
                 raise ValueError("lineage_capture_unconfirmed")
-        elif set(result) == {"body"} and (
-            isinstance(result["body"], str)
-            or (kind == "plan" and result["body"] is None)
-        ):
+        elif set(result) == {"body"} and isinstance(result["body"], str):
             return result["body"]
         else:
             raise ValueError("lineage_read_unavailable")
 
-    def load(self, merchant, revision):
-        body = self.request(merchant, "plan", revision)
-        return json.loads(body) if body is not None else None
+    def lookup_plan(self, merchant, revision):
+        body, binding = self.request(merchant, "plan", revision)
+        return (json.loads(body) if body is not None else None), binding
 
-    def select(self, merchant, revision, intelligence, plan):
+    def load(self, merchant, revision):
+        value, _ = self.lookup_plan(merchant, revision)
+        return value
+
+    def select(self, merchant, revision, intelligence, plan, *, binding=None):
         self.request(
             merchant,
             "plan",
             revision,
             json.dumps([intelligence, plan], allow_nan=False),
+            binding=binding,
         )
         value = self.load(merchant, revision)
         if value is None:

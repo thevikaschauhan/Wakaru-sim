@@ -249,19 +249,34 @@ class Behavior:
 
     def test_attribution_failure_commits_stop_and_can_resume(self):
         self.seed()
+        self.seed("attempt-2")
         op = self.adopt()
+        self.adopt("attempt-2")
         request = str(uuid.uuid4())
-        op.q("DELETE FROM integration_lineage_sources")
+        op.q("DELETE FROM integration_lineage_sources WHERE key='attempt-2'")
         with self.assertRaisesRegex(ValueError, "retained_lineage_required"):
-            op.start(request, "subject", SUBJECT)
+            op.start(request, "source", SOURCE)
         with self.assertRaisesRegex(ValueError, "lineage_stopped"):
             op.read("raw_output", "attempt-1")
+        with self.assertRaisesRegex(ValueError, "retained_lineage_required"):
+            op.drain(request)
         op.q(
             "INSERT INTO integration_lineage_sources VALUES(?,?,?,?,?)",
-            (M, "17", "raw_output", "attempt-1", SOURCE),
+            (M, "17", "raw_output", "attempt-2", SOURCE),
         )
-        op.start(request, "subject", SUBJECT)
-        self.assertTrue(op.drain(request)["registered_scope_complete"])
+        op.start(request, "source", SOURCE)
+        receipt = op.drain(request)
+        self.assertEqual((receipt["matched"], receipt["erased"]), (2, 2))
+        self.assertTrue(receipt["registered_scope_complete"])
+
+        # A historical receipt can contain a self-consistent but narrowed census.
+        op.q("DELETE FROM integration_lineage_members WHERE key='attempt-2'")
+        op.q(
+            "UPDATE integration_lineage_requests SET census=? WHERE id=?",
+            (op.census([("raw_output", "attempt-1")]), request),
+        )
+        with self.assertRaisesRegex(ValueError, "retained_lineage_required"):
+            op.receipt(request)
 
     def test_read_rejects_attribution_drift_before_exposing_payload(self):
         self.seed()
